@@ -1,0 +1,6 @@
+[submodule "web/backend"]
+	path = web/backend
+	url = https://github.com/David-ssnd/rayz-backend.git
+[submodule "web/frontend"]
+	path = web/frontend
+	url = https://github.com/David-ssnd/rayz-frontend.git
