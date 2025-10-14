@@ -1,6 +1,15 @@
+[submodule "esp32/weapon"]
+	path = esp32/weapon
+	url = https://github.com/David-ssnd/rayz-weapon.git
+
+[submodule "esp32/target"]
+	path = esp32/target
+	url = https://github.com/David-ssnd/rayz-target.git
+
 [submodule "web/backend"]
 	path = web/backend
 	url = https://github.com/David-ssnd/rayz-backend.git
+
 [submodule "web/frontend"]
 	path = web/frontend
 	url = https://github.com/David-ssnd/rayz-frontend.git
