@@ -9,3 +9,6 @@
 [submodule "web"]
 	path = web
 	url = https://github.com/David-ssnd/rayz-web.git
+[submodule "esp32/shared"]
+	path = esp32/shared
+	url = https://github.com/David-ssnd/rayz-shared.git
