@@ -21,9 +21,7 @@
     "platformio.checkForPlatformIOUpdate": false,
     "platformio.autoPreloadEnvPioProjectsFromWorkspace": true,
     "files.exclude": {
-      "**/esp32/target": true,
-      "**/esp32/weapon": true,
-      "**/esp32/shared": true
+      "**/esp32": true
     }
   }
 }
