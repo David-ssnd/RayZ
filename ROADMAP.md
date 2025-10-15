@@ -18,15 +18,25 @@ The project uses **semantic versioning** and modern development practices to ens
 ```
 RayZ/
 ├─ esp32/
-│  ├─ weapon/      # PlatformIO project for weapon module (repo)
-│  └─ target/      # PlatformIO project for target module (repo)
-├─ web/            # Next.js monorepo (Turborepo)
+│  ├─ weapon/                    # PlatformIO project for weapon module (submodule)
+│  └─ target/                    # PlatformIO project for target module (submodule)
+├─ web/                          # Next.js Turborepo monorepo
+│  ├─ apps/
+│  │  ├─ frontend/               # Next.js frontend app
+│  │  └─ backend/                # Next.js backend API app
+│  ├─ packages/
+│  │  ├─ ui/                     # Shared UI components (shadcn/ui)
+│  │  ├─ types/                  # Shared TypeScript types
+│  │  ├─ eslint-config/          # Shared ESLint config
+│  │  └─ typescript-config/      # Shared TypeScript config
+│  ├─ package.json               # Monorepo root package.json
+│  ├─ turbo.json                 # Turborepo configuration
+│  └─ README.md
 ├─ .github/
-│  └─ workflows/     # GitHub Actions CI/CD pipelines
-├─ .pre-commit-config.yaml  # pre-commit hooks
-├─ .clang-format           # C++ style rules
-├─ .clang-tidy             # C++ static analysis config
-├─ package.json            # Monorepo root package.json
+│  └─ workflows/                 # GitHub Actions CI/CD pipelines
+├─ .pre-commit-config.yaml       # pre-commit hooks
+├─ .clang-format                 # C++ style rules
+├─ .clang-tidy                   # C++ static analysis config
 ├─ README.md
 └─ ROADMAP.md
 ```
@@ -66,16 +76,20 @@ RayZ/
 
 ### **4.2 Web Monorepo (Next.js + Turborepo)**
 
-1. Convert previous `web/frontend` + `web/backend` into **monorepo**:
+✅ **COMPLETED**: Turborepo monorepo structure created with:
+   * `apps/frontend` - Next.js frontend application
+   * `apps/backend` - Next.js backend API application  
+   * `packages/ui` - Shared UI components (shadcn/ui)
+   * `packages/types` - Shared TypeScript types
+   * `packages/eslint-config` - Shared ESLint configuration
+   * `packages/typescript-config` - Shared TypeScript configuration
 
-   * `apps/frontend`
-   * `apps/backend`
-   * `packages/ui` for shared UI components (shadcn/ui)
-   * `packages/types` for shared TypeScript types
-2. Setup **ESLint + Prettier + Husky + pre-commit** hooks
-3. Setup **Prisma + Neon PostgreSQL** for backend
-4. Add **unit tests** (Jest) and **e2e tests** (Playwright)
-5. Configure **Vercel deployment** on `main` branch
+**Next steps**:
+1. Install dependencies: `cd web && pnpm install`
+2. Setup **Prisma + Neon PostgreSQL** for backend
+3. Add **unit tests** (Jest) and **e2e tests** (Playwright)
+4. Configure **Vercel deployment** on `main` branch
+5. Develop UI components using shadcn/ui
 
 ### **4.3 CI/CD & Automation**
 
