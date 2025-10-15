@@ -1,0 +1,17 @@
+{
+  "name": "@rayz/types",
+  "version": "0.0.0",
+  "private": true,
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "lint": "eslint .",
+    "clean": "rm -rf .turbo node_modules"
+  },
+  "devDependencies": {
+    "@rayz/eslint-config": "workspace:*",
+    "@rayz/typescript-config": "workspace:*",
+    "eslint": "^8.48.0",
+    "typescript": "^5.2.0"
+  }
+}
