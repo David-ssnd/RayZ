@@ -2,6 +2,14 @@
 
 A laser tag system with ESP32-based embedded devices and web interface for game management.
 
+## ✨ Features
+
+- **Dual-Device System**: Separate target (wearable) and weapon (gun) devices
+- **Wireless Communication**: ESP32-powered devices with real-time game data
+- **Web Dashboard**: Modern web interface for game management and statistics
+- **Modular Architecture**: Shared library ensures consistent protocol across devices
+- **Independent Versioning**: Mix and match component versions as needed
+
 ## 🎯 Project Structure
 
 This is a monorepo that coordinates multiple components via git submodules:
@@ -16,6 +24,12 @@ RayZ/
 ```
 
 ## 🚀 Quick Start
+
+### Prerequisites
+
+- **ESP32 Development**: [PlatformIO](https://platformio.org/) IDE or CLI
+- **Web Development**: [Node.js](https://nodejs.org/) (v18+) and [pnpm](https://pnpm.io/)
+- **Git**: For submodule management
 
 ### 1. Clone with Submodules
 
@@ -66,38 +80,29 @@ Both devices use:
 
 ## 📖 Documentation
 
-- **[SETUP.md](SETUP.md)** - Detailed setup and development guide ⭐ Start here!
-- **[VERSIONING.md](VERSIONING.md)** - Version management and compatibility matrix
-- **[ARCHITECTURE.md](ARCHITECTURE.md)** - Architecture decisions and rationale
 - **[esp32/README.md](esp32/README.md)** - ESP32-specific documentation
 - **[esp32/shared/README.md](esp32/shared/README.md)** - Shared library documentation
+- **[web/README.md](web/README.md)** - Web interface documentation
 
 ## 🔄 Version Management
 
-This project supports **independent versioning** of components:
+This project supports **independent versioning** of components through git submodules:
+- Each component (target, weapon, shared, web) has its own version
+- Components can be updated independently
 - Use Target v1.0.0 with Weapon v1.2.0 ✅
 - Use Target v1.1.0 with Weapon v1.1.0 ✅
 - Mix and match as needed!
 
-See [VERSIONING.md](VERSIONING.md) for details on managing versions.
-
 ## 🛠️ Development
-
-### Quick Version Check
-
-Use the git alias to check all component versions:
-
-```bash
-git versions
-```
-
-This shows versions of main repo, target, weapon, shared library, and web interface.
 
 ### Working with Submodules
 
 ```bash
 # Update all submodules to latest
 git submodule update --remote
+
+# Check versions of all components
+git submodule foreach 'git describe --tags --always'
 
 # Update specific submodule
 cd esp32/target
