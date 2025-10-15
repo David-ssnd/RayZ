@@ -26,10 +26,11 @@ All repositories have been configured and pushed to GitHub.
 - 🌐 Game management interface
 - ✅ Already existed as submodule
 
-### 5. **Shared Library** (esp32/shared)
-- 📚 Lives in main RayZ repo
-- 🔄 Version: 1.0.0
-- 🎯 Contains:
+### 5. **Shared Library** (rayz-shared)
+- � URL: https://github.com/David-ssnd/rayz-shared
+- 🏷️ Version: v1.0.0
+- 📚 Separate repository (submodule)
+- 🔄 Contains:
   - `rayz_common.h` - Protocol definitions
   - Device types and message structures
   - Common constants
@@ -39,7 +40,7 @@ All repositories have been configured and pushed to GitHub.
 ```
 RayZ/ (https://github.com/David-ssnd/RayZ)
 ├── esp32/
-│   ├── shared/           # Shared library
+│   ├── shared/           # Submodule → rayz-shared
 │   │   ├── include/
 │   │   │   └── rayz_common.h
 │   │   ├── lib/
@@ -83,17 +84,23 @@ Both devices now use shared protocol definitions:
 
 ```bash
 # Edit shared library
-cd esp32/shared/include
+cd esp32/shared
+git checkout main
 # Add new headers or modify rayz_common.h
 
 # Update version in library.json
-cd ..
 nano library.json  # Bump version
 
-# Commit to main repo
+# Commit to shared repo
+git add .
+git commit -m "Add new shared feature"
+git push
+git tag v1.1.0 && git push --tags
+
+# Update main repo to use new version
 cd ../..
 git add esp32/shared
-git commit -m "Add new shared feature"
+git commit -m "Update shared library to v1.1.0"
 git push
 ```
 
@@ -202,4 +209,5 @@ Start developing by editing the device firmware or shared library!
 - Main: https://github.com/David-ssnd/RayZ
 - Target: https://github.com/David-ssnd/rayz-target
 - Weapon: https://github.com/David-ssnd/rayz-weapon
+- Shared: https://github.com/David-ssnd/rayz-shared
 - Web: https://github.com/David-ssnd/rayz-web

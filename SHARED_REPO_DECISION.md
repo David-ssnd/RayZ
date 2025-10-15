@@ -211,10 +211,16 @@ Until then, enjoy the simplicity! 🚀
 
 ## 📝 Current Decision
 
-**Status:** ✅ Keeping shared in main repository  
+**Status:** ✅ **UPDATED - Now a separate repository**  
 **Date:** October 15, 2025  
-**Review:** Reconsider after v1.0.0 field deployment  
-**Reason:** Early development phase, small team, rapid iteration needed
+**Changed:** October 15, 2025 (same day!)  
+**Reason:** Decision to go with separate repo for better modularity and reusability
+
+### Implemented Changes:
+- ✅ Created https://github.com/David-ssnd/rayz-shared
+- ✅ Added as submodule to main RayZ repo
+- ✅ Tagged as v1.0.0
+- ✅ Target and weapon already configured to use it
 
 ---
 

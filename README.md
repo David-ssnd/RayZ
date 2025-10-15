@@ -9,7 +9,7 @@ This is a monorepo that coordinates multiple components via git submodules:
 ```
 RayZ/
 ├── esp32/
-│   ├── shared/           # Shared library (common protocols & utilities)
+│   ├── shared/           # 📚 Shared library (submodule)
 │   ├── target/           # 🎯 Target device firmware (submodule)
 │   └── weapon/           # 🔫 Weapon device firmware (submodule)
 └── web/                  # 🌐 Web interface (submodule)
@@ -50,7 +50,7 @@ pnpm dev
 
 - **Target** ([rayz-target](https://github.com/David-ssnd/rayz-target)) - The device worn by players
 - **Weapon** ([rayz-weapon](https://github.com/David-ssnd/rayz-weapon)) - The laser tag gun
-- **Shared Library** - Common communication protocols, data structures, and utilities
+- **Shared Library** ([rayz-shared](https://github.com/David-ssnd/rayz-shared)) - Common communication protocols, data structures, and utilities
 
 Both devices use:
 - ESP32 microcontroller
@@ -107,12 +107,26 @@ git push
 
 ### Shared Library Development
 
-The `esp32/shared/` directory lives in the main repo and contains:
+The `esp32/shared/` directory is a git submodule pointing to the [rayz-shared](https://github.com/David-ssnd/rayz-shared) repository and contains:
 - Common headers in `include/`
 - Shared libraries in `lib/`
 - Examples in `examples/`
 
-Changes to shared code are immediately available to both devices.
+To update the shared library:
+```bash
+cd esp32/shared
+git checkout main
+# Make changes
+git add .
+git commit -m "Your changes"
+git push
+
+# Update main repo to reference new commit
+cd ../..
+git add esp32/shared
+git commit -m "Update shared library"
+git push
+```
 
 ## 🏷️ Current Versions
 
@@ -134,8 +148,9 @@ Changes to shared code are immediately available to both devices.
 
 ## 🔗 Links
 
+- [Main Monorepo](https://github.com/David-ssnd/RayZ)
 - [Target Device Repo](https://github.com/David-ssnd/rayz-target)
 - [Weapon Device Repo](https://github.com/David-ssnd/rayz-weapon)
+- [Shared Library Repo](https://github.com/David-ssnd/rayz-shared)
 - [Web Interface Repo](https://github.com/David-ssnd/rayz-web)
-- [Main Monorepo](https://github.com/David-ssnd/RayZ)
 
