@@ -1,0 +1,19 @@
+{
+  "folders": [
+    {
+      "path": ".",
+      "name": "RayZ (root)"
+    },
+    {
+      "path": "esp32/target",
+      "name": "esp32 - target"
+    },
+    {
+      "path": "esp32/weapon",
+      "name": "esp32 - weapon"
+    }
+  ],
+  "settings": {
+    "platformio.checkForPlatformIOUpdate": false
+  }
+}
