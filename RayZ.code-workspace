@@ -2,18 +2,28 @@
   "folders": [
     {
       "path": ".",
-      "name": "RayZ (root)"
+      "name": "RayZ"
     },
     {
       "path": "esp32/target",
-      "name": "esp32 - target"
+      "name": "Target (PlatformIO)"
     },
     {
       "path": "esp32/weapon",
-      "name": "esp32 - weapon"
+      "name": "Weapon (PlatformIO)"
+    },
+    {
+      "path": "esp32/shared",
+      "name": "ESP32 Shared"
     }
   ],
   "settings": {
-    "platformio.checkForPlatformIOUpdate": false
+    "platformio.checkForPlatformIOUpdate": false,
+    "platformio.autoPreloadEnvPioProjectsFromWorkspace": true,
+    "files.exclude": {
+      "**/esp32/target": true,
+      "**/esp32/weapon": true,
+      "**/esp32/shared": true
+    }
   }
 }
