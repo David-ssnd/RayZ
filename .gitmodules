@@ -6,3 +6,6 @@
 	path = esp32/target
 	url = https://github.com/David-ssnd/rayz-target.git
 
+[submodule "web"]
+	path = web
+	url = https://github.com/David-ssnd/rayz-web.git
