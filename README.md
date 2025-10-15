@@ -83,6 +83,16 @@ See [VERSIONING.md](VERSIONING.md) for details on managing versions.
 
 ## 🛠️ Development
 
+### Quick Version Check
+
+Use the git alias to check all component versions:
+
+```bash
+git versions
+```
+
+This shows versions of main repo, target, weapon, shared library, and web interface.
+
 ### Working with Submodules
 
 ```bash

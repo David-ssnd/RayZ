@@ -9,7 +9,20 @@ git clone --recursive https://github.com/David-ssnd/RayZ.git
 cd RayZ
 ```
 
-### 2. Update Target/Weapon platformio.ini
+### 2. Setup Git Alias (Optional but Recommended)
+
+Configure the `git versions` alias for easy version checking:
+
+```bash
+git config alias.versions '!pwsh -File check-versions.ps1'
+```
+
+Then use it anytime:
+```bash
+git versions
+```
+
+### 3. Update Target/Weapon platformio.ini
 
 Add these lines to both `esp32/target/platformio.ini` and `esp32/weapon/platformio.ini`:
 
@@ -26,7 +39,7 @@ build_flags =
 
 See `esp32/shared/examples/platformio.ini.target` for full example.
 
-### 3. Use Shared Headers
+### 4. Use Shared Headers
 
 In your `main.cpp`:
 
@@ -40,7 +53,7 @@ void setup() {
 }
 ```
 
-### 4. Build
+### 5. Build
 
 ```bash
 cd esp32/target
