@@ -1,0 +1,28 @@
+---
+# Clang-Format Configuration for RayZ ESP32 Project
+# Base style with custom modifications for embedded development
+
+BasedOnStyle: LLVM
+IndentWidth: 4
+TabWidth: 4
+UseTab: Never
+ColumnLimit: 100
+BreakBeforeBraces: Allman
+AllowShortFunctionsOnASingleLine: Empty
+SpaceBeforeParens: ControlStatements
+AlignAfterOpenBracket: Align
+ReflowComments: true
+PointerAlignment: Left
+
+# Additional useful settings for C++ embedded development
+AlignConsecutiveAssignments: false
+AlignConsecutiveDeclarations: false
+AlignTrailingComments: true
+AllowShortBlocksOnASingleLine: Empty
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLoopsOnASingleLine: false
+IndentCaseLabels: true
+NamespaceIndentation: None
+SortIncludes: CaseInsensitive
+SpaceAfterCStyleCast: false
+SpaceBeforeAssignmentOperators: true

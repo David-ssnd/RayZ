@@ -1,0 +1,88 @@
+{
+  "folders": [
+    {
+      "path": "target",
+      "name": "Target (PlatformIO)"
+    },
+    {
+      "path": "weapon",
+      "name": "Weapon (PlatformIO)"
+    },
+    {
+      "path": "shared",
+      "name": "ESP32 Shared"
+    }
+  ],
+  "settings": {
+    "platformio.checkForPlatformIOUpdate": false,
+    "platformio.autoPreloadEnvPioProjectsFromWorkspace": true,
+    "platformio.activateProjectOnTextEditorChange": true,
+    "platformio.disableToolbar": false,
+    "C_Cpp.default.configurationProvider": "platformio.platformio-ide",
+    "editor.formatOnSave": true
+  },
+  "tasks": {
+    "version": "2.0.0",
+    "tasks": [
+      {
+        "label": "Monitor Target",
+        "type": "shell",
+        "command": "pio device monitor",
+        "options": { "cwd": "${workspaceFolder:Target (PlatformIO)}" },
+        "isBackground": true,
+        "problemMatcher": [],
+        "presentation": { "panel": "dedicated", "group": "monitors" }
+      },
+      {
+        "label": "Monitor Weapon",
+        "type": "shell",
+        "command": "pio device monitor",
+        "options": { "cwd": "${workspaceFolder:Weapon (PlatformIO)}" },
+        "isBackground": true,
+        "problemMatcher": [],
+        "presentation": { "panel": "dedicated", "group": "monitors" }
+      },
+      {
+        "label": "Monitor Both Devices",
+        "dependsOn": ["Monitor Target", "Monitor Weapon"],
+        "dependsOrder": "parallel",
+        "problemMatcher": []
+      },
+      {
+        "label": "Upload Target",
+        "type": "shell",
+        "command": "pio run -t upload",
+        "options": { "cwd": "${workspaceFolder:Target (PlatformIO)}" },
+        "problemMatcher": [],
+        "presentation": { "panel": "shared" }
+      },
+      {
+        "label": "Upload Weapon",
+        "type": "shell",
+        "command": "pio run -t upload",
+        "options": { "cwd": "${workspaceFolder:Weapon (PlatformIO)}" },
+        "problemMatcher": [],
+        "presentation": { "panel": "shared" }
+      },
+      {
+        "label": "Upload Both Devices",
+        "dependsOn": ["Upload Target", "Upload Weapon"],
+        "dependsOrder": "parallel",
+        "problemMatcher": []
+      },
+      {
+        "label": "Upload and Monitor Both Devices",
+        "dependsOn": ["Upload Both Devices", "Monitor Both Devices"],
+        "dependsOrder": "sequence",
+        "problemMatcher": []
+      }
+    ]
+  },
+  "extensions": {
+    "recommendations": [
+      "platformio.platformio-ide",
+      "ms-vscode.cpptools",
+      "ms-vscode.cpptools-extension-pack"
+    ]
+  }
+}
