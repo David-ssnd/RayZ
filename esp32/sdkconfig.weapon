@@ -1,0 +1,13 @@
+# Weapon-specific ESP32-C3 configuration
+# Extends sdkconfig.defaults
+
+# Bluetooth - Peripheral/Broadcaster role
+CONFIG_BT_NIMBLE_ROLE_PERIPHERAL=y
+CONFIG_BT_NIMBLE_ROLE_BROADCASTER=y
+
+# ESP32-C3 CPU frequency
+CONFIG_ESP32C3_DEFAULT_CPU_FREQ_160=y
+
+# USB CDC for console
+CONFIG_ESP_CONSOLE_USB_CDC=y
+CONFIG_ESP_CONSOLE_SECONDARY_USB_SERIAL_JTAG=y

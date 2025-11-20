@@ -1,0 +1,96 @@
+{
+  "folders": [
+    {
+      "path": ".",
+      "name": "RayZ Monorepo"
+    }
+  ],
+  "settings": {
+    "editor.formatOnSave": true,
+    "files.exclude": {
+      "**/.git": true,
+      "**/.DS_Store": true,
+      "**/node_modules": true,
+      "**/.pio": true,
+      "**/.next": true,
+      "**/.turbo": true
+    },
+    "search.exclude": {
+      "**/node_modules": true,
+      "**/.pio": true,
+      "**/.next": true,
+      "**/.turbo": true,
+      "**/build": true
+    }
+  },
+  "extensions": {
+    "recommendations": [
+      "platformio.platformio-ide",
+      "esbenp.prettier-vscode",
+      "dbaeumer.vscode-eslint",
+      "bradlc.vscode-tailwindcss",
+      "prisma.prisma",
+      "ms-vscode.vscode-typescript-next",
+      "github.vscode-github-actions",
+      "editorconfig.editorconfig"
+    ]
+  },
+  "tasks": {
+    "version": "2.0.0",
+    "tasks": [
+      {
+        "label": "Web: Dev",
+        "type": "shell",
+        "command": "pnpm dev",
+        "options": {
+          "cwd": "${workspaceFolder}/web"
+        },
+        "group": "build",
+        "presentation": {
+          "group": "web"
+        }
+      },
+      {
+        "label": "Web: Build",
+        "type": "shell",
+        "command": "pnpm build",
+        "options": {
+          "cwd": "${workspaceFolder}/web"
+        },
+        "group": "build"
+      },
+      {
+        "label": "ESP32: Build All",
+        "type": "shell",
+        "command": "pio run",
+        "options": {
+          "cwd": "${workspaceFolder}/esp32"
+        },
+        "group": "build"
+      },
+      {
+        "label": "ESP32: Build Target",
+        "type": "shell",
+        "command": "pio run -e target",
+        "options": {
+          "cwd": "${workspaceFolder}/esp32"
+        },
+        "group": "build"
+      },
+      {
+        "label": "ESP32: Build Weapon",
+        "type": "shell",
+        "command": "pio run -e weapon",
+        "options": {
+          "cwd": "${workspaceFolder}/esp32"
+        },
+        "group": "build"
+      },
+      {
+        "label": "Dev: Start All",
+        "dependsOn": ["Web: Dev", "ESP32: Build All"],
+        "problemMatcher": []
+      }
+    ]
+  }
+}
