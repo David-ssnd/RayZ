@@ -87,3 +87,21 @@ pio run
 cd weapon
 pio run
 ```
+
+## Wi-Fi Provisioning Flow (New)
+
+On first boot (or after factory reset) the firmware starts an open AP named `RayZ-Setup` on channel 1 with IP `192.168.4.1` and serves a minimal configuration page at `http://192.168.4.1/`.
+
+Form fields stored to NVS:
+- SSID / Password
+- Device Name
+- Role (`weapon` / `target`)
+
+After submission the device switches to STA mode, connects to the configured network and exposes:
+- Root page (status)
+- `GET /api/status` (JSON: wifi, ip)
+- `WS /ws` WebSocket endpoint for future event streaming
+
+Factory reset API (erases NVS and restarts): internal call `wifi_manager_factory_reset()` (future: map to GPIO long press or REST endpoint).
+
+When provisioned the device skips AP and directly connects in STA mode.
