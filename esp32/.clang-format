@@ -23,6 +23,18 @@ AllowShortIfStatementsOnASingleLine: Never
 AllowShortLoopsOnASingleLine: false
 IndentCaseLabels: true
 NamespaceIndentation: None
-SortIncludes: CaseInsensitive
+SortIncludes: CaseSensitive
+IncludeBlocks: Preserve
+IncludeCategories:
+  - Regex:           '^<freertos/FreeRTOS\.h>'
+    Priority:        1
+  - Regex:           '^<freertos/'
+    Priority:        2
+  - Regex:           '^<esp'
+    Priority:        3
+  - Regex:           '^<'
+    Priority:        4
+  - Regex:           '^"'
+    Priority:        5
 SpaceAfterCStyleCast: false
 SpaceBeforeAssignmentOperators: true

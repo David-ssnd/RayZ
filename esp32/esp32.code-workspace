@@ -1,8 +1,16 @@
 {
   "folders": [
     {
-      "path": ".",
-      "name": "RayZ ESP32"
+      "path": "target",
+      "name": "Target (PlatformIO)"
+    },
+    {
+      "path": "weapon",
+      "name": "Weapon (PlatformIO)"
+    },
+    {
+      "path": "shared",
+      "name": "ESP32 Shared"
     }
   ],
   "settings": {
@@ -11,85 +19,13 @@
     "platformio.activateProjectOnTextEditorChange": true,
     "platformio.disableToolbar": false,
     "C_Cpp.default.configurationProvider": "platformio.platformio-ide",
-    "editor.formatOnSave": true,
-    "[cpp]": {
-      "editor.defaultFormatter": "xaver.clang-format"
-    },
-    "[c]": {
-      "editor.defaultFormatter": "xaver.clang-format"
-    },
-    "C_Cpp.formatting": "clangFormat",
-    "clangd.path": "clangd",
-    "clangd.arguments": [
-      "--background-index",
-      "--clang-tidy",
-      "--header-insertion=never",
-      "--completion-style=detailed"
-    ]
-  },
-  "tasks": {
-    "version": "2.0.0",
-    "tasks": [
-      {
-        "label": "Monitor Target",
-        "type": "shell",
-        "command": "pio device monitor -e target",
-        "options": { "cwd": "${workspaceFolder:RayZ ESP32}" },
-        "isBackground": true,
-        "problemMatcher": [],
-        "presentation": { "panel": "dedicated", "group": "monitors" }
-      },
-      {
-        "label": "Monitor Weapon",
-        "type": "shell",
-        "command": "pio device monitor -e weapon",
-        "options": { "cwd": "${workspaceFolder:RayZ ESP32}" },
-        "isBackground": true,
-        "problemMatcher": [],
-        "presentation": { "panel": "dedicated", "group": "monitors" }
-      },
-      {
-        "label": "Monitor Both Devices",
-        "dependsOn": ["Monitor Target", "Monitor Weapon"],
-        "dependsOrder": "parallel",
-        "problemMatcher": []
-      },
-      {
-        "label": "Upload Target",
-        "type": "shell",
-        "command": "pio run -e target -t upload",
-        "options": { "cwd": "${workspaceFolder:RayZ ESP32}" },
-        "problemMatcher": [],
-        "presentation": { "panel": "shared" }
-      },
-      {
-        "label": "Upload Weapon",
-        "type": "shell",
-        "command": "pio run -e weapon -t upload",
-        "options": { "cwd": "${workspaceFolder:RayZ ESP32}" },
-        "problemMatcher": [],
-        "presentation": { "panel": "shared" }
-      },
-      {
-        "label": "Upload Both Devices",
-        "dependsOn": ["Upload Target", "Upload Weapon"],
-        "dependsOrder": "parallel",
-        "problemMatcher": []
-      },
-      {
-        "label": "Upload and Monitor Both Devices",
-        "dependsOn": ["Upload Both Devices", "Monitor Both Devices"],
-        "dependsOrder": "sequence",
-        "problemMatcher": []
-      }
-    ]
+    "editor.formatOnSave": true
   },
   "extensions": {
     "recommendations": [
       "platformio.platformio-ide",
       "ms-vscode.cpptools",
       "ms-vscode.cpptools-extension-pack"
-    ],
-    "unwantedRecommendations": ["llvm-vs-code-extensions.vscode-clangd"]
+    ]
   }
 }
