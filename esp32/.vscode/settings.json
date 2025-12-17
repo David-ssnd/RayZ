@@ -1,17 +1,27 @@
 {
+  // Editor settings
   "editor.tabSize": 4,
   "editor.insertSpaces": true,
   "editor.detectIndentation": false,
   "editor.formatOnSave": true,
   "editor.formatOnType": false,
+  "editor.rulers": [100],
 
-  "C_Cpp.intelliSenseEngine": "disabled",
-  "C_Cpp.autocomplete": "disabled",
-  "C_Cpp.errorSquiggles": "disabled",
+  // C/C++ IntelliSense (Microsoft extension)
+  "C_Cpp.intelliSenseEngine": "default",
+  "C_Cpp.autocomplete": "default",
+  "C_Cpp.errorSquiggles": "enabled",
+  "C_Cpp.default.cppStandard": "gnu++23",
+  "C_Cpp.default.cStandard": "gnu17",
+  "C_Cpp.codeAnalysis.clangTidy.enabled": false,
+  "C_Cpp.enhancedColorization": "enabled",
 
-  "platformio-ide.useBuiltinCMake": true,
-  "platformio-ide.useBuiltinPIOCore": false,
+  // PlatformIO settings
+  "platformio-ide.useBuiltinPIOCore": true,
+  "platformio-ide.autoRebuildAutocompleteIndex": true,
+  "platformio-ide.disablePIOHomeStartup": false,
 
+  // Formatting with clang-format
   "editor.defaultFormatter": "xaver.clang-format",
   "[cpp]": {
     "editor.defaultFormatter": "xaver.clang-format"
@@ -19,28 +29,22 @@
   "[c]": {
     "editor.defaultFormatter": "xaver.clang-format"
   },
-
   "clang-format.style": "file",
   "clang-format.fallbackStyle": "LLVM",
-  "clang-format.executable": "clang-format",
 
-  "clangd.path": "clangd",
-  "clangd.arguments": [
-    "--background-index",
-    "--clang-tidy",
-    "--header-insertion=never",
-    "--completion-style=detailed"
-  ],
-
+  // File associations
   "files.associations": {
     "*.hpp": "cpp",
-    "*.h": "cpp"
+    "*.h": "cpp",
+    "*.ino": "cpp"
   },
   "files.encoding": "utf8",
 
+  // Code actions
   "editor.codeActionsOnSave": {
     "source.fixAll": "explicit"
-},
-  "editor.rulers": [100],
+  },
+
+  // Theme
   "workbench.colorTheme": "Default Dark Modern"
 }
