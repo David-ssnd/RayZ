@@ -1,0 +1,195 @@
+{
+  "version": "2.2",
+  "description": "RayZ WebSocket Protocol Definition - Single Source of Truth",
+  "enums": {
+    "OpCode": {
+      "type": "uint8_t",
+      "values": {
+        "GET_STATUS": 1,
+        "HEARTBEAT": 2,
+        "CONFIG_UPDATE": 3,
+        "GAME_COMMAND": 4,
+        "HIT_FORWARD": 5,
+        "KILL_CONFIRMED": 6,
+        "REMOTE_SOUND": 7,
+        "STATUS": 10,
+        "HEARTBEAT_ACK": 11,
+        "SHOT_FIRED": 12,
+        "HIT_REPORT": 13,
+        "RESPAWN": 14,
+        "RELOAD_EVENT": 15,
+        "GAME_OVER": 16,
+        "ACK": 20
+      }
+    },
+    "GameCommandType": {
+      "type": "uint8_t",
+      "values": {
+        "STOP": 0,
+        "START": 1,
+        "RESET": 2,
+        "PAUSE": 3,
+        "UNPAUSE": 4
+      }
+    }
+  },
+  "messages": {
+    "client_to_esp32": [
+      {
+        "name": "GetStatus",
+        "opcode": "GET_STATUS",
+        "fields": []
+      },
+      {
+        "name": "Heartbeat",
+        "opcode": "HEARTBEAT",
+        "fields": []
+      },
+      {
+        "name": "ConfigUpdate",
+        "opcode": "CONFIG_UPDATE",
+        "fields": [
+          { "name": "reset_to_defaults", "type": "bool", "required": false },
+          { "name": "device_id", "type": "uint32_t", "required": false },
+          { "name": "player_id", "type": "uint32_t", "required": false },
+          { "name": "team_id", "type": "uint32_t", "required": false },
+          { "name": "color_rgb", "type": "uint32_t", "required": false },
+          { "name": "ir_power", "type": "uint8_t", "required": false },
+          { "name": "volume", "type": "uint8_t", "required": false },
+          { "name": "sound_profile", "type": "uint8_t", "required": false },
+          { "name": "haptic_enabled", "type": "bool", "required": false },
+          { "name": "enable_hearts", "type": "bool", "required": false },
+          { "name": "spawn_hearts", "type": "uint8_t", "required": false },
+          { "name": "max_hearts", "type": "uint8_t", "required": false },
+          { "name": "respawn_time_s", "type": "uint16_t", "required": false },
+          { "name": "damage_in", "type": "uint8_t", "required": false },
+          { "name": "damage_out", "type": "uint8_t", "required": false },
+          { "name": "friendly_fire", "type": "bool", "required": false },
+          { "name": "enable_ammo", "type": "bool", "required": false },
+          { "name": "max_ammo", "type": "uint16_t", "required": false },
+          { "name": "reload_time_ms", "type": "uint16_t", "required": false },
+          { "name": "game_duration_s", "type": "uint16_t", "required": false }
+        ]
+      },
+      {
+        "name": "GameCommand",
+        "opcode": "GAME_COMMAND",
+        "fields": [
+          { "name": "command", "type": "GameCommandType", "required": true }
+        ]
+      },
+      {
+        "name": "HitForward",
+        "opcode": "HIT_FORWARD",
+        "fields": [
+          { "name": "shooter_id", "type": "uint32_t", "required": true }
+        ]
+      },
+      {
+        "name": "KillConfirmed",
+        "opcode": "KILL_CONFIRMED",
+        "fields": []
+      },
+      {
+        "name": "RemoteSound",
+        "opcode": "REMOTE_SOUND",
+        "fields": [{ "name": "sound_id", "type": "uint8_t", "required": true }]
+      }
+    ],
+    "esp32_to_client": [
+      {
+        "name": "Status",
+        "opcode": "STATUS",
+        "fields": [
+          { "name": "uptime_ms", "type": "uint32_t", "required": true },
+          { "name": "config.device_id", "type": "uint32_t", "required": true },
+          { "name": "config.player_id", "type": "uint32_t", "required": true },
+          { "name": "config.team_id", "type": "uint32_t", "required": true },
+          { "name": "config.color_rgb", "type": "uint32_t", "required": true },
+          { "name": "stats.shots", "type": "uint16_t", "required": true },
+          { "name": "stats.enemy_kills", "type": "uint16_t", "required": true },
+          {
+            "name": "stats.friendly_kills",
+            "type": "uint16_t",
+            "required": true
+          },
+          { "name": "stats.deaths", "type": "uint16_t", "required": true },
+          {
+            "name": "state.current_hearts",
+            "type": "uint8_t",
+            "required": true
+          },
+          {
+            "name": "state.current_ammo",
+            "type": "uint16_t",
+            "required": true
+          },
+          { "name": "state.is_respawning", "type": "bool", "required": true },
+          { "name": "state.is_reloading", "type": "bool", "required": true }
+        ]
+      },
+      {
+        "name": "HeartbeatAck",
+        "opcode": "HEARTBEAT_ACK",
+        "fields": [
+          { "name": "batt_voltage", "type": "uint16_t", "required": false },
+          { "name": "rssi", "type": "int8_t", "required": false }
+        ]
+      },
+      {
+        "name": "ShotFired",
+        "opcode": "SHOT_FIRED",
+        "fields": [
+          { "name": "timestamp_ms", "type": "uint32_t", "required": true },
+          { "name": "seq_id", "type": "uint16_t", "required": true }
+        ]
+      },
+      {
+        "name": "HitReport",
+        "opcode": "HIT_REPORT",
+        "fields": [
+          { "name": "timestamp_ms", "type": "uint32_t", "required": true },
+          { "name": "seq_id", "type": "uint16_t", "required": true },
+          { "name": "shooter_id", "type": "uint32_t", "required": true },
+          { "name": "damage", "type": "uint8_t", "required": true },
+          { "name": "fatal", "type": "bool", "required": true }
+        ]
+      },
+      {
+        "name": "Respawn",
+        "opcode": "RESPAWN",
+        "fields": [
+          { "name": "timestamp_ms", "type": "uint32_t", "required": true },
+          { "name": "current_hearts", "type": "uint8_t", "required": false }
+        ]
+      },
+      {
+        "name": "Reload",
+        "opcode": "RELOAD_EVENT",
+        "fields": [
+          { "name": "current_ammo", "type": "uint16_t", "required": true }
+        ]
+      },
+      {
+        "name": "GameOver",
+        "opcode": "GAME_OVER",
+        "fields": []
+      },
+      {
+        "name": "Ack",
+        "opcode": "ACK",
+        "fields": [
+          { "name": "reply_to", "type": "string", "required": false },
+          { "name": "success", "type": "bool", "required": true }
+        ]
+      }
+    ]
+  },
+  "notes": [
+    "Gamemode is UI-only; firmware receives explicit config values, not a gamemode label",
+    "All numeric timestamps are in milliseconds",
+    "RGB color is stored as 0xRRGGBB",
+    "RSSI is in dBm (typically -30 to -90)",
+    "Battery voltage is in millivolts"
+  ]
+}
