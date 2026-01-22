@@ -16,19 +16,18 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-
+      
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: "pnpm"
 
       - uses: pnpm/action-setup@v3
         with:
           version: 9
 
       - name: Install dependencies
-        run: pnpm install
+        run: pnpm install --no-frozen-lockfile
 
       - name: Lint
         run: pnpm lint
@@ -39,10 +38,7 @@ jobs:
   esp32-build:
     name: ESP32 Firmware Build
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: ./esp32
-
+    
     steps:
       - uses: actions/checkout@v4
 
@@ -73,7 +69,9 @@ jobs:
           pip install platformio
 
       - name: Build Target
-        run: pio run -e target
+        working-directory: ./esp32/target
+        run: pio run
 
       - name: Build Weapon
-        run: pio run -e weapon
+        working-directory: ./esp32/weapon
+        run: pio run

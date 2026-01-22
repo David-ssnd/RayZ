@@ -37,6 +37,8 @@ idf_component_register(
 # Find LVGL dynamically based on the project being built
 # PlatformIO puts libraries in .pio/libdeps/<env_name>/lvgl
 set(LVGL_SEARCH_PATHS
+    "${PROJECT_DIR}/.pio/libdeps/target/lvgl__lvgl"
+    "${PROJECT_DIR}/.pio/libdeps/weapon/lvgl__lvgl"
     "${PROJECT_DIR}/.pio/libdeps/target/lvgl"
     "${PROJECT_DIR}/.pio/libdeps/weapon/lvgl"
 )
