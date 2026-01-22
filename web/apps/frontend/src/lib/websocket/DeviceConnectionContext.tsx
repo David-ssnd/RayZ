@@ -867,6 +867,15 @@ export function DeviceConnectionsProvider({
     [deviceStates, sendToDevice]
   )
 
+  // Request status from all connected devices
+  const requestAllStatus = useCallback(() => {
+    deviceStates.forEach((state, ip) => {
+      if (state.connectionState === 'connected') {
+        sendToDevice(ip, { op: OpCode.GET_STATUS, type: 'get_status' })
+      }
+    })
+  }, [deviceStates, sendToDevice])
+
   // Get all connected device states
   const connectedDevices = useMemo(
     () => Array.from(deviceStates.values()).filter((s) => s.connectionState === 'connected'),
