@@ -25,7 +25,14 @@
 #define OLED_WIDTH 128
 #define OLED_HEIGHT 32
 
-// Reset button (GPIO 15 with pull-up)
-#define RESET_BUTTON_PIN 15
+// Reset button pin
+// GPIO 0 is the built-in BOOT button on most ESP32 boards including ESP32-S3 SuperMini
+// For regular ESP32: GPIO 0 (BOOT button)
+// For ESP32-S3: GPIO 0 (BOOT button)
+#if CONFIG_IDF_TARGET_ESP32S3
+#define RESET_BUTTON_PIN 0  // BOOT button on ESP32-S3 SuperMini
+#else
+#define RESET_BUTTON_PIN 0  // BOOT button on ESP32
+#endif
 
 #endif // CONFIG_H
