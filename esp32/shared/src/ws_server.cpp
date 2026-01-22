@@ -149,16 +149,16 @@ static void handle_config_update(cJSON* root)
     
     // Identity
     item = cJSON_GetObjectItem(root, "device_id");
-    if (item)
+    if (item && !cJSON_IsNull(item))
         dev->device_id = item->valueint;
     item = cJSON_GetObjectItem(root, "player_id");
-    if (item)
+    if (item && !cJSON_IsNull(item))
         dev->player_id = item->valueint;
     item = cJSON_GetObjectItem(root, "team_id");
-    if (item)
+    if (item && !cJSON_IsNull(item))
         dev->team_id = item->valueint;
     item = cJSON_GetObjectItem(root, "color_rgb");
-    if (item)
+    if (item && !cJSON_IsNull(item))
         dev->color_rgb = item->valueint;
 
     GameConfig* game = game_state_get_game_config_mut();
@@ -168,8 +168,11 @@ static void handle_config_update(cJSON* root)
     if (item)
         game->max_hearts = item->valueint;
     item = cJSON_GetObjectItem(root, "spawn_hearts");
-    if (item)
-        game->max_hearts = item->valueint; // Use as starting hearts
+    if (item) {
+        // Spawn hearts is the starting amount, don't overwrite max_hearts
+        GameStateData* state = (GameStateData*)game_state_get();
+        state->hearts_remaining = item->valueint;
+    }
     item = cJSON_GetObjectItem(root, "respawn_time_s");
     if (item)
         game->respawn_cooldown_ms = item->valueint * 1000;
@@ -635,12 +638,16 @@ static cJSON* create_status_json()
     cJSON_AddNumberToObject(config, "player_id", cfg->player_id);
     cJSON_AddNumberToObject(config, "team_id", cfg->team_id);
     cJSON_AddNumberToObject(config, "color_rgb", cfg->color_rgb);
-    cJSON_AddBoolToObject(config, "enable_hearts", true);
+    cJSON_AddStringToObject(config, "device_name", cfg->device_name);
+    cJSON_AddBoolToObject(config, "enable_hearts", !game->unlimited_respawn);
     cJSON_AddNumberToObject(config, "max_hearts", game->max_hearts);
-    cJSON_AddNumberToObject(config, "enable_ammo", !game->unlimited_ammo);
-    cJSON_AddNumberToObject(config, "max_ammo", game->max_ammo);
-    cJSON_AddNumberToObject(config, "game_duration_s", game->time_limit_s);
+    cJSON_AddNumberToObject(config, "spawn_hearts", st->hearts_remaining);
+    cJSON_AddNumberToObject(config, "respawn_time_s", game->respawn_cooldown_ms / 1000);
     cJSON_AddBoolToObject(config, "friendly_fire", game->friendly_fire_enabled);
+    cJSON_AddBoolToObject(config, "enable_ammo", !game->unlimited_ammo);
+    cJSON_AddNumberToObject(config, "max_ammo", game->max_ammo);
+    cJSON_AddNumberToObject(config, "reload_time_ms", game->reload_time_ms);
+    cJSON_AddNumberToObject(config, "game_duration_s", game->time_limit_s);
     cJSON_AddItemToObject(root, "config", config);
 
     cJSON* stats = cJSON_CreateObject();

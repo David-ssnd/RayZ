@@ -105,8 +105,8 @@ export function DeviceConnectionCard({
       connectionRef.current.updateConfig({
         // IMPORTANT: Use the Protocol ID (number), not the DB ID (UUID)
         // If your Player type still uses 'playerId' for the int, change .number to .playerId
-        player_id: assignedPlayer.number,
-        team_id: playerTeam?.number,
+        player_id: assignedPlayer.number ?? 0,
+        team_id: playerTeam?.number ?? 0,
         color_rgb: colorInt,
       })
     }
