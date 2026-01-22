@@ -6,8 +6,7 @@
  */
 
 import { useState, useCallback } from 'react'
-import { useGameCommContext } from '@/lib/comm/GameCommContext'
-import { DeviceConfigManager } from '@/lib/comm/DeviceConfigManager'
+import { useDeviceConnections } from '@/lib/websocket/DeviceConnectionContext'
 import type { Device, Project } from '@/components/project-manager/types'
 
 export interface ConfigStatus {
@@ -16,8 +15,7 @@ export interface ConfigStatus {
 }
 
 export function useDeviceConfig(project: Project) {
-  const { comm } = useGameCommContext()
-  const [configManager] = useState(() => new DeviceConfigManager(comm))
+  const { broadcastConfig, connections } = useDeviceConnections()
   const [statuses, setStatuses] = useState<Map<string, ConfigStatus>>(new Map())
 
   /**
@@ -31,77 +29,58 @@ export function useDeviceConfig(project: Project) {
     const gameSettings = project.gameMode
 
     return {
-      deviceName: device.name || `Device ${device.id}`,
-      deviceId: parseInt(device.id) || 0,
-      playerId: player?.id ? parseInt(player.id) : undefined,
-      teamId: team?.id ? parseInt(team.id) : 0,
-      colorRgb: team?.color ? parseInt(team.color.replace('#', ''), 16) : 0xFFFFFF,
+      device_id: parseInt(device.id) || 0,
+      player_id: player?.id ? parseInt(player.id) : 0,
+      team_id: team?.id ? parseInt(team.id) : 0,
+      color_rgb: team?.color ? parseInt(team.color.replace('#', ''), 16) : 0xFFFFFF,
+      device_name: device.name || `Device ${device.id}`,
       
-      enableHearts: gameSettings?.enableHearts ?? true,
-      maxHearts: gameSettings?.maxHearts ?? 10,
-      spawnHearts: gameSettings?.spawnHearts ?? 10,
-      respawnTimeS: gameSettings?.respawnTimeSec ?? 5,
-      friendlyFire: gameSettings?.friendlyFire ?? false,
+      max_hearts: gameSettings?.maxHearts ?? 10,
+      spawn_hearts: gameSettings?.spawnHearts ?? 10,
+      respawn_time_s: gameSettings?.respawnTimeSec ?? 5,
+      friendly_fire: gameSettings?.friendlyFire ?? false,
       
-      enableAmmo: gameSettings?.enableAmmo ?? true,
-      maxAmmo: gameSettings?.maxAmmo ?? 100,
-      reloadTimeMs: gameSettings?.reloadTimeMs ?? 2000,
+      enable_ammo: gameSettings?.enableAmmo ?? true,
+      max_ammo: gameSettings?.maxAmmo ?? 100,
+      reload_time_ms: gameSettings?.reloadTimeMs ?? 2000,
       
-      gameDurationS: gameSettings?.durationSeconds ?? 300,
-      
-      irPower: 1,
-      volume: 80,
-      hapticEnabled: true,
+      game_duration_s: gameSettings?.durationSeconds ?? 300,
     }
   }, [project])
 
-  const buildEspNowPeers = useCallback((currentDevice: Device): string[] => {
+  const buildEspNowPeers = useCallback((currentDevice: Device): string => {
     const devices = project.devices || []
-    return devices
-      .filter((d) => d.id !== currentDevice.id)
+    const macAddresses = devices
+      .filter((d) => d.id !== currentDevice.id && d.macAddress)
       .map((d: any) => d.macAddress)
-      .filter(Boolean) as string[]
+      .filter(Boolean)
+    
+    return macAddresses.join(',') // CSV format expected by ESP32
   }, [project.devices])
 
   const sendToDevice = useCallback(async (device: Device): Promise<boolean> => {
-    const deviceIp = device.ipAddress || device.id
+    const deviceIp = device.ipAddress
+    if (!deviceIp) {
+      console.warn(`Device ${device.id} has no IP address`)
+      return false
+    }
+
     setStatuses((prev) => new Map(prev).set(deviceIp, { status: 'sending' }))
 
     try {
       const config = buildDeviceConfig(device)
       const peers = buildEspNowPeers(device)
-
-      configManager.setDeviceInfo(deviceIp, {
-        name: config.deviceName,
-        deviceId: config.deviceId,
-        playerId: config.playerId,
-        teamId: config.teamId,
-        color: config.colorRgb,
-      })
-
-      configManager.setGameRules(deviceIp, {
-        enableHearts: config.enableHearts,
-        maxHearts: config.maxHearts,
-        spawnHearts: config.spawnHearts,
-        respawnTimeS: config.respawnTimeS,
-        friendlyFire: config.friendlyFire,
-        enableAmmo: config.enableAmmo,
-        maxAmmo: config.maxAmmo,
-        reloadTimeMs: config.reloadTimeMs,
-        gameDurationS: config.gameDurationS,
-      })
-
-      configManager.setHardwareSettings(deviceIp, {
-        irPower: config.irPower,
-        volume: config.volume,
-        hapticEnabled: config.hapticEnabled,
-      })
-
-      if (peers.length > 0) {
-        configManager.setEspNowPeers(deviceIp, peers)
+      
+      // Add ESP-NOW peers to config if available
+      const configWithPeers = peers ? { ...config, espnow_peers: peers } : config
+      
+      const connection = connections.get(deviceIp)
+      if (!connection) {
+        throw new Error(`No connection found for ${deviceIp}`)
       }
 
-      const success = await configManager.sendFullConfig(deviceIp)
+      const success = connection.updateConfig(configWithPeers)
+      
       setStatuses((prev) => 
         new Map(prev).set(deviceIp, {
           status: success ? 'success' : 'error',
@@ -119,7 +98,7 @@ export function useDeviceConfig(project: Project) {
       )
       return false
     }
-  }, [buildDeviceConfig, buildEspNowPeers, configManager])
+  }, [buildDeviceConfig, buildEspNowPeers, connections])
 
   const sendToAllDevices = useCallback(async (): Promise<{ sent: number; failed: number }> => {
     const devices = project.devices || []
