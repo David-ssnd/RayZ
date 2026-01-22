@@ -42,6 +42,7 @@ export interface DeviceConnection {
   forwardHit: (shooterId: number) => boolean
   confirmKill: () => boolean
   playRemoteSound: (soundId: number) => boolean
+  requestStatus: () => boolean // Explicitly request status update
 }
 
 type DeviceEventType =
@@ -82,6 +83,8 @@ export interface DeviceConnectionsContextValue {
   broadcastCommand: (command: 'start' | 'stop' | 'reset') => void
   /** Broadcast configuration to all connected devices */
   broadcastConfig: (config: Omit<ConfigUpdateMessage, 'type' | 'op'>) => void
+  /** Request status update from all connected devices */
+  requestAllStatus: () => void
   /** Get all connected device states */
   connectedDevices: DeviceState[]
   /** Message log for debugging */
@@ -927,6 +930,7 @@ export function DeviceConnectionsProvider({
     subscribe: subscribe, // Make sure this is exposed!
     messageLog,
     clearLog,
+    requestAllStatus,
   }
 
   return (
