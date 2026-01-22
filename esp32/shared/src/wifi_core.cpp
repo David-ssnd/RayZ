@@ -3,7 +3,6 @@
 #include "wifi_internal.h"
 #include "ws_server.h"
 
-#include <esp_coexist.h>
 #include <esp_err.h>
 #include <esp_event.h>
 #include <esp_log.h>
@@ -12,6 +11,15 @@
 #include <esp_mac.h>
 #include <string.h>
 #include <string>
+
+// Coexistence API availability depends on chip and IDF version
+#if CONFIG_IDF_TARGET_ESP32 || CONFIG_IDF_TARGET_ESP32C3 || CONFIG_IDF_TARGET_ESP32S2
+#include <esp_coexist.h>
+#define HAS_COEX_PREFERENCE 1
+#elif CONFIG_IDF_TARGET_ESP32S3 || CONFIG_IDF_TARGET_ESP32C6
+// ESP32-S3 and newer chips might use different coex API or it's not available
+#define HAS_COEX_PREFERENCE 0
+#endif
 
 static const char* TAG = "WiFiCore";
 
@@ -254,7 +262,9 @@ void wifi_start_sta(const char* ssid, const char* pass)
         return;
     }
 
+#if HAS_COEX_PREFERENCE
     esp_coex_preference_set(ESP_COEX_PREFER_WIFI);
+#endif
 
     wifi_config_t sta_config = {};
     strncpy((char*)sta_config.sta.ssid, ssid, sizeof(sta_config.sta.ssid));

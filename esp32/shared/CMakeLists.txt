@@ -38,8 +38,10 @@ idf_component_register(
 # PlatformIO puts libraries in .pio/libdeps/<env_name>/lvgl
 set(LVGL_SEARCH_PATHS
     "${PROJECT_DIR}/.pio/libdeps/target/lvgl__lvgl"
+    "${PROJECT_DIR}/.pio/libdeps/target-s3/lvgl__lvgl"
     "${PROJECT_DIR}/.pio/libdeps/weapon/lvgl__lvgl"
     "${PROJECT_DIR}/.pio/libdeps/target/lvgl"
+    "${PROJECT_DIR}/.pio/libdeps/target-s3/lvgl"
     "${PROJECT_DIR}/.pio/libdeps/weapon/lvgl"
 )
 

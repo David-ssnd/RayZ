@@ -1,10 +1,18 @@
 #include "espnow_comm.h"
-#include <esp_coexist.h>
 #include <esp_log.h>
 #include <esp_wifi.h>
 #include <ctype.h>
 #include <string.h>
 #include "hash.h"
+
+// Coexistence API availability depends on chip and IDF version
+#if CONFIG_IDF_TARGET_ESP32 || CONFIG_IDF_TARGET_ESP32C3 || CONFIG_IDF_TARGET_ESP32S2
+#include <esp_coexist.h>
+#define HAS_COEX_PREFERENCE 1
+#elif CONFIG_IDF_TARGET_ESP32S3 || CONFIG_IDF_TARGET_ESP32C6
+// ESP32-S3 and newer chips might use different coex API or it's not available
+#define HAS_COEX_PREFERENCE 0
+#endif
 
 static const uint8_t ESPNOW_PMK[ESP_NOW_KEY_LEN] = {'r', 'a', 'y', 'z', '-', 'e', 's', 'p',
                                                     'n', 'o', 'w', '-', 'p', 'm', 'k', '!'};
@@ -135,7 +143,11 @@ esp_err_t espnow_comm_init(const EspnowCommConfig* config)
         }
         if (config->prefer_wifi)
         {
+#if HAS_COEX_PREFERENCE
             esp_coex_preference_set(ESP_COEX_PREFER_WIFI);
+#else
+            ESP_LOGW(TAG, "Coexistence preference not available on this chip");
+#endif
         }
     }
 
