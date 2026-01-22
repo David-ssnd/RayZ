@@ -29,9 +29,10 @@ export function useDeviceConfig(project: Project) {
     const gameSettings = project.gameMode
 
     return {
-      device_id: parseInt(device.id) || 0,
-      player_id: player?.id ? parseInt(player.id) : 0,
-      team_id: team?.id ? parseInt(team.id) : 0,
+      // Use player number as device_id when assigned, otherwise 0
+      device_id: player?.number ?? 0,
+      player_id: player?.number ?? 0,  // Use .number (protocol ID), not .id (UUID)
+      team_id: team?.number ?? 0,      // Use .number (protocol ID), not .id (UUID)
       color_rgb: team?.color ? parseInt(team.color.replace('#', ''), 16) : 0xFFFFFF,
       device_name: device.name || `Device ${device.id}`,
       
