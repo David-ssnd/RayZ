@@ -1,0 +1,12 @@
+packages:
+  - apps/*
+  - packages/*
+
+ignoredBuiltDependencies:
+  - '@prisma/engines'
+  - '@swc/core'
+  - prisma
+  - sharp
+
+onlyBuiltDependencies:
+  - esbuild

@@ -1,0 +1,31 @@
+// Re-export from the shared types package instead of duplicating here
+export type {
+  ConnectionState,
+  DeviceRole,
+  GameState,
+  GameMode,
+  BaseClientMessage,
+  GetStatusMessage,
+  HeartbeatMessage,
+  ConfigUpdateMessage,
+  GameCommandMessage,
+  HitForwardMessage,
+  KillConfirmedMessage,
+  RemoteSoundMessage,
+  ClientMessage,
+  DeviceConfigStatus,
+  DeviceLiveStats,
+  DeviceLiveState,
+  DeviceStatusMessage,
+  HeartbeatAckMessage,
+  ShotFiredMessage,
+  HitReportMessage,
+  RespawnMessage,
+  ReloadMessage,
+  GameOverMessage,
+  AckMessage,
+  ServerMessage,
+  DeviceState,
+} from '@rayz/types'
+
+export { OpCode, GameCommandType, initialDeviceState } from '@rayz/types'

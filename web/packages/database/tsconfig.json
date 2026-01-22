@@ -1,0 +1,5 @@
+{
+  "extends": "@rayz/typescript-config/base.json",
+  "include": ["src", "prisma"],
+  "exclude": ["node_modules"]
+}

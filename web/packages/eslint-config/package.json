@@ -1,0 +1,17 @@
+{
+  "name": "@rayz/eslint-config",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "index.js",
+  "files": [
+    "index.js"
+  ],
+  "devDependencies": {
+    "@eslint/eslintrc": "^3.3.3",
+    "eslint": "^9.39.1",
+    "eslint-config-next": "^16.0.7",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-react": "^7.37.5"
+  }
+}

@@ -1,0 +1,199 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/client"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ================= USER & AUTH =================
+
+model User {
+  id            String     @id @default(cuid())
+  email         String     @unique
+  emailVerified DateTime?
+  name          String?
+  image         String?
+  password      String?
+  role          String     @default("user")
+  
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  profile       Profile?
+  accounts      Account[]
+  projects      Project[]
+  gameModes     GameMode[] // Custom game modes created by this user
+}
+
+model Profile {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bio       String?
+  avatarUrl String?
+  devices   Device[]
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Account {
+  id                 String   @id @default(cuid())
+  userId             String
+  type               String
+  provider           String
+  providerAccountId  String
+  refresh_token      String?
+  access_token       String?
+  expires_at         Int?
+  token_type         String?
+  scope              String?
+  id_token           String?
+  session_state      String?
+  
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+// ================= DEVICE MANAGEMENT =================
+
+model Device {
+  id        String   @id @default(cuid())
+  name      String?
+  ipAddress String   // Used for WebSocket connection
+  status    String   @default("offline") 
+  
+  // Display order in UI
+  order     Int      @default(0)
+  
+  profileId String
+  profile   Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  
+  // The Project this device is currently active in
+  projectId String?
+  project   Project? @relation(fields: [projectId], references: [id])
+
+  // The specific Player identity assigned to this device
+  assignedPlayerId String?
+  assignedPlayer   Player?  @relation("PlayerDevices", fields: [assignedPlayerId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ================= GAMEPLAY LOGIC =================
+
+model Project {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  status      String   @default("draft") // draft, active, archived
+  
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // The ruleset used for this session
+  gameModeId  String
+  gameMode    GameMode @relation(fields: [gameModeId], references: [id])
+  
+  // Active Entities
+  devices     Device[]
+  players     Player[]
+  teams       Team[]
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model GameMode {
+  id          String    @id @default(cuid())
+  name        String    @unique
+  description String?
+  
+  isSystem    Boolean   @default(false)
+  
+  // --- Protocol v2.2 Configuration Attributes ---
+  
+  // Game Timer
+  durationSeconds Int     @default(600) // 0 = Manual Stop
+  
+  // Health
+  enableHearts    Boolean @default(true)
+  maxHearts       Int     @default(5)   // -1 = Infinite
+  spawnHearts     Int     @default(3)
+  respawnTimeSec  Int     @default(10)
+  friendlyFire    Boolean @default(false)
+  damageIn        Int     @default(1)   // Damage taken per hit
+  damageOut       Int     @default(1)   // Damage sent per shot
+  
+  // Ammo
+  enableAmmo      Boolean @default(true)
+  maxAmmo         Int     @default(30)  // -1 = Infinite
+  reloadTimeMs    Int     @default(2500)
+  
+  // Relations
+  userId      String?
+  user        User?     @relation(fields: [userId], references: [id])
+  
+  projects    Project[]
+  
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model Team {
+  id        String   @id @default(cuid())
+  name      String
+  color     String   // Hex Code e.g. "#FF0000"
+  
+  // PROTOCOL ID: The integer (1-255) sent to ESP32
+  number    Int
+  
+  // Display order in UI
+  order     Int      @default(0)
+
+  projectId String
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  
+  players   Player[]
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Logic: A project cannot have two teams with ID "1" (Red Team).
+  // This effectively "combines" ProjectID and TeamNumber for uniqueness.
+  @@unique([projectId, number])
+}
+
+model Player {
+  id        String   @id @default(cuid())
+  name      String
+
+  // PROTOCOL ID: The integer (0-255) sent to ESP32
+  // This is NOT the database ID, but the Laser Tag network ID.
+  number    Int
+  
+  // Display order in UI
+  order     Int      @default(0)
+
+
+  projectId String
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  
+  teamId    String?
+  team      Team?    @relation(fields: [teamId], references: [id], onDelete: SetNull)
+
+  devices   Device[] @relation("PlayerDevices")
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Logic: A project cannot have two players with ID "5".
+  @@unique([projectId, number])
+}

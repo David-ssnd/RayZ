@@ -1,0 +1,124 @@
+{
+  "Navigation": {
+    "control": "Control",
+    "presentation": "Presentation",
+    "hardware": "Hardware",
+    "techStack": "Tech Stack",
+    "github": "Github",
+    "documentation": "Documentation",
+    "signIn": "Sign In",
+    "signOut": "Sign Out"
+  },
+  "CPNavigation": {
+    "control": "Control Panel",
+    "back": "Back to site"
+  },
+  "Control": {
+    "title": "Control Panel",
+    "description": "Control and monitor connected hardware devices",
+    "metaTitle": "Control | RayZ",
+    "metaDescription": "Control panel for managing hardware devices",
+    "addDeviceByIp": "Add device by IP address on LAN:",
+    "addDevice": "Add Device"
+  },
+  "Presentation": {
+    "title": "Project Presentation",
+    "description": "Interactive presentation slides showcasing the RayZ project",
+    "metaTitle": "Presentation | RayZ",
+    "metaDescription": "Project presentation and overview slides"
+  },
+  "Hardware": {
+    "title": "Hardware Monitoring",
+    "description": "Monitor and control connected hardware devices",
+    "metaTitle": "Hardware | RayZ",
+    "metaDescription": "Real-time hardware monitoring and control dashboard",
+    "targetDevice": {
+      "name": "Target Device",
+      "description": "A device used as a target for testing purposes.",
+      "badge": "Target"
+    },
+    "weaponDevice": {
+      "name": "Weapon Device",
+      "description": "A device used as a weapon for testing purposes.",
+      "badge": "Weapon"
+    },
+    "connectedDevices": {
+      "name": "Connected devices",
+      "microcontroller": "Multiple Microcontrollers",
+      "description": "Devices connected and communicating in real-time."
+    }
+  },
+  "TechStack": {
+    "title": "Technology Stack",
+    "description": "Tools and technologies powering the RayZ project",
+    "metaTitle": "Tech Stack | RayZ",
+    "metaDescription": "Technology stack and architecture overview",
+    "currentStack": "Current Stack",
+    "futureStack": "Future Stack",
+    "items": {
+      "github": {
+        "name": "GitHub",
+        "description": "Platform for version control and collaboration"
+      },
+      "nextjs": {
+        "name": "Next.js",
+        "description": "React framework for web applications"
+      },
+      "typescript": {
+        "name": "TypeScript",
+        "description": "Type-safe JavaScript"
+      },
+      "tailwind": {
+        "name": "Tailwind CSS",
+        "description": "Utility-first CSS framework"
+      },
+      "shadcn": {
+        "name": "shadcn/ui",
+        "description": "Modern UI component library"
+      },
+      "esp32": {
+        "name": "ESP32",
+        "description": "Microcontroller for IoT devices"
+      },
+      "platformio": {
+        "name": "PlatformIO",
+        "description": "IDE for embedded development"
+      },
+      "freertos": {
+        "name": "FreeRTOS",
+        "description": "Real-time operating system for microcontrollers"
+      },
+      "prisma": {
+        "name": "Prisma",
+        "description": "Next-generation ORM"
+      },
+      "postgresql": {
+        "name": "PostgreSQL",
+        "description": "Relational database"
+      },
+      "jest": {
+        "name": "Jest",
+        "description": "JavaScript testing framework"
+      },
+      "cicd": {
+        "name": "CI/CD",
+        "description": "Continuous integration and deployment"
+      },
+      "clangformat": {
+        "name": "clang-format",
+        "description": "Code formatter for C/C++"
+      }
+    },
+    "badges": {
+      "frontend": "Frontend",
+      "backend": "Backend",
+      "hardware": "Hardware",
+      "development": "Development",
+      "database": "Database"
+    }
+  },
+  "Common": {
+    "dashboardTitle": "RayZ Dashboard",
+    "dashboardDescription": "Central panel for managing and monitoring the RayZ system."
+  }
+}

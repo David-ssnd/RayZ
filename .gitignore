@@ -45,3 +45,5 @@ lerna-debug.log*
 *.dll
 *.so
 *.dylib
+
+node_modules

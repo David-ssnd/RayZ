@@ -1,0 +1,124 @@
+{
+  "Navigation": {
+    "control": "Ovládanie",
+    "presentation": "Prezentácia",
+    "hardware": "Hardvér",
+    "techStack": "Technológie",
+    "github": "Github",
+    "documentation": "Dokumentácia",
+    "signIn": "Prihlásiť sa",
+    "signOut": "Odhlásiť sa"
+  },
+  "CPNavigation": {
+    "control": "Ovládací panel",
+    "back": "Späť na stránku"
+  },
+  "Control": {
+    "title": "Ovládací panel",
+    "description": "Ovládajte a sledujte pripojené hardvérové zariadenia",
+    "metaTitle": "Ovládanie | RayZ",
+    "metaDescription": "Ovládací panel na správu hardvérových zariadení",
+    "addDeviceByIp": "Pridať zariadenie podľa IP adresy na LAN:",
+    "addDevice": "Pridať zariadenie"
+  },
+  "Presentation": {
+    "title": "Prezentácia projektu",
+    "description": "Interaktívne snímky, ktoré jednoducho a zrozumiteľne predstavujú projekt RayZ.",
+    "metaTitle": "Prezentácia | RayZ",
+    "metaDescription": "Ukážka projektu RayZ formou interaktívnej prezentácie."
+  },
+  "Hardware": {
+    "title": "Prehľad hardvéru",
+    "description": "Demonštračné zapojenie hardvérových zariadení.",
+    "metaTitle": "Hardvér | RayZ",
+    "metaDescription": "Prehľadná stránka na prezenetovanie hardvérových zariadení.",
+    "targetDevice": {
+      "name": "Laserový terč",
+      "description": "Zariadenie, ktoré slúži ako cieľ počas testovania.",
+      "badge": "Cieľ"
+    },
+    "weaponDevice": {
+      "name": "Laserová zbraň",
+      "description": "Zariadenie, ktoré sa používa ako zbraň pri testovacích scénaroch.",
+      "badge": "Zbraň"
+    },
+    "connectedDevices": {
+      "name": "Prepojené zariadenia",
+      "microcontroller": "Viac mikrokontrolérov",
+      "description": "Zariadenia, ktoré sú prepojené a komunikujú."
+    }
+  },
+  "TechStack": {
+    "title": "Použité technológie",
+    "description": "Hlavné technológie, ktoré stoja za projektom RayZ.",
+    "metaTitle": "Technológie | RayZ",
+    "metaDescription": "Prehľad technológií, ktoré tvoria základ projektu RayZ.",
+    "currentStack": "Aktuálne technológie",
+    "futureStack": "Plánované technológie",
+    "items": {
+      "github": {
+        "name": "GitHub",
+        "description": "Platforma pre verzionovanie a spoluprácu na kóde."
+      },
+      "nextjs": {
+        "name": "Next.js",
+        "description": "Moderný React framework pre rýchle webové aplikácie."
+      },
+      "typescript": {
+        "name": "TypeScript",
+        "description": "Bezpečný a prehľadný jazyk postavený na JavaScripte."
+      },
+      "tailwind": {
+        "name": "Tailwind CSS",
+        "description": "Flexibilný CSS framework založený na utilitách."
+      },
+      "shadcn": {
+        "name": "shadcn/ui",
+        "description": "Moderná a prispôsobiteľná knižnica používateľských komponentov."
+      },
+      "esp32": {
+        "name": "ESP32",
+        "description": "Výkonný mikrokontrolér pre IoT a embedded zariadenia."
+      },
+      "platformio": {
+        "name": "PlatformIO",
+        "description": "Vývojové prostredie pre programovanie embedded systémov."
+      },
+      "freertos": {
+        "name": "FreeRTOS",
+        "description": "Real-time operačný systém pre mikrokontroléry."
+      },
+      "prisma": {
+        "name": "Prisma",
+        "description": "Moderný ORM nástroj na prácu s databázami."
+      },
+      "postgresql": {
+        "name": "PostgreSQL",
+        "description": "Spoľahlivá relačná databáza s otvoreným zdrojovým kódom."
+      },
+      "jest": {
+        "name": "Jest",
+        "description": "Framework na testovanie JavaScriptu."
+      },
+      "cicd": {
+        "name": "CI/CD",
+        "description": "Kontinuálna integrácia a nasadenie."
+      },
+      "clangformat": {
+        "name": "clang-format",
+        "description": "Nástroj na formátovanie C/C++ kódu."
+      }
+    },
+    "badges": {
+      "frontend": "Frontend",
+      "backend": "Backend",
+      "hardware": "Hardvér",
+      "development": "Vývoj",
+      "database": "Databáza"
+    }
+  },
+  "Common": {
+    "dashboardTitle": "RayZ Dashboard",
+    "dashboardDescription": "Centrálny panel pre sledovanie hardvérových aj softvérových častí projektu RayZ."
+  }
+}

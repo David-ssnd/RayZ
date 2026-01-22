@@ -1,0 +1,32 @@
+{
+  "name": "@rayz/database",
+  "version": "0.1.0",
+  "private": true,
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "build": "prisma generate",
+    "db:generate": "prisma generate",
+    "db:push": "prisma db push",
+    "db:studio": "prisma studio",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "@neondatabase/serverless": "^1.0.2",
+    "@prisma/adapter-neon": "^7.1.0",
+    "@prisma/client": "^7.1.0",
+    "@prisma/client-runtime-utils": "^7.1.0",
+    "@types/ws": "^8.18.1",
+    "dotenv": "^17.2.3",
+    "ws": "^8.18.3",
+    "zod": "^4.1.13"
+  },
+  "devDependencies": {
+    "@rayz/eslint-config": "workspace:*",
+    "@rayz/typescript-config": "workspace:*",
+    "@types/node": "^24.10.1",
+    "eslint": "^9.39.1",
+    "prisma": "^7.1.0",
+    "typescript": "^5.9.3"
+  }
+}

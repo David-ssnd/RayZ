@@ -1,0 +1,24 @@
+{
+  "name": "@rayz/ws-bridge",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "WebSocket bridge server for local mode - bridges browser to ESP32 devices",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "clean": "rm -rf dist node_modules"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@rayz/typescript-config": "workspace:*",
+    "@types/node": "^24.10.1",
+    "@types/ws": "^8.5.13",
+    "tsx": "^4.19.2",
+    "typescript": "^5.9.3"
+  }
+}
