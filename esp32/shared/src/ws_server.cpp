@@ -315,7 +315,7 @@ static void process_message(int fd, const char* payload)
     {
         case OP_GET_STATUS:
             ws_server_send_status_to(fd);
-            game_state_update_heartbeat(); // Update heartbeat on explicit status request
+            // Heartbeat is updated inside ws_server_send_status_to
             break;
         case OP_HEARTBEAT:
             ws_server_send_heartbeat_ack(fd);
@@ -667,6 +667,7 @@ void ws_server_send_status_to(int fd)
     ws_server_send(fd, str);
     free(str);
     cJSON_Delete(root);
+    game_state_update_heartbeat(); // Update heartbeat after sending status
 }
 
 void ws_server_send_status(void)
@@ -676,6 +677,7 @@ void ws_server_send_status(void)
     ws_server_broadcast(str);
     free(str);
     cJSON_Delete(root);
+    game_state_update_heartbeat(); // Update heartbeat after sending status
 }
 
 void ws_server_send_heartbeat_ack(int client_fd)
@@ -722,6 +724,7 @@ void ws_server_broadcast_shot(void)
 void ws_server_broadcast_game_state(void)
 {
     ws_server_send_status();
+    // Heartbeat is updated inside ws_server_send_status
 }
 
 void ws_server_broadcast_respawn(void)
