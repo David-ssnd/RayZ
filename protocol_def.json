@@ -50,6 +50,7 @@
         "opcode": "CONFIG_UPDATE",
         "fields": [
           { "name": "reset_to_defaults", "type": "bool", "required": false },
+          { "name": "device_name", "type": "string", "required": false },
           { "name": "device_id", "type": "uint32_t", "required": false },
           { "name": "player_id", "type": "uint32_t", "required": false },
           { "name": "team_id", "type": "uint32_t", "required": false },
@@ -68,7 +69,8 @@
           { "name": "enable_ammo", "type": "bool", "required": false },
           { "name": "max_ammo", "type": "uint16_t", "required": false },
           { "name": "reload_time_ms", "type": "uint16_t", "required": false },
-          { "name": "game_duration_s", "type": "uint16_t", "required": false }
+          { "name": "game_duration_s", "type": "uint16_t", "required": false },
+          { "name": "espnow_peers", "type": "string", "required": false }
         ]
       },
       {

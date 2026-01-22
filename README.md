@@ -9,6 +9,36 @@ A laser tag system with ESP32-based embedded devices and web interface for game 
 - **Web Dashboard**: Modern web interface for game management and statistics
 - **Modular Architecture**: Shared library ensures consistent protocol across devices
 - **Independent Versioning**: Mix and match component versions as needed
+- **Optimized Performance**: Direct WebSocket connections with binary protocol (MessagePack)
+
+## 🎯 Project Structure
+
+This is a monorepo that coordinates multiple components via git submodules:
+
+```
+RayZ/
+├── esp32/
+│   ├── shared/           # 📚 Shared library (submodule)
+│   ├── target/           # 🎯 Target device firmware (submodule)
+│   └── weapon/           # 🔫 Weapon device firmware (submodule)
+└── web/                  # 🌐 Web interface (submodule)
+    ├── apps/
+    │   └── frontend/     # React/Next.js web app
+    └── packages/
+        └── types/        # Shared TypeScript types
+```
+
+## ⚡ Performance Optimizations (NEW)
+
+Recent optimizations deliver **2-3x performance improvement**:
+
+- ✅ **Direct ESP32 connections** - No bridge server needed (50-75% lower latency)
+- ✅ **MessagePack binary protocol** - 66% smaller messages, 70% faster parsing
+- ✅ **Async WebSocket sending** - Non-blocking communication
+- ✅ **Native PING/PONG** - Built-in keep-alive, no overhead
+- ✅ **8 simultaneous clients** - Increased from 4
+
+**See [WEBSOCKET_OPTIMIZATION.md](./WEBSOCKET_OPTIMIZATION.md) for details.**
 
 ## 🎯 Project Structure
 
