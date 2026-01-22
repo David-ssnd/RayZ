@@ -23,6 +23,8 @@ import { cn } from '@/lib/utils'
 import { useDeviceConnections } from '@/lib/websocket'
 import type { GameMode as WSGameMode } from '@/lib/websocket/types'
 import { Badge } from '@/components/ui/badge'
+import { GameControlPanel } from './GameControlPanel'
+import { DeviceConsole } from './DeviceConsole'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
@@ -32,6 +34,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
 import type { Device, Player, Project, Team } from './types'
 
@@ -248,117 +251,10 @@ export function GameOverview({ project }: GameOverviewProps) {
   return (
     <div className="space-y-4">
       {/* Game Control Section */}
-      <Card className="border-0 gap-2">
-        <CardHeader className="pb-2 px-0">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <CardTitle className="flex items-center gap-2">
-              <Activity className="w-5 h-5" />
-              Game Control
-            </CardTitle>
-            <div className="flex items-center gap-2">
-              <Badge variant={onlineCount > 0 ? 'default' : 'secondary'} className="gap-1">
-                {onlineCount > 0 ? <Wifi className="w-3 h-3" /> : <WifiOff className="w-3 h-3" />}
-                {onlineCount}/{totalDevices} Online
-              </Badge>
-              {isGameRunning && (
-                <Badge className="gap-1 bg-green-600">
-                  <Activity className="w-3 h-3 animate-pulse" />
-                  Live
-                </Badge>
-              )}
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-2 px-0">
-          {/* Game Mode Selection */}
-          <div className="flex flex-col sm:flex-row gap-3">
-            <Select
-              value={selectedGameMode}
-              onValueChange={(v) => setSelectedGameMode(v as WSGameMode)}
-              disabled={isGameRunning}
-            >
-              <SelectTrigger className="flex-1">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {GAME_MODES.map((mode) => (
-                  <SelectItem key={mode.value} value={mode.value}>
-                    <div className="flex items-center gap-2">
-                      {mode.icon}
-                      <span>{mode.label}</span>
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+      <GameControlPanel project={project} />
 
-          {/* Game Controls */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-            {!isGameRunning ? (
-              <Button
-                size="lg"
-                className="col-span-2 h-12 gap-2"
-                onClick={handleStartGame}
-                disabled={onlineCount === 0}
-              >
-                <Play className="w-5 h-5" />
-                Start Game
-              </Button>
-            ) : (
-              <Button
-                size="lg"
-                variant="destructive"
-                className="col-span-2 h-12 gap-2"
-                onClick={handleStopGame}
-              >
-                <Square className="w-5 h-5" />
-                Stop Game
-              </Button>
-            )}
-            <Button
-              variant="outline"
-              className="h-12 gap-2"
-              onClick={handleResetStats}
-              disabled={isGameRunning}
-            >
-              <RotateCcw className="w-4 h-4" />
-              <span className="hidden sm:inline">Reset</span>
-            </Button>
-            <Button
-              variant="outline"
-              className="h-12 gap-2"
-              onClick={onlineCount > 0 ? disconnectAll : connectAll}
-            >
-              {onlineCount > 0 ? (
-                <>
-                  <WifiOff className="w-4 h-4" />
-                  <span className="hidden sm:inline">Disconnect</span>
-                </>
-              ) : (
-                <>
-                  <Wifi className="w-4 h-4" />
-                  <span className="hidden sm:inline">Connect</span>
-                </>
-              )}
-            </Button>
-          </div>
-
-          {/* Live Stats */}
-          {isGameRunning && (
-            <div className="grid grid-cols-2 gap-4 pt-2">
-              <div className="text-center">
-                <p className="text-2xl font-bold text-green-600">{totalKills}</p>
-                <p className="text-xs text-muted-foreground">Total Kills</p>
-              </div>
-              <div className="text-center">
-                <p className="text-2xl font-bold text-red-600">{totalDeaths}</p>
-                <p className="text-xs text-muted-foreground">Total Deaths</p>
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      {/* Device Console */}
+      <DeviceConsole />
 
       {/* Teams Section */}
       {project.teams?.length > 0 && (

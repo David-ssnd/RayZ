@@ -194,55 +194,56 @@ export function GameControlPanel({ project }: GameControlPanelProps) {
         </div>
 
         {/* Main Game Controls */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+        <div className="flex flex-wrap gap-2">
           {!isGameRunning ? (
             <Button
-              size="lg"
-              className="col-span-2 h-12 text-base gap-2"
+              size="default"
+              className="flex-1 min-w-[140px] gap-2"
               onClick={handleStartGame}
               disabled={onlineCount === 0}
             >
-              <Play className="w-5 h-5" />
+              <Play className="w-4 h-4" />
               Start Game
             </Button>
           ) : (
             <Button
-              size="lg"
+              size="default"
               variant="destructive"
-              className="col-span-2 h-12 text-base gap-2"
+              className="flex-1 min-w-[140px] gap-2"
               onClick={handleStopGame}
             >
-              <Square className="w-5 h-5" />
+              <Square className="w-4 h-4" />
               Stop Game
             </Button>
           )}
+          
           <Button
             variant="outline"
-            className="h-12 gap-2"
+            className="flex-1 min-w-[120px] gap-2"
             onClick={handleSyncRules}
             disabled={isGameRunning || onlineCount === 0}
           >
             <UploadCloud className="w-4 h-4" />
-            <span className="hidden sm:inline">Sync Rules</span>
+            Sync Rules
           </Button>
+
           <Button
             variant="outline"
-            className="h-12 gap-2"
+            className="flex-1 min-w-[100px] gap-2"
             onClick={handleResetStats}
             disabled={isGameRunning}
           >
             <RotateCcw className="w-4 h-4" />
-            <span className="hidden sm:inline">Reset</span>
+            Reset
           </Button>
+
           <Button
             variant="outline"
-            className="h-12 gap-2 col-span-2 sm:col-span-4"
+            className="flex-1 min-w-[140px] gap-2"
             onClick={onlineCount > 0 ? disconnectAll : connectAll}
           >
             {onlineCount > 0 ? <WifiOff className="w-4 h-4" /> : <Wifi className="w-4 h-4" />}
-            <span className="hidden sm:inline">
-              {onlineCount > 0 ? 'Disconnect All' : 'Connect All'}
-            </span>
+            {onlineCount > 0 ? 'Disconnect All' : 'Connect All'}
           </Button>
         </div>
 

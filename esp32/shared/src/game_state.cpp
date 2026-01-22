@@ -393,7 +393,7 @@ void game_state_update_heartbeat(void)
 bool game_state_heartbeat_due(void)
 {
     uint32_t now = (uint32_t)(esp_timer_get_time() / 1000);
-    return (now - s_state.last_heartbeat_ms) >= 60000;
+    return (now - s_state.last_heartbeat_ms) >= 30000; // Changed from 60s to 30s
 }
 
 // JSON stubs (to be implemented with actual JSON lib)

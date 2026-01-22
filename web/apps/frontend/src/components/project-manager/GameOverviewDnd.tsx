@@ -38,9 +38,11 @@ import {
   ChevronsUpDown,
   Gamepad2,
   GripVertical,
+  Loader2,
   Monitor,
   Play,
   RotateCcw,
+  Send,
   Shield,
   Square,
   Target,
@@ -48,13 +50,12 @@ import {
   Wifi,
   WifiOff,
   Zap,
-  Send,
-  Loader2,
 } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 import { useDeviceConnections } from '@/lib/websocket'
 import type { GameMode as WSGameMode } from '@/lib/websocket/types'
+import { useDeviceConfig } from '@/hooks/useDeviceConfig'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -65,9 +66,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { useDeviceConfig } from '@/hooks/useDeviceConfig'
 
 import { AddDeviceDialog, AddPlayerDialog, AddTeamDialog } from './AddDialogs'
+import { DeviceConsole } from './DeviceConsole'
+import { GameControlPanel } from './GameControlPanel'
 import type { Device, Player, Project, Team } from './types'
 
 interface GameOverviewProps {
@@ -910,8 +912,16 @@ export function GameOverview({ project, availableDevices = [] }: GameOverviewPro
                 <span className="hidden sm:inline">Reset</span>
               </Button>
               <Button
+                variant="outline"
+                className="h-12 gap-2"
+                onClick={onlineCount > 0 ? disconnectAll : connectAll}
+              >
+                {onlineCount > 0 ? <WifiOff className="w-4 h-4" /> : <Wifi className="w-4 h-4" />}
+                <span className="hidden sm:inline">{onlineCount > 0 ? 'Disconnect' : 'Connect All'}</span>
+              </Button>
+              <Button
                 variant="secondary"
-                className="col-span-2 h-12 gap-2"
+                className="h-12 gap-2"
                 onClick={handleSendConfigToAll}
                 disabled={!hasDevices || isSendingConfig}
               >
@@ -945,42 +955,48 @@ export function GameOverview({ project, availableDevices = [] }: GameOverviewPro
           </CardContent>
         </Card>
 
-        {/* Toolbar */}
-        <div className="flex items-center justify-between gap-2">
-          <h3 className="text-lg font-semibold flex items-center gap-2">
-            <Users className="w-5 h-5" />
-            Teams & Players
-          </h3>
-          <div className="flex items-center gap-1">
-            {/* Expand/Collapse buttons */}
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8"
-              onClick={expandAll}
-              title="Expand All"
-            >
-              <ChevronsUpDown className="w-4 h-4" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8"
-              onClick={collapseAll}
-              title="Collapse All"
-            >
-              <ChevronsDownUp className="w-4 h-4" />
-            </Button>
-            <div className="w-px h-6 bg-border mx-1" />
-            {/* Add buttons */}
-            <AddTeamDialog projectId={optimisticProject.id} />
-            <AddPlayerDialog project={optimisticProject} />
-            <AddDeviceDialog project={optimisticProject} availableDevices={availableDevices} />
-          </div>
-        </div>
+        {/* Device Console - Show first when game is running */}
+        {isGameRunning && <DeviceConsole />}
 
-        {/* Two-column layout: Active (left) | Unassigned (right) */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        {/* Teams Section - Hide when game is running */}
+        {!isGameRunning && (
+          <>
+            {/* Toolbar */}
+            <div className="flex items-center justify-between gap-2">
+              <h3 className="text-lg font-semibold flex items-center gap-2">
+                <Users className="w-5 h-5" />
+                Teams & Players
+              </h3>
+              <div className="flex items-center gap-1">
+                {/* Expand/Collapse buttons */}
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={expandAll}
+                  title="Expand All"
+                >
+                  <ChevronsUpDown className="w-4 h-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={collapseAll}
+                  title="Collapse All"
+                >
+                  <ChevronsDownUp className="w-4 h-4" />
+                </Button>
+                <div className="w-px h-6 bg-border mx-1" />
+                {/* Add buttons */}
+                <AddTeamDialog projectId={optimisticProject.id} />
+                <AddPlayerDialog project={optimisticProject} />
+                <AddDeviceDialog project={optimisticProject} availableDevices={availableDevices} />
+              </div>
+            </div>
+
+            {/* Two-column layout: Active (left) | Unassigned (right) */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           {/* Left side - Active Teams */}
           <div className="lg:col-span-2 space-y-2">
             <h4 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
@@ -1125,7 +1141,12 @@ export function GameOverview({ project, availableDevices = [] }: GameOverviewPro
               </CardContent>
             </Card>
           )}
-      </div>
+      </>
+    )}
+
+    {/* Device Console - Show at bottom when game is not running */}
+    {!isGameRunning && <DeviceConsole />}
+  </div>
 
       {/* Drag Overlay */}
       <DragOverlay>

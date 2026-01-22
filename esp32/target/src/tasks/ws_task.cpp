@@ -19,6 +19,8 @@ extern "C" void ws_task(void* pvParameters)
 
     while (1)
     {
+        // Only send status periodically if connected (heartbeat mechanism)
+        // Frontend can also request status explicitly via OP_GET_STATUS
         if (ws_server_is_connected() && game_state_heartbeat_due())
         {
             ws_server_send_status();
@@ -29,6 +31,6 @@ extern "C" void ws_task(void* pvParameters)
             ws_server_broadcast_respawn();
         }
 
-        vTaskDelay(pdMS_TO_TICKS(1000));
+        vTaskDelay(pdMS_TO_TICKS(5000)); // Check every 5 seconds instead of 1
     }
 }

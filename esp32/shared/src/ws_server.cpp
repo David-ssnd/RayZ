@@ -243,6 +243,50 @@ static void handle_game_command(cJSON* root)
     ws_server_broadcast_game_state();
 }
 
+static void handle_hit_forward(cJSON* root)
+{
+    // Forward hit to this device (someone shot us)
+    cJSON* shooter_item = cJSON_GetObjectItem(root, "shooter_id");
+    if (!shooter_item || !cJSON_IsNumber(shooter_item))
+    {
+        ESP_LOGW(TAG, "hit_forward: missing or invalid shooter_id");
+        return;
+    }
+
+    uint8_t shooter_id = (uint8_t)shooter_item->valueint;
+    ESP_LOGI(TAG, "Hit forwarded from shooter_id=%u", shooter_id);
+
+    // Record the hit and reduce hearts
+    game_state_record_hit();
+    
+    // Check if we need to respawn
+    const GameStateData* state = game_state_get();
+    if (state->hearts_remaining == 0)
+    {
+        game_state_start_respawn();
+        game_state_record_death();
+    }
+
+    // Broadcast updated status
+    ws_server_broadcast_game_state();
+}
+
+static void handle_remote_sound(cJSON* root)
+{
+    cJSON* sound_item = cJSON_GetObjectItem(root, "sound_id");
+    if (!sound_item || !cJSON_IsNumber(sound_item))
+    {
+        ESP_LOGW(TAG, "remote_sound: missing or invalid sound_id");
+        return;
+    }
+
+    int sound_id = sound_item->valueint;
+    ESP_LOGI(TAG, "Playing remote sound_id=%d", sound_id);
+
+    // TODO: Implement sound playback (buzzer, speaker, etc.)
+    // For now just log it
+}
+
 static void process_message(int fd, const char* payload)
 {
     cJSON* root = cJSON_Parse(payload);
@@ -271,9 +315,11 @@ static void process_message(int fd, const char* payload)
     {
         case OP_GET_STATUS:
             ws_server_send_status_to(fd);
+            game_state_update_heartbeat(); // Update heartbeat on explicit status request
             break;
         case OP_HEARTBEAT:
             ws_server_send_heartbeat_ack(fd);
+            game_state_update_heartbeat();
             break;
         case OP_CONFIG_UPDATE:
             handle_config_update(root);
@@ -281,9 +327,18 @@ static void process_message(int fd, const char* payload)
         case OP_GAME_COMMAND:
             handle_game_command(root);
             break;
+        case OP_HIT_FORWARD:
+            handle_hit_forward(root);
+            break;
         case OP_KILL_CONFIRMED:
             game_state_record_kill();
             ws_server_broadcast_game_state();
+            break;
+        case OP_REMOTE_SOUND:
+            handle_remote_sound(root);
+            break;
+        default:
+            ESP_LOGW(TAG, "Unknown opcode: %d", op);
             break;
     }
 

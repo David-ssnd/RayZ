@@ -94,7 +94,7 @@ function ProjectDeviceManagerInner({ project, availableDevices }: ProjectDeviceM
                 }}
               />
             </div>
-            <Button onClick={handleAddNewDevice} disabled={isPending || !ipAddress} size="icon">
+            <Button onClick={handleAddNewDevice} disabled={isPending || !ipAddress} size="icon" className="h-10 w-10 shrink-0">
               <Plus className="w-4 h-4" />
             </Button>
           </div>
@@ -112,7 +112,7 @@ function ProjectDeviceManagerInner({ project, availableDevices }: ProjectDeviceM
                 })
               }}
             >
-              <SelectTrigger className="w-full sm:w-[180px]">
+              <SelectTrigger className="w-full sm:w-[200px] h-10">
                 <SelectValue placeholder="Add from Inventory" />
               </SelectTrigger>
               <SelectContent>

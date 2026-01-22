@@ -84,6 +84,18 @@ export interface DeviceConnectionsContextValue {
   broadcastConfig: (config: Omit<ConfigUpdateMessage, 'type' | 'op'>) => void
   /** Get all connected device states */
   connectedDevices: DeviceState[]
+  /** Message log for debugging */
+  messageLog: Array<{
+    id: string
+    timestamp: Date
+    direction: 'in' | 'out'
+    type: string
+    deviceId?: string
+    ipAddress?: string
+    payload: any
+  }>
+  /** Clear message log */
+  clearLog: () => void
   /** Event handlers - can be set by consumers */
   onHitReport?: (hit: HitReportMessage, fromDevice: string) => void
   onShotFired?: (shot: ShotFiredMessage, fromDevice: string) => void
@@ -186,6 +198,21 @@ export function DeviceConnectionsProvider({
   const isMountedRef = useRef(true)
   // Logging toggle (default: enabled in dev, disabled in prod unless overridden)
   const loggingEnabledRef = useRef(logging ?? process.env.NODE_ENV !== 'production')
+
+  // Message log state
+  const [messageLog, setMessageLog] = useState<Array<{
+    id: string
+    timestamp: Date
+    direction: 'in' | 'out'
+    type: string
+    deviceId?: string
+    ipAddress?: string
+    payload: any
+  }>>([])
+
+  const clearLog = useCallback(() => {
+    setMessageLog([])
+  }, [])
 
   useEffect(() => {
     loggingEnabledRef.current = logging ?? process.env.NODE_ENV !== 'production'
@@ -313,6 +340,19 @@ export function DeviceConnectionsProvider({
       const ws = websocketsRef.current.get(ip)
       if (ws?.readyState === WebSocket.OPEN) {
         try {
+          // Log outgoing message
+          setMessageLog((prev) => [
+            ...prev,
+            {
+              id: `${Date.now()}-${Math.random()}`,
+              timestamp: new Date(),
+              direction: 'out',
+              type: message.type,
+              ipAddress: ip,
+              payload: message,
+            },
+          ])
+
           ws.send(JSON.stringify(message))
           return true
         } catch (err) {
@@ -349,6 +389,19 @@ export function DeviceConnectionsProvider({
           }
           message = message.payload
         }
+
+        // Log incoming message
+        setMessageLog((prev) => [
+          ...prev,
+          {
+            id: `${Date.now()}-${Math.random()}`,
+            timestamp: new Date(),
+            direction: 'in',
+            type: message.type,
+            ipAddress: ip,
+            payload: message,
+          },
+        ])
 
         switch (message.type) {
           case 'status': {
@@ -872,6 +925,8 @@ export function DeviceConnectionsProvider({
     onShotFired,
     onStatusUpdate,
     subscribe: subscribe, // Make sure this is exposed!
+    messageLog,
+    clearLog,
   }
 
   return (
