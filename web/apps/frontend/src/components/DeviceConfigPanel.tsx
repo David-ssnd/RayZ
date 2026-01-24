@@ -98,12 +98,9 @@ export function DeviceConfigPanel({ project }: DeviceConfigPanelProps) {
    */
   const buildEspNowPeers = (currentDevice: Device): string[] => {
     const devices = project.devices || []
-    // Filter out current device and only include devices with MAC addresses
-    // Note: macAddress field might not exist in Device type yet
-    return devices
-      .filter((d) => d.id !== currentDevice.id)
-      .map((d: any) => d.macAddress)
-      .filter(Boolean) as string[]
+    // TODO: Add macAddress field to Device model when ESP-NOW is implemented
+    // For now, return empty array since MAC addresses are not in the schema
+    return []
   }
 
   /**

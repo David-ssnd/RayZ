@@ -51,8 +51,9 @@ export function useDeviceConfig(project: Project) {
 
   const buildEspNowPeers = useCallback((currentDevice: Device): string => {
     const devices = project.devices || []
+    // TODO: Add macAddress field to Device model when ESP-NOW is implemented
     const macAddresses = devices
-      .filter((d) => d.id !== currentDevice.id && d.macAddress)
+      .filter((d) => d.id !== currentDevice.id)
       .map((d: any) => d.macAddress)
       .filter(Boolean)
     

@@ -805,6 +805,7 @@ export function DeviceConnectionsProvider({
         confirmKill: () => sendToDevice(ip, { op: OpCode.KILL_CONFIRMED, type: 'kill_confirmed' }),
         playRemoteSound: (soundId) =>
           sendToDevice(ip, { op: OpCode.REMOTE_SOUND, type: 'remote_sound', sound_id: soundId }),
+        requestStatus: () => sendToDevice(ip, { op: OpCode.GET_STATUS, type: 'get_status' }),
       }
     },
     [deviceStates, connectDevice, disconnectDevice, sendToDevice]
