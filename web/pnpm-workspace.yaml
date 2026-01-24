@@ -10,3 +10,4 @@ ignoredBuiltDependencies:
 
 onlyBuiltDependencies:
   - esbuild
+  - unrs-resolver
