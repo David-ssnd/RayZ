@@ -66,6 +66,23 @@ static void on_wifi_disconnect(void* arg, esp_event_base_t base, int32_t id, voi
     if (s_retry_count < MAX_RETRY_COUNT)
     {
         ESP_LOGW(TAG, "WiFi disconnected, retry %d/%d...", s_retry_count, MAX_RETRY_COUNT);
+
+        // Try clearing BSSID lock early if we are having trouble
+        if (s_retry_count == 3)
+        {
+            wifi_config_t conf = {};
+            if (esp_wifi_get_config(WIFI_IF_STA, &conf) == ESP_OK)
+            {
+                if (conf.sta.bssid_set)
+                {
+                    ESP_LOGW(TAG, "Clearing BSSID lock early to allow roaming");
+                    conf.sta.bssid_set = false;
+                    memset(conf.sta.bssid, 0, 6);
+                    esp_wifi_set_config(WIFI_IF_STA, &conf);
+                }
+            }
+        }
+
         // Exponential backoff: 500ms, 1s, 2s, 5s, 5s, ...
         int backoff_ms = 500;
         if (s_retry_count == 1)
@@ -269,6 +286,8 @@ void wifi_start_sta(const char* ssid, const char* pass)
     wifi_config_t sta_config = {};
     strncpy((char*)sta_config.sta.ssid, ssid, sizeof(sta_config.sta.ssid));
     strncpy((char*)sta_config.sta.password, pass, sizeof(sta_config.sta.password));
+    sta_config.sta.bssid_set = false;
+    memset(sta_config.sta.bssid, 0, 6);
     sta_config.sta.threshold.authmode = WIFI_AUTH_WPA2_PSK;
     sta_config.sta.pmf_cfg.capable = true;
     sta_config.sta.pmf_cfg.required = false;
