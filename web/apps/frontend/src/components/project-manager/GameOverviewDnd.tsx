@@ -71,6 +71,8 @@ interface GameOverviewProps {
   project: Project
   availableDevices?: Device[]
   availableGameModes?: GameMode[]
+  isGameRunning: boolean
+  setIsGameRunning: (running: boolean) => void
 }
 
 type DraggableType = 'team' | 'player' | 'device'
@@ -493,7 +495,13 @@ type OptimisticAction =
     }
   | { type: 'MOVE_DEVICE'; deviceId: string; targetPlayerId: string | null }
 
-export function GameOverview({ project, availableDevices = [], availableGameModes = [] }: GameOverviewProps) {
+export function GameOverview({ 
+  project, 
+  availableDevices = [], 
+  availableGameModes = [],
+  isGameRunning,
+  setIsGameRunning
+}: GameOverviewProps) {
   const [optimisticProject, addOptimisticUpdate] = useOptimistic(
     project,
     (state: Project, action: OptimisticAction) => {
@@ -548,8 +556,6 @@ export function GameOverview({ project, availableDevices = [], availableGameMode
   )
 
   const { connections } = useDeviceConnections()
-
-  const [isGameRunning, setIsGameRunning] = useState(false)
 
   const [expandedTeams, setExpandedTeams] = useState<Set<string>>(
     () => new Set(project.teams?.map((t) => t.id) || [])

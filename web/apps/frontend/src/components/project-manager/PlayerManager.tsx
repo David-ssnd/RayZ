@@ -32,7 +32,15 @@ import {
   Team,
 } from './types'
 
-export function PlayerManager({ project, devices }: { project: Project; devices: Device[] }) {
+export function PlayerManager({ 
+  project, 
+  devices,
+  disabled = false 
+}: { 
+  project: Project; 
+  devices: Device[];
+  disabled?: boolean;
+}) {
   const [name, setName] = useState('')
   // Allow string temporarily to prevent input jumping, parse on submit
   const [playerNumberStr, setPlayerNumberStr] = useState(String(DEFAULT_PLAYER_ID))
@@ -73,7 +81,7 @@ export function PlayerManager({ project, devices }: { project: Project; devices:
   }
 
   const handleAdd = () => {
-    if (!trimmedName || isDuplicateId || isDuplicateName) return
+    if (!trimmedName || isDuplicateId || isDuplicateName || disabled) return
 
     startTransition(async () => {
       const result = await addPlayer(project.id, trimmedName, currentPlayerId)
@@ -136,6 +144,11 @@ export function PlayerManager({ project, devices }: { project: Project; devices:
 
   return (
     <div className="space-y-4 relative">
+      {disabled && (
+        <div className="p-3 bg-muted rounded-md text-sm text-muted-foreground">
+          Player editing is disabled while the game is running.
+        </div>
+      )}
       {/* Add Player Form */}
       <div className="flex flex-col sm:flex-row gap-2">
         <Input
@@ -143,6 +156,7 @@ export function PlayerManager({ project, devices }: { project: Project; devices:
           onChange={(e) => setName(e.target.value)}
           placeholder="Player Name"
           className={`flex-1 ${isDuplicateName ? 'border-destructive text-destructive' : ''}`}
+          disabled={disabled}
         />
         <div className="flex items-center gap-2">
           <label className="text-sm text-muted-foreground whitespace-nowrap">ID:</label>
@@ -153,11 +167,12 @@ export function PlayerManager({ project, devices }: { project: Project; devices:
             value={playerNumberStr}
             onChange={(e) => setPlayerNumberStr(e.target.value)}
             className={`w-20 ${isDuplicateId ? 'border-destructive text-destructive' : ''}`}
+            disabled={disabled}
           />
         </div>
         <Button
           onClick={handleAdd}
-          disabled={isPending || !trimmedName || isDuplicateId || isDuplicateName}
+          disabled={isPending || !trimmedName || isDuplicateId || isDuplicateName || disabled}
         >
           Add Player
         </Button>
@@ -218,6 +233,7 @@ export function PlayerManager({ project, devices }: { project: Project; devices:
                       size="sm"
                       className="h-6 w-6 p-0"
                       onClick={() => startEditing(player)}
+                      disabled={disabled}
                     >
                       <Edit2 className="w-3 h-3" />
                     </Button>
@@ -228,6 +244,7 @@ export function PlayerManager({ project, devices }: { project: Project; devices:
                   <Select
                     value={player.teamId || 'none'}
                     onValueChange={(val) => handleTeamChange(player.id, val)}
+                    disabled={disabled}
                   >
                     <SelectTrigger className="w-[140px] h-8">
                       <SelectValue placeholder="Team" />
@@ -252,6 +269,7 @@ export function PlayerManager({ project, devices }: { project: Project; devices:
                     variant="ghost"
                     size="sm"
                     className="h-8 w-8 p-0"
+                    disabled={disabled}
                     onClick={() =>
                       startTransition(async () => {
                         const result = await removePlayer(player.id)

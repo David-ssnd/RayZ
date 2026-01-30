@@ -76,9 +76,10 @@ const buildConfigFromBase = (base?: GameMode): GameModeConfig => ({
 interface GameModeManagerProps {
   gameModes: GameMode[]
   onCreated: (mode: GameMode) => void
+  disabled?: boolean
 }
 
-export function GameModeManager({ gameModes, onCreated }: GameModeManagerProps) {
+export function GameModeManager({ gameModes, onCreated, disabled = false }: GameModeManagerProps) {
   const systemModes = useMemo(
     () => gameModes.filter((mode) => mode.isSystem || mode.userId === null),
     [gameModes]
@@ -151,6 +152,11 @@ export function GameModeManager({ gameModes, onCreated }: GameModeManagerProps) 
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-[260px_1fr] gap-4">
+      {disabled && (
+        <div className="col-span-full p-3 bg-muted rounded-md text-sm text-muted-foreground">
+          Game mode creation is disabled while the game is running.
+        </div>
+      )}
       {/* LEFT COLUMN: List */}
       <div className="border rounded-lg overflow-hidden h-[600px] flex flex-col">
         <div className="p-3 border-b">
@@ -158,7 +164,7 @@ export function GameModeManager({ gameModes, onCreated }: GameModeManagerProps) 
             <span className="text-sm font-medium">Game Modes</span>
             <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
               <DialogTrigger asChild>
-                <Button size="sm" variant="outline" className="h-8 gap-2">
+                <Button size="sm" variant="outline" className="h-8 gap-2" disabled={disabled}>
                   <Plus className="h-3 w-3" />
                   <span>New</span>
                 </Button>

@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input'
 
 import { Project, Team } from './types'
 
-export function TeamManager({ project }: { project: Project }) {
+export function TeamManager({ project, disabled = false }: { project: Project; disabled?: boolean }) {
   const [name, setName] = useState('')
   const [color, setColor] = useState('#ff0000')
   const [isPending, startTransition] = useTransition()
@@ -18,7 +18,7 @@ export function TeamManager({ project }: { project: Project }) {
   const [editColor, setEditColor] = useState('')
 
   const handleAdd = () => {
-    if (!name) return
+    if (!name || disabled) return
     startTransition(async () => {
       await addTeam(project.id, name, color)
       setName('')
@@ -26,13 +26,14 @@ export function TeamManager({ project }: { project: Project }) {
   }
 
   const startEditing = (team: Team) => {
+    if (disabled) return
     setEditingTeamId(team.id)
     setEditName(team.name)
     setEditColor(team.color)
   }
 
   const saveEdit = () => {
-    if (!editingTeamId || !editName) return
+    if (!editingTeamId || !editName || disabled) return
     startTransition(async () => {
       await updateTeam(editingTeamId, { name: editName, color: editColor })
       setEditingTeamId(null)
@@ -41,10 +42,20 @@ export function TeamManager({ project }: { project: Project }) {
 
   return (
     <div className="space-y-4">
+      {disabled && (
+        <div className="p-3 bg-muted rounded-md text-sm text-muted-foreground">
+          Team editing is disabled while the game is running.
+        </div>
+      )}
       <div className="flex gap-2 items-end">
         <div className="grid gap-1.5">
           <label className="text-sm font-medium">Team Name</label>
-          <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Red Team" />
+          <Input 
+            value={name} 
+            onChange={(e) => setName(e.target.value)} 
+            placeholder="Red Team" 
+            disabled={disabled}
+          />
         </div>
         <div className="grid gap-1.5">
           <label className="text-sm font-medium">Color</label>
@@ -54,11 +65,17 @@ export function TeamManager({ project }: { project: Project }) {
               value={color}
               onChange={(e) => setColor(e.target.value)}
               className="w-12 p-1 h-10"
+              disabled={disabled}
             />
-            <Input value={color} onChange={(e) => setColor(e.target.value)} className="w-24" />
+            <Input 
+              value={color} 
+              onChange={(e) => setColor(e.target.value)} 
+              className="w-24" 
+              disabled={disabled}
+            />
           </div>
         </div>
-        <Button onClick={handleAdd} disabled={isPending || !name}>
+        <Button onClick={handleAdd} disabled={isPending || !name || disabled}>
           Add Team
         </Button>
       </div>
@@ -73,16 +90,18 @@ export function TeamManager({ project }: { project: Project }) {
                   value={editColor}
                   onChange={(e) => setEditColor(e.target.value)}
                   className="w-8 p-0 h-8 border-none"
+                  disabled={disabled}
                 />
                 <Input
                   value={editName}
                   onChange={(e) => setEditName(e.target.value)}
                   className="h-8"
+                  disabled={disabled}
                 />
-                <Button size="sm" onClick={saveEdit} disabled={isPending}>
+                <Button size="sm" onClick={saveEdit} disabled={isPending || disabled}>
                   Save
                 </Button>
-                <Button size="sm" variant="ghost" onClick={() => setEditingTeamId(null)}>
+                <Button size="sm" variant="ghost" onClick={() => setEditingTeamId(null)} disabled={disabled}>
                   Cancel
                 </Button>
               </div>
@@ -95,13 +114,14 @@ export function TeamManager({ project }: { project: Project }) {
 
             <div className="flex items-center gap-1">
               {!editingTeamId && (
-                <Button variant="ghost" size="sm" onClick={() => startEditing(team)}>
+                <Button variant="ghost" size="sm" onClick={() => startEditing(team)} disabled={disabled}>
                   <Edit2 className="w-4 h-4" />
                 </Button>
               )}
               <Button
                 variant="ghost"
                 size="sm"
+                disabled={disabled}
                 onClick={() =>
                   startTransition(async () => {
                     await removeTeam(team.id)

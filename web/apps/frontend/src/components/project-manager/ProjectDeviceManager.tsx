@@ -22,9 +22,10 @@ import { Device, Player, Project, Team } from './types'
 interface ProjectDeviceManagerInnerProps {
   project: Project
   availableDevices: Device[]
+  disabled?: boolean
 }
 
-function ProjectDeviceManagerInner({ project, availableDevices }: ProjectDeviceManagerInnerProps) {
+function ProjectDeviceManagerInner({ project, availableDevices, disabled = false }: ProjectDeviceManagerInnerProps) {
   const [isPending, startTransition] = useTransition()
   const [ipAddress, setIpAddress] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -80,6 +81,11 @@ function ProjectDeviceManagerInner({ project, availableDevices }: ProjectDeviceM
 
   return (
     <div className="space-y-4">
+      {disabled && (
+        <div className="p-3 bg-muted rounded-md text-sm text-muted-foreground">
+          Device management is disabled while the game is running.
+        </div>
+      )}
       {/* Add Device Section */}
       <div className="flex flex-col gap-2">
         <div className="flex flex-col sm:flex-row gap-2">
@@ -92,9 +98,10 @@ function ProjectDeviceManagerInner({ project, availableDevices }: ProjectDeviceM
                   setIpAddress(v)
                   setError(null)
                 }}
+                disabled={disabled}
               />
             </div>
-            <Button onClick={handleAddNewDevice} disabled={isPending || !ipAddress} size="icon" className="h-10 w-10 shrink-0">
+            <Button onClick={handleAddNewDevice} disabled={isPending || !ipAddress || disabled} size="icon" className="h-10 w-10 shrink-0">
               <Plus className="w-4 h-4" />
             </Button>
           </div>
@@ -111,6 +118,7 @@ function ProjectDeviceManagerInner({ project, availableDevices }: ProjectDeviceM
                   await addDeviceToProject(project.id, val)
                 })
               }}
+              disabled={disabled}
             >
               <SelectTrigger className="w-full sm:w-[200px] h-10">
                 <SelectValue placeholder="Add from Inventory" />
@@ -182,6 +190,7 @@ function ProjectDeviceManagerInner({ project, availableDevices }: ProjectDeviceM
                   size="sm"
                   className="h-6 w-6 p-0"
                   onClick={() => handleRemoveDevice(device.id)}
+                  disabled={disabled}
                 >
                   <Trash2 className="w-3 h-3 text-destructive" />
                 </Button>
@@ -203,10 +212,12 @@ function ProjectDeviceManagerInner({ project, availableDevices }: ProjectDeviceM
 export function ProjectDeviceManager({
   project,
   availableDevices,
+  disabled = false,
 }: {
   project: Project
   availableDevices: Device[]
+  disabled?: boolean
 }) {
   // DeviceConnectionsProvider is now at ProjectManager level
-  return <ProjectDeviceManagerInner project={project} availableDevices={availableDevices} />
+  return <ProjectDeviceManagerInner project={project} availableDevices={availableDevices} disabled={disabled} />
 }

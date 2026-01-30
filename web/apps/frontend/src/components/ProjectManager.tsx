@@ -52,6 +52,7 @@ export function ProjectManager({ projects, availableDevices, gameModes }: Projec
   const [isPending, startTransition] = useTransition()
   const [newProjectName, setNewProjectName] = useState('')
   const [menuOpen, setMenuOpen] = useState(false)
+  const [isGameRunning, setIsGameRunning] = useState(false)
 
   const [localProjects, setLocalProjects] = useState<Project[]>(projects)
   const [localGameModes, setLocalGameModes] = useState<GameMode[]>(gameModes)
@@ -252,6 +253,8 @@ export function ProjectManager({ projects, availableDevices, gameModes }: Projec
                       project={selectedProject}
                       availableDevices={availableDevices}
                       availableGameModes={localGameModes}
+                      isGameRunning={isGameRunning}
+                      setIsGameRunning={setIsGameRunning}
                     />
                   </TabsContent>
 
@@ -259,6 +262,7 @@ export function ProjectManager({ projects, availableDevices, gameModes }: Projec
                     <GameModeManager
                       gameModes={localGameModes}
                       onCreated={(mode) => setLocalGameModes((prev) => [...prev, mode])}
+                      disabled={isGameRunning}
                     />
                   </TabsContent>
 
@@ -266,17 +270,19 @@ export function ProjectManager({ projects, availableDevices, gameModes }: Projec
                     <ProjectDeviceManager
                       project={selectedProject}
                       availableDevices={availableDevices}
+                      disabled={isGameRunning}
                     />
                   </TabsContent>
 
                   <TabsContent value="teams" className="mt-4">
-                    <TeamManager project={selectedProject} />
+                    <TeamManager project={selectedProject} disabled={isGameRunning} />
                   </TabsContent>
 
                   <TabsContent value="players" className="mt-4">
                     <PlayerManager
                       project={selectedProject}
                       devices={selectedProject.devices || []}
+                      disabled={isGameRunning}
                     />
                   </TabsContent>
 
