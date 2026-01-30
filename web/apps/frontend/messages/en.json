@@ -19,7 +19,22 @@
     "metaTitle": "Control Panel",
     "metaDescription": "Control panel for managing hardware devices",
     "addDeviceByIp": "Add device by IP address on LAN:",
-    "addDevice": "Add Device"
+    "addDevice": "Add Device",
+    "projectManager": {
+      "noProjects": "No projects yet",
+      "createFirst": "Create your first project to get started",
+      "createProject": "Create Project",
+      "enterProjectName": "Enter project name...",
+      "deleteConfirm": "Are you sure?",
+      "tabs": {
+        "overview": "Overview",
+        "teams": "Teams",
+        "players": "Players",
+        "devices": "Devices",
+        "modes": "Game Modes",
+        "settings": "Settings"
+      }
+    }
   },
   "Presentation": {
     "title": "Project Presentation",
@@ -119,15 +134,84 @@
   },
   "WSDemo": {
     "metaTitle": "WebSocket Demo",
-    "metaDescription": "Real-time communication demo with WebSocket and Ably"
+    "metaDescription": "Real-time communication demo with WebSocket and Ably",
+    "title": "Communication Demo",
+    "subtitle": "Test {mode} with ESP32 devices",
+    "connection": "Connection",
+    "mode": "Mode",
+    "devices": "Devices",
+    "connect": "Connect",
+    "disconnect": "Disconnect",
+    "quickActions": "Quick Actions",
+    "status": "Status",
+    "start": "Start",
+    "stop": "Stop",
+    "connectedDevices": "Connected Devices",
+    "noDevices": "No devices connected",
+    "messageLog": "Message Log",
+    "messageLogSubtitle": "Real-time device communications",
+    "waitingForMessages": "Waiting for messages...",
+    "activeFeatures": "Active Features",
+    "activeFeaturesSubtitle": "Enabled feature flags",
+    "cloudMode": "☁️ Cloud Mode",
+    "cloudModeDescription": "Running in cloud mode with Ably",
+    "localMode": "🏠 Local Mode",
+    "localModeDescription": "Running in local mode with WebSocket",
+    "adminPanel": "👑 Admin Panel",
+    "adminPanelDescription": "Admin features enabled"
   },
   "SignIn": {
     "metaTitle": "Sign In",
-    "metaDescription": "Sign in to your account"
+    "metaDescription": "Sign in to your account",
+    "title": "Sign in to your account",
+    "noAccount": "Don't have an account?",
+    "signUp": "Sign up",
+    "signInWithGithub": "Sign in with GitHub",
+    "signInWithGoogle": "Sign in with Google",
+    "orContinueWith": "Or continue with",
+    "magicLink": "Magic Link",
+    "password": "Password",
+    "email": "Email",
+    "sendMagicLink": "Send magic link",
+    "magicLinkComingSoon": "Magic link sign-in will be available soon",
+    "forgotPassword": "Forgot password?",
+    "signingIn": "Signing in...",
+    "continue": "Continue",
+    "errors": {
+      "emailRequired": "Email is required",
+      "emailInvalid": "Invalid email address",
+      "passwordRequired": "Password is required",
+      "passwordMinLength": "Password must be at least 8 characters",
+      "invalidCredentials": "Invalid email or password"
+    }
   },
   "SignUp": {
     "metaTitle": "Sign Up",
-    "metaDescription": "Create a new account"
+    "metaDescription": "Create a new account",
+    "title": "Create an account",
+    "haveAccount": "Already have an account?",
+    "signIn": "Sign in",
+    "signUpWithGithub": "Sign up with GitHub",
+    "signUpWithGoogle": "Sign up with Google",
+    "orContinueWith": "Or continue with",
+    "magicLink": "Magic Link",
+    "password": "Password",
+    "name": "Name",
+    "email": "Email",
+    "creatingAccount": "Creating account...",
+    "createAccount": "Create account",
+    "errors": {
+      "nameRequired": "Name is required",
+      "nameMinLength": "Name must be at least 2 characters",
+      "emailRequired": "Email is required",
+      "emailInvalid": "Invalid email address",
+      "passwordRequired": "Password is required",
+      "passwordMinLength": "Password must be at least 8 characters",
+      "emailExists": "An account with this email already exists"
+    },
+    "success": {
+      "accountCreated": "Account created successfully! Redirecting to sign in..."
+    }
   },
   "Common": {
     "dashboardTitle": "RayZ Dashboard",

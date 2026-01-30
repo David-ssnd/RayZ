@@ -3,6 +3,7 @@
 import { useState, type FormEvent, type SVGProps } from 'react'
 import Link from 'next/link'
 import { signIn } from 'next-auth/react'
+import { useTranslations } from 'next-intl'
 
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -16,6 +17,7 @@ type SignUpCardProps = {
 type Mode = 'magic' | 'password'
 
 export default function SignUpCard({ locale }: SignUpCardProps) {
+  const t = useTranslations('SignUp')
   const [mode, setMode] = useState<Mode>('password')
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
@@ -40,7 +42,7 @@ export default function SignUpCard({ locale }: SignUpCardProps) {
 
       if (!registerRes.ok) {
         const data = await registerRes.json()
-        throw new Error(data.error || 'Registration failed')
+        throw new Error(data.error || t('errors.emailExists'))
       }
 
       // 2. Sign in the user
@@ -52,7 +54,7 @@ export default function SignUpCard({ locale }: SignUpCardProps) {
       })) as Awaited<ReturnType<typeof signIn>>
 
       if (result?.error) {
-        setError('Registration successful, but failed to sign in automatically. Please sign in.')
+        setError(t('success.accountCreated'))
         return
       }
 
@@ -61,7 +63,7 @@ export default function SignUpCard({ locale }: SignUpCardProps) {
       }
     } catch (err: any) {
       console.error('Failed to sign up', err)
-      setError(err.message || 'Something went wrong. Please try again later.')
+      setError(err.message || t('errors.emailExists'))
     } finally {
       setIsSubmitting(false)
     }
@@ -75,15 +77,15 @@ export default function SignUpCard({ locale }: SignUpCardProps) {
     <Card className="w-full max-w-md border-transparent bg-white/95 text-foreground shadow-[0_25px_60px_rgba(15,23,42,0.15)] ring-1 ring-black/5 backdrop-blur dark:border-white/5 dark:bg-neutral-950/80 dark:ring-white/10">
       <CardHeader className="gap-3 text-center">
         <CardTitle className="text-2xl font-semibold leading-tight sm:text-3xl">
-          Create an account
+          {t('title')}
         </CardTitle>
         <CardDescription>
-          Already have an account?{' '}
+          {t('haveAccount')}{' '}
           <Link
             href={`/${locale}/signin`}
             className="font-medium text-primary underline-offset-4 hover:underline"
           >
-            Sign in
+            {t('signIn')}
           </Link>
         </CardDescription>
       </CardHeader>
@@ -96,7 +98,7 @@ export default function SignUpCard({ locale }: SignUpCardProps) {
             onClick={() => handleProvider('github')}
           >
             <GitHubIcon className="size-5" />
-            Sign up with GitHub
+            {t('signUpWithGithub')}
           </Button>
           <Button
             type="button"
@@ -105,13 +107,13 @@ export default function SignUpCard({ locale }: SignUpCardProps) {
             onClick={() => handleProvider('google')}
           >
             <GoogleIcon className="size-5" />
-            Sign up with Google
+            {t('signUpWithGoogle')}
           </Button>
         </div>
 
         <div className="flex items-center gap-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">
           <span className="h-px flex-1 bg-border" />
-          Or continue with
+          {t('orContinueWith')}
           <span className="h-px flex-1 bg-border" />
         </div>
 
@@ -119,8 +121,8 @@ export default function SignUpCard({ locale }: SignUpCardProps) {
           <div className="grid grid-cols-2 gap-1 rounded-xl border bg-muted/80 p-1 text-sm font-medium">
             {(
               [
-                { key: 'magic', label: 'Magic Link' },
-                { key: 'password', label: 'Password' },
+                { key: 'magic', label: t('magicLink') },
+                { key: 'password', label: t('password') },
               ] as const
             ).map(({ key, label }) => (
               <button
@@ -141,7 +143,7 @@ export default function SignUpCard({ locale }: SignUpCardProps) {
             <form className="space-y-4" onSubmit={(event) => event.preventDefault()}>
               <div className="space-y-2">
                 <label htmlFor="magic-email" className="text-sm font-medium">
-                  Email
+                  {t('email')}
                 </label>
                 <Input
                   id="magic-email"
@@ -153,18 +155,18 @@ export default function SignUpCard({ locale }: SignUpCardProps) {
                   required
                 />
               </div>
-              <Button className="w-full" disabled title="Magic link delivery is coming soon">
-                Send magic link
+              <Button className="w-full" disabled title={t('SignIn.magicLinkComingSoon')}>
+                {t('SignIn.sendMagicLink')}
               </Button>
               <p className="text-center text-xs text-muted-foreground">
-                Magic link sign-up will be available soon.
+                {t('SignIn.magicLinkComingSoon')}
               </p>
             </form>
           ) : (
             <form className="space-y-4" onSubmit={handleCredentialsSubmit}>
               <div className="space-y-2">
                 <label htmlFor="name" className="text-sm font-medium">
-                  Name
+                  {t('name')}
                 </label>
                 <Input
                   id="name"
@@ -177,7 +179,7 @@ export default function SignUpCard({ locale }: SignUpCardProps) {
               </div>
               <div className="space-y-2">
                 <label htmlFor="email" className="text-sm font-medium">
-                  Email
+                  {t('email')}
                 </label>
                 <Input
                   id="email"
@@ -191,7 +193,7 @@ export default function SignUpCard({ locale }: SignUpCardProps) {
               </div>
               <div className="space-y-2">
                 <label htmlFor="password" className="text-sm font-medium">
-                  Password
+                  {t('password')}
                 </label>
                 <Input
                   id="password"
@@ -205,7 +207,7 @@ export default function SignUpCard({ locale }: SignUpCardProps) {
               </div>
               {error && <p className="text-sm text-destructive">{error}</p>}
               <Button type="submit" className="w-full" disabled={isSubmitting}>
-                {isSubmitting ? 'Creating account...' : 'Create account'}
+                {isSubmitting ? t('creatingAccount') : t('createAccount')}
               </Button>
             </form>
           )}

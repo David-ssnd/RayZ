@@ -19,7 +19,22 @@
     "metaTitle": "Ovládací panel",
     "metaDescription": "Ovládací panel na správu hardvérových zariadení",
     "addDeviceByIp": "Pridať zariadenie podľa IP adresy na LAN:",
-    "addDevice": "Pridať zariadenie"
+    "addDevice": "Pridať zariadenie",
+    "projectManager": {
+      "noProjects": "Zatiaľ žiadne projekty",
+      "createFirst": "Vytvorte svoj prvý projekt pre začiatok",
+      "createProject": "Vytvoriť projekt",
+      "enterProjectName": "Zadajte názov projektu...",
+      "deleteConfirm": "Ste si istí?",
+      "tabs": {
+        "overview": "Prehľad",
+        "teams": "Tímy",
+        "players": "Hráči",
+        "devices": "Zariadenia",
+        "modes": "Herné režimy",
+        "settings": "Nastavenia"
+      }
+    }
   },
   "Presentation": {
     "title": "Prezentácia projektu",
@@ -119,15 +134,84 @@
   },
   "WSDemo": {
     "metaTitle": "WebSocket Demo",
-    "metaDescription": "Ukážka komunikácie v reálnom čase pomocou WebSocket a Ably"
+    "metaDescription": "Ukážka komunikácie v reálnom čase pomocou WebSocket a Ably",
+    "title": "Demo komunikácie",
+    "subtitle": "Testovanie {mode} s ESP32 zariadeniami",
+    "connection": "Pripojenie",
+    "mode": "Režim",
+    "devices": "Zariadenia",
+    "connect": "Pripojiť",
+    "disconnect": "Odpojiť",
+    "quickActions": "Rýchle akcie",
+    "status": "Stav",
+    "start": "Spustiť",
+    "stop": "Zastaviť",
+    "connectedDevices": "Pripojené zariadenia",
+    "noDevices": "Žiadne pripojené zariadenia",
+    "messageLog": "História správ",
+    "messageLogSubtitle": "Komunikácia zariadení v reálnom čase",
+    "waitingForMessages": "Čakám na správy...",
+    "activeFeatures": "Aktívne funkcie",
+    "activeFeaturesSubtitle": "Povolené funkcie",
+    "cloudMode": "☁️ Cloudový režim",
+    "cloudModeDescription": "Bežím v cloudovom režime s Ably",
+    "localMode": "🏠 Lokálny režim",
+    "localModeDescription": "Bežím v lokálnom režime s WebSocket",
+    "adminPanel": "👑 Administrátorský panel",
+    "adminPanelDescription": "Administrátorské funkcie povolené"
   },
   "SignIn": {
     "metaTitle": "Prihlásenie",
-    "metaDescription": "Prihláste sa do svojho účtu"
+    "metaDescription": "Prihláste sa do svojho účtu",
+    "title": "Prihláste sa do svojho účtu",
+    "noAccount": "Nemáte účet?",
+    "signUp": "Zaregistrujte sa",
+    "signInWithGithub": "Prihlásiť sa cez GitHub",
+    "signInWithGoogle": "Prihlásiť sa cez Google",
+    "orContinueWith": "Alebo pokračujte s",
+    "magicLink": "Magický odkaz",
+    "password": "Heslo",
+    "email": "E-mail",
+    "sendMagicLink": "Odoslať magický odkaz",
+    "magicLinkComingSoon": "Prihlásenie cez magický odkaz bude čoskoro dostupné",
+    "forgotPassword": "Zabudli ste heslo?",
+    "signingIn": "Prihlasovanie...",
+    "continue": "Pokračovať",
+    "errors": {
+      "emailRequired": "E-mail je povinný",
+      "emailInvalid": "Neplatná e-mailová adresa",
+      "passwordRequired": "Heslo je povinné",
+      "passwordMinLength": "Heslo musí mať aspoň 8 znakov",
+      "invalidCredentials": "Neplatný e-mail alebo heslo"
+    }
   },
   "SignUp": {
     "metaTitle": "Registrácia",
-    "metaDescription": "Vytvorte si nový účet"
+    "metaDescription": "Vytvorte si nový účet",
+    "title": "Vytvorte si účet",
+    "haveAccount": "Už máte účet?",
+    "signIn": "Prihláste sa",
+    "signUpWithGithub": "Registrovať sa cez GitHub",
+    "signUpWithGoogle": "Registrovať sa cez Google",
+    "orContinueWith": "Alebo pokračujte s",
+    "magicLink": "Magický odkaz",
+    "password": "Heslo",
+    "name": "Meno",
+    "email": "E-mail",
+    "creatingAccount": "Vytváram účet...",
+    "createAccount": "Vytvoriť účet",
+    "errors": {
+      "nameRequired": "Meno je povinné",
+      "nameMinLength": "Meno musí mať aspoň 2 znaky",
+      "emailRequired": "E-mail je povinný",
+      "emailInvalid": "Neplatná e-mailová adresa",
+      "passwordRequired": "Heslo je povinné",
+      "passwordMinLength": "Heslo musí mať aspoň 8 znakov",
+      "emailExists": "Účet s týmto e-mailom už existuje"
+    },
+    "success": {
+      "accountCreated": "Účet bol úspešne vytvorený! Presmerovávam na prihlásenie..."
+    }
   },
   "Common": {
     "dashboardTitle": "RayZ Dashboard",

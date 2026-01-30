@@ -80,7 +80,7 @@ export function ProjectManager({ projects, availableDevices, gameModes }: Projec
   }
 
   const handleDeleteProject = (id: string) => {
-    if (!confirm('Are you sure?')) return
+    if (!confirm(t('projectManager.deleteConfirm'))) return
     startTransition(async () => {
       await deleteProject(id)
       setLocalProjects((prev) => prev.filter((p) => p.id !== id))
@@ -103,16 +103,15 @@ export function ProjectManager({ projects, availableDevices, gameModes }: Projec
               <EmptyMedia variant="icon">
                 <FolderX />
               </EmptyMedia>
-              <EmptyTitle>No Projects Yet</EmptyTitle>
+              <EmptyTitle>{t('projectManager.noProjects')}</EmptyTitle>
               <EmptyDescription>
-                You haven&apos;t created any projects yet. Get started by creating your first
-                project.
+                {t('projectManager.createFirst')}
               </EmptyDescription>
             </EmptyHeader>
             <EmptyContent>
               <div className="flex gap-2">
                 <Input
-                  placeholder="Project name..."
+                  placeholder={t('projectManager.enterProjectName')}
                   value={newProjectName}
                   onChange={(e) => setNewProjectName(e.target.value)}
                   className="flex-1"
@@ -212,37 +211,37 @@ export function ProjectManager({ projects, availableDevices, gameModes }: Projec
                     <TabsTrigger value="overview" className="group flex-1 sm:flex-none">
                       <LayoutDashboard className="w-4 h-4 lg:mr-2" />
                       <span className="hidden lg:inline group-data-[state=active]:inline">
-                        Overview
+                        {t('projectManager.tabs.overview')}
                       </span>
                     </TabsTrigger>
                     <TabsTrigger value="gamemode" className="group flex-1 sm:flex-none">
                       <Settings2 className="w-4 h-4 lg:mr-2" />
                       <span className="hidden lg:inline group-data-[state=active]:inline">
-                        Gamemode
+                        {t('projectManager.tabs.modes')}
                       </span>
                     </TabsTrigger>
                     <TabsTrigger value="devices" className="group flex-1 sm:flex-none">
                       <Monitor className="w-4 h-4 lg:mr-2" />
                       <span className="hidden lg:inline group-data-[state=active]:inline">
-                        Devices
+                        {t('projectManager.tabs.devices')}
                       </span>
                     </TabsTrigger>
                     <TabsTrigger value="teams" className="group flex-1 sm:flex-none">
                       <Users className="w-4 h-4 lg:mr-2" />
                       <span className="hidden lg:inline group-data-[state=active]:inline">
-                        Teams
+                        {t('projectManager.tabs.teams')}
                       </span>
                     </TabsTrigger>
                     <TabsTrigger value="players" className="group flex-1 sm:flex-none">
                       <Gamepad2 className="w-4 h-4 lg:mr-2" />
                       <span className="hidden lg:inline group-data-[state=active]:inline">
-                        Players
+                        {t('projectManager.tabs.players')}
                       </span>
                     </TabsTrigger>
                     <TabsTrigger value="project" className="group flex-1 sm:flex-none">
                       <Settings className="w-4 h-4 lg:mr-2" />
                       <span className="hidden lg:inline group-data-[state=active]:inline">
-                        Settings
+                        {t('projectManager.tabs.settings')}
                       </span>
                     </TabsTrigger>
                   </TabsList>

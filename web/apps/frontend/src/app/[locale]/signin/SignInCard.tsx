@@ -3,6 +3,7 @@
 import { useState, type FormEvent, type SVGProps } from 'react'
 import Link from 'next/link'
 import { signIn } from 'next-auth/react'
+import { useTranslations } from 'next-intl'
 
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -16,6 +17,7 @@ type SignInCardProps = {
 type Mode = 'magic' | 'password'
 
 export default function SignInCard({ locale }: SignInCardProps) {
+  const t = useTranslations('SignIn')
   const [mode, setMode] = useState<Mode>('password')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -38,7 +40,7 @@ export default function SignInCard({ locale }: SignInCardProps) {
       })) as Awaited<ReturnType<typeof signIn>>
 
       if (result?.error) {
-        setError('Invalid email or password. Please try again.')
+        setError(t('errors.invalidCredentials'))
         return
       }
 
@@ -47,7 +49,7 @@ export default function SignInCard({ locale }: SignInCardProps) {
       }
     } catch (err) {
       console.error('Failed to sign in with credentials', err)
-      setError('Something went wrong. Please try again later.')
+      setError(t('errors.invalidCredentials'))
     } finally {
       setIsSubmitting(false)
     }
@@ -61,15 +63,15 @@ export default function SignInCard({ locale }: SignInCardProps) {
     <Card className="w-full max-w-md border-transparent bg-white/95 text-foreground shadow-[0_25px_60px_rgba(15,23,42,0.15)] ring-1 ring-black/5 backdrop-blur dark:border-white/5 dark:bg-neutral-950/80 dark:ring-white/10">
       <CardHeader className="gap-3 text-center">
         <CardTitle className="text-2xl font-semibold leading-tight sm:text-3xl">
-          Sign in to your account
+          {t('title')}
         </CardTitle>
         <CardDescription>
-          Don&apos;t have an account?{' '}
+          {t('noAccount')}{' '}
           <Link
             href={`/${locale}/signup`}
             className="font-medium text-primary underline-offset-4 hover:underline"
           >
-            Sign up
+            {t('signUp')}
           </Link>
         </CardDescription>
       </CardHeader>
@@ -82,7 +84,7 @@ export default function SignInCard({ locale }: SignInCardProps) {
             onClick={() => handleProvider('github')}
           >
             <GitHubIcon className="size-5" />
-            Sign in with GitHub
+            {t('signInWithGithub')}
           </Button>
           <Button
             type="button"
@@ -91,13 +93,13 @@ export default function SignInCard({ locale }: SignInCardProps) {
             onClick={() => handleProvider('google')}
           >
             <GoogleIcon className="size-5" />
-            Sign in with Google
+            {t('signInWithGoogle')}
           </Button>
         </div>
 
         <div className="flex items-center gap-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">
           <span className="h-px flex-1 bg-border" />
-          Or continue with
+          {t('orContinueWith')}
           <span className="h-px flex-1 bg-border" />
         </div>
 
@@ -105,8 +107,8 @@ export default function SignInCard({ locale }: SignInCardProps) {
           <div className="grid grid-cols-2 gap-1 rounded-xl border bg-muted/80 p-1 text-sm font-medium">
             {(
               [
-                { key: 'magic', label: 'Magic Link' },
-                { key: 'password', label: 'Password' },
+                { key: 'magic', label: t('magicLink') },
+                { key: 'password', label: t('password') },
               ] as const
             ).map(({ key, label }) => (
               <button
@@ -127,7 +129,7 @@ export default function SignInCard({ locale }: SignInCardProps) {
             <form className="space-y-4" onSubmit={(event) => event.preventDefault()}>
               <div className="space-y-2">
                 <label htmlFor="magic-email" className="text-sm font-medium">
-                  Email
+                  {t('email')}
                 </label>
                 <Input
                   id="magic-email"
@@ -139,18 +141,18 @@ export default function SignInCard({ locale }: SignInCardProps) {
                   required
                 />
               </div>
-              <Button className="w-full" disabled title="Magic link delivery is coming soon">
-                Send magic link
+              <Button className="w-full" disabled title={t('magicLinkComingSoon')}>
+                {t('sendMagicLink')}
               </Button>
               <p className="text-center text-xs text-muted-foreground">
-                Magic link sign-in will be available soon.
+                {t('magicLinkComingSoon')}
               </p>
             </form>
           ) : (
             <form className="space-y-4" onSubmit={handleCredentialsSubmit}>
               <div className="space-y-2">
                 <label htmlFor="email" className="text-sm font-medium">
-                  Email
+                  {t('email')}
                 </label>
                 <Input
                   id="email"
@@ -164,12 +166,12 @@ export default function SignInCard({ locale }: SignInCardProps) {
               </div>
               <div className="space-y-2">
                 <div className="flex items-center justify-between text-sm font-medium">
-                  <label htmlFor="password">Password</label>
+                  <label htmlFor="password">{t('password')}</label>
                   <button
                     type="button"
                     className="text-xs font-semibold text-primary underline-offset-4 hover:underline"
                   >
-                    Forgot password?
+                    {t('forgotPassword')}
                   </button>
                 </div>
                 <Input
@@ -183,7 +185,7 @@ export default function SignInCard({ locale }: SignInCardProps) {
               </div>
               {error && <p className="text-sm text-destructive">{error}</p>}
               <Button type="submit" className="w-full" disabled={isSubmitting}>
-                {isSubmitting ? 'Signing in...' : 'Continue'}
+                {isSubmitting ? t('signingIn') : t('continue')}
               </Button>
             </form>
           )}
