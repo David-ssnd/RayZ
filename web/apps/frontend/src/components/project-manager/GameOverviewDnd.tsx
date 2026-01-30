@@ -9,6 +9,7 @@ import {
 } from '@/features/projects/actions'
 import {
   closestCenter,
+  closestCorners,
   DndContext,
   DragEndEvent,
   DragOverEvent,
@@ -17,10 +18,13 @@ import {
   KeyboardSensor,
   PointerSensor,
   pointerWithin,
+  rectIntersection,
   UniqueIdentifier,
   useDroppable,
   useSensor,
   useSensors,
+  CollisionDetection,
+  getFirstCollision,
 } from '@dnd-kit/core'
 import {
   arrayMove,
@@ -139,11 +143,13 @@ function SortableDevice({
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: `device-${device.id}`,
     data: { type: 'device', device },
+    disabled: false,
   })
 
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
+    touchAction: 'none',
   }
 
   const isOnline = getDeviceConnectionState(device.ipAddress) === 'connected'
@@ -214,6 +220,7 @@ function SortablePlayer({
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: `player-${player.id}`,
     data: { type: 'player', player },
+    disabled: false,
   })
 
   // Hide the element completely when dragging, but keep a placeholder space if needed
@@ -325,11 +332,13 @@ function SortableTeam({
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: `team-${team.id}`,
     data: { type: 'team', team },
+    disabled: false,
   })
 
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
+    touchAction: 'none',
   }
 
   const teamDevices = players.flatMap((p) => getDevicesForPlayer(p))
@@ -423,13 +432,15 @@ function SortableTeam({
 
       {/* Expanded Content - Players droppable area */}
       {isExpanded && (
-        <SortableContext
-          items={players.map((p) => `player-${p.id}`)}
-          strategy={verticalListSortingStrategy}
+        <DroppableZone
+          id={`team-${team.id}`}
+          className="p-2 min-h-[60px] bg-background/50"
+          disabled={!!activeId && !activeId.toString().startsWith('player-')}
         >
-          <div className="p-2 min-h-[60px] bg-background/50">
-            {' '}
-            {/* Added pb-6 for easier appending */}
+          <SortableContext
+            items={players.map((p) => `player-${p.id}`)}
+            strategy={verticalListSortingStrategy}
+          >
             {players.length > 0 ? (
               <div className="space-y-1">
                 {players.map((player, index) => (
@@ -464,8 +475,8 @@ function SortableTeam({
             {players.length === 0 && showPreview && (
               <PlayerPreview player={activePlayer as Player} teamColor={team.color} />
             )}
-          </div>
-        </SortableContext>
+          </SortableContext>
+        </DroppableZone>
       )}
     </div>
   )
@@ -557,6 +568,27 @@ export function GameOverview({ project, availableDevices = [], availableGameMode
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
     })
+  )
+
+  // Custom collision detection - more forgiving, always finds nearest valid target
+  const customCollisionDetection: CollisionDetection = useCallback(
+    (args) => {
+      // First, try pointer intersection for precision when directly over
+      const pointerCollisions = pointerWithin(args)
+      if (pointerCollisions.length > 0) {
+        return pointerCollisions
+      }
+
+      // If no direct hit, find the closest corner for better edge detection
+      const closestCornerCollisions = closestCorners(args)
+      if (closestCornerCollisions.length > 0) {
+        return closestCornerCollisions
+      }
+
+      // Fallback to closest center
+      return closestCenter(args)
+    },
+    []
   )
 
   // Helper functions
@@ -707,9 +739,14 @@ export function GameOverview({ project, availableDevices = [], availableGameMode
 
       // Determine target player
       let targetPlayerId: string | null = null
-      if (overId.startsWith('player-')) {
+      if (overId.startsWith('player-devices-')) {
+        // Dropped on player's device zone
+        targetPlayerId = overId.replace('player-devices-', '')
+      } else if (overId.startsWith('player-')) {
+        // Dropped directly on player (shouldn't happen with droppable zones, but handle it)
         targetPlayerId = overId.replace('player-', '')
       } else if (overId.startsWith('device-')) {
+        // Dropped on another device - assign to same player as that device
         const overDeviceId = overId.replace('device-', '')
         const overDevice = optimisticProject.devices?.find((d) => d.id === overDeviceId)
         targetPlayerId = overDevice?.assignedPlayerId || null
@@ -726,24 +763,25 @@ export function GameOverview({ project, availableDevices = [], availableGameMode
             targetPlayerId,
           })
 
-          if (targetPlayerId) {
-            const player = optimisticProject.players?.find((p) => p.id === targetPlayerId)
-            if (player) {
-              const currentDevices = getDevicesForPlayer(player).map((d) => d.id)
-              await updatePlayerDevices(targetPlayerId, [...currentDevices, deviceId])
+          // Remove from old player if assigned
+          if (device.assignedPlayerId) {
+            const oldPlayer = optimisticProject.players?.find(
+              (p) => p.id === device.assignedPlayerId
+            )
+            if (oldPlayer) {
+              const oldPlayerDevices = getDevicesForPlayer(oldPlayer)
+                .filter((d) => d.id !== deviceId)
+                .map((d) => d.id)
+              await updatePlayerDevices(device.assignedPlayerId, oldPlayerDevices)
             }
-          } else {
-            // Remove from current player
-            if (device.assignedPlayerId) {
-              const currentPlayer = optimisticProject.players?.find(
-                (p) => p.id === device.assignedPlayerId
-              )
-              if (currentPlayer) {
-                const newDevices = getDevicesForPlayer(currentPlayer)
-                  .filter((d) => d.id !== deviceId)
-                  .map((d) => d.id)
-                await updatePlayerDevices(device.assignedPlayerId, newDevices)
-              }
+          }
+
+          // Add to new player if target exists
+          if (targetPlayerId) {
+            const newPlayer = optimisticProject.players?.find((p) => p.id === targetPlayerId)
+            if (newPlayer) {
+              const newPlayerDevices = getDevicesForPlayer(newPlayer).map((d) => d.id)
+              await updatePlayerDevices(targetPlayerId, [...newPlayerDevices, deviceId])
             }
           }
         })
@@ -776,7 +814,7 @@ export function GameOverview({ project, availableDevices = [], availableGameMode
   return (
     <DndContext
       sensors={sensors}
-      collisionDetection={pointerWithin} // Use pointerWithin for more precise mouse targeting
+      collisionDetection={customCollisionDetection}
       onDragStart={handleDragStart}
       onDragOver={handleDragOver}
       onDragEnd={handleDragEnd}
