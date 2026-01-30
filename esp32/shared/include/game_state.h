@@ -52,9 +52,25 @@ extern "C"
     void game_state_set_connected(bool connected);
     void game_state_update_heartbeat(void);
     bool game_state_heartbeat_due(void);
+    
+    // Game Control & Win Conditions
+    void game_state_start_game(void);
+    void game_state_stop_game(void);
+    void game_state_pause_game(void);
+    void game_state_resume_game(void);
+    void game_state_extend_time(int additional_minutes);
+    void game_state_update_target(int new_target);
+    void game_state_tick(void);              // Call periodically to check win conditions
+    bool game_state_is_running(void);
+    bool game_state_is_paused(void);
+    bool game_state_is_game_over(void);
+    bool game_state_can_shoot(void);         // Check if player can shoot (LMS: hearts > 0)
+    bool game_state_can_take_damage(void);   // Check if player can take damage (LMS: hearts > 0)
 
     int game_state_config_to_json(char* buffer, size_t max_len, bool clamp_noted);
     int game_state_to_json(char* buffer, size_t max_len);
+    int game_state_create_game_over_json(char* buffer, size_t max_len);
+    int game_state_create_game_state_update_json(char* buffer, size_t max_len);
     bool game_state_config_from_json(const char* json, GameConfig* out_config, bool* clamped);
     int game_state_create_heartbeat_json(char* buffer, size_t max_len);
     int game_state_create_register_json(char* buffer, size_t max_len);

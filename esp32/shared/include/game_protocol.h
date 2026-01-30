@@ -15,7 +15,7 @@ extern "C"
         DEVICE_ROLE_COUNT
     } DeviceRole;
 
-    // WebSocket Protocol v2.2 OpCodes
+    // WebSocket Protocol v2.3 OpCodes
     typedef enum
     {
         // Client -> ESP32
@@ -35,6 +35,7 @@ extern "C"
         OP_RESPAWN = 14,
         OP_RELOAD_EVENT = 15,
         OP_GAME_OVER = 16,
+        OP_GAME_STATE_UPDATE = 17,
         OP_ACK = 20
     } OpCode;
 
@@ -44,7 +45,9 @@ extern "C"
         CMD_START = 1,
         CMD_RESET = 2,
         CMD_PAUSE = 3,
-        CMD_UNPAUSE = 4
+        CMD_UNPAUSE = 4,
+        CMD_EXTEND_TIME = 5,
+        CMD_UPDATE_TARGET = 6
     } GameCommandType;
 
     typedef struct
@@ -59,29 +62,42 @@ extern "C"
 
     typedef struct
     {
+        // Win Conditions
+        char win_type[24];       // "time", "score", "last_man_standing"
+        uint16_t target_score;   // Used when win_type = "score"
+        uint16_t time_limit_s;   // Used when win_type = "time"
+
+        // Health (used only when win_type = "last_man_standing")
         uint8_t max_hearts;
+        uint8_t spawn_hearts;
         uint32_t respawn_cooldown_ms;
         uint16_t invulnerability_ms;
+        uint8_t damage_in;       // Damage multiplier received
+        uint8_t damage_out;      // Damage multiplier dealt
 
+        // Legacy scoring fields
         uint8_t kill_score;
         uint8_t hit_score;
         uint8_t assist_score;
-        uint16_t score_to_win;
+        uint16_t score_to_win;   // Deprecated: use target_score
 
-        uint16_t time_limit_s;
+        // Game mechanics
         bool overtime_enabled;
         bool sudden_death;
 
+        // Ammo
         uint16_t max_ammo;
         uint8_t mag_capacity;
         uint16_t reload_time_ms;
         uint16_t shot_rate_limit_ms;
 
+        // Team rules
         bool team_play;
         bool friendly_fire_enabled;
         bool unlimited_ammo;
         bool unlimited_respawn;
 
+        // Misc
         bool random_teams_on_start;
         bool hit_sound_enabled;
     } GameConfig;
@@ -102,6 +118,13 @@ extern "C"
         uint32_t respawn_end_time_ms;
 
         uint32_t game_start_time_ms;
+        uint32_t game_end_time_ms;      // Set when game should end (for "time" mode)
+        uint32_t pause_time_ms;         // When game was paused (for adjusting end time)
+        bool game_running;              // True when game is active
+        bool game_paused;               // True when game is paused
+        bool game_over;                 // True when win condition met
+        uint32_t player_score;          // Current score (kills * kill_score + hits * hit_score)
+        
         uint32_t last_heartbeat_ms;
         bool server_connected;
     } GameStateData;

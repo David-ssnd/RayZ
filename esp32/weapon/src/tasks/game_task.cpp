@@ -14,6 +14,9 @@ void game_task(void* pvParameters)
 
     while (1)
     {
+        // Check win conditions and update game state
+        game_state_tick();
+        
         const GameStateData* state = game_state_get();
         if (game_state_is_respawning())
         {
@@ -32,9 +35,9 @@ void game_task(void* pvParameters)
         uint32_t now = xTaskGetTickCount() / configTICK_RATE_HZ;
         if (now - last_log >= 30)
         {
-            ESP_LOGI(TAG, "Stats | K/D: %lu/%lu | Shots: %lu | Hits: %lu | Hearts: %u",
+            ESP_LOGI(TAG, "Stats | K/D: %lu/%lu | Shots: %lu | Hits: %lu | Hearts: %u | Score: %lu",
                      (unsigned long)state->kills, (unsigned long)state->deaths, (unsigned long)state->shots_fired,
-                     (unsigned long)state->hits_landed, (unsigned)state->hearts_remaining);
+                     (unsigned long)state->hits_landed, (unsigned)state->hearts_remaining, (unsigned long)state->player_score);
             last_log = now;
         }
 

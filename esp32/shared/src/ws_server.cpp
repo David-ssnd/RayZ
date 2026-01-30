@@ -12,9 +12,9 @@
 
 static const char* TAG = "WsServer";
 
-#define MAX_WS_CLIENTS 4
+#define MAX_WS_CLIENTS 8
 #define WS_MAX_FRAME_SIZE 1024
-#define WS_CLIENT_TIMEOUT_MS 10000 // 10 seconds without activity = stale
+#define WS_CLIENT_TIMEOUT_MS 40000 // 40 seconds (client heartbeat is 30s)
 
 typedef struct
 {
@@ -163,22 +163,40 @@ static void handle_config_update(cJSON* root)
 
     GameConfig* game = game_state_get_game_config_mut();
     
-    // Health Settings
+    // Win Conditions
+    item = cJSON_GetObjectItem(root, "win_type");
+    if (item && cJSON_IsString(item))
+    {
+        strncpy(game->win_type, item->valuestring, sizeof(game->win_type) - 1);
+        game->win_type[sizeof(game->win_type) - 1] = '\0';
+    }
+    item = cJSON_GetObjectItem(root, "target_score");
+    if (item)
+        game->target_score = item->valueint;
+    item = cJSON_GetObjectItem(root, "game_duration_s");
+    if (item)
+        game->time_limit_s = item->valueint;
+    
+    // Health Settings (used only when win_type = "last_man_standing")
     item = cJSON_GetObjectItem(root, "max_hearts");
     if (item)
         game->max_hearts = item->valueint;
     item = cJSON_GetObjectItem(root, "spawn_hearts");
     if (item) {
-        // Spawn hearts is the starting amount, don't overwrite max_hearts
+        game->spawn_hearts = item->valueint;
+        // Also set initial hearts for current state
         GameStateData* state = (GameStateData*)game_state_get();
         state->hearts_remaining = item->valueint;
     }
     item = cJSON_GetObjectItem(root, "respawn_time_s");
     if (item)
         game->respawn_cooldown_ms = item->valueint * 1000;
-    item = cJSON_GetObjectItem(root, "enable_hearts");
+    item = cJSON_GetObjectItem(root, "damage_in");
     if (item)
-        game->unlimited_respawn = !cJSON_IsTrue(item);
+        game->damage_in = item->valueint;
+    item = cJSON_GetObjectItem(root, "damage_out");
+    if (item)
+        game->damage_out = item->valueint;
     item = cJSON_GetObjectItem(root, "friendly_fire");
     if (item)
         game->friendly_fire_enabled = cJSON_IsTrue(item);
@@ -193,11 +211,6 @@ static void handle_config_update(cJSON* root)
     item = cJSON_GetObjectItem(root, "enable_ammo");
     if (item)
         game->unlimited_ammo = !cJSON_IsTrue(item);
-        
-    // Game Duration
-    item = cJSON_GetObjectItem(root, "game_duration_s");
-    if (item)
-        game->time_limit_s = item->valueint;
         
     // ESP-NOW Peers (CSV format: "aa:bb:cc:dd:ee:ff,11:22:33:44:55:66")
     item = cJSON_GetObjectItem(root, "espnow_peers");
@@ -237,12 +250,42 @@ static void handle_game_command(cJSON* root)
             break;
         case CMD_START:
             game_state_reset_runtime();
-            // TODO: Start timer/enable game mechanism if separate from runtime
+            game_state_start_game();
             break;
         case CMD_STOP:
-            // TODO: Stop game logic
+            game_state_stop_game();
+            break;
+        case CMD_PAUSE:
+            game_state_pause_game();
+            break;
+        case CMD_UNPAUSE:
+            game_state_resume_game();
+            break;
+        case CMD_EXTEND_TIME:
+        {
+            cJSON* extend_minutes = cJSON_GetObjectItem(root, "extend_minutes");
+            if (extend_minutes && cJSON_IsNumber(extend_minutes))
+            {
+                game_state_extend_time(extend_minutes->valueint);
+                ESP_LOGI(TAG, "Extended game time by %d minutes", extend_minutes->valueint);
+            }
+            break;
+        }
+        case CMD_UPDATE_TARGET:
+        {
+            cJSON* new_target = cJSON_GetObjectItem(root, "new_target");
+            if (new_target && cJSON_IsNumber(new_target))
+            {
+                game_state_update_target(new_target->valueint);
+                ESP_LOGI(TAG, "Updated target score to %d", new_target->valueint);
+            }
+            break;
+        }
+        default:
+            ESP_LOGW(TAG, "Unknown game command: %d", cmd);
             break;
     }
+
     ws_server_broadcast_game_state();
 }
 
@@ -499,17 +542,37 @@ void ws_server_cleanup_stale(void)
         xSemaphoreTake(s_ws_mutex, portMAX_DELAY);
 
     int removed_count = 0;
+    uint32_t now = get_time_ms();
+
     for (int i = 0; i < MAX_WS_CLIENTS; i++)
     {
         if (s_clients[i].active)
         {
             int fd = s_clients[i].fd;
-            // Check if the socket is still valid by attempting to get socket error
-            int opt_val = 0;
-            socklen_t opt_len = sizeof(opt_val);
-            if (getsockopt(fd, SOL_SOCKET, SO_ERROR, &opt_val, &opt_len) != 0 || opt_val != 0)
+            bool remove = false;
+            const char* reason = "unknown";
+
+            // Check for timeout
+            if (now - s_clients[i].last_activity_ms > WS_CLIENT_TIMEOUT_MS)
             {
-                ESP_LOGW(TAG, "[DEAD_SOCKET] Removing dead socket at slot %d, fd=%d", i, fd);
+                remove = true;
+                reason = "timeout";
+            }
+            else
+            {
+                // Check if the socket is still valid by attempting to get socket error
+                int opt_val = 0;
+                socklen_t opt_len = sizeof(opt_val);
+                if (getsockopt(fd, SOL_SOCKET, SO_ERROR, &opt_val, &opt_len) != 0 || opt_val != 0)
+                {
+                    remove = true;
+                    reason = "socket error";
+                }
+            }
+
+            if (remove)
+            {
+                ESP_LOGW(TAG, "[DEAD_SOCKET] Removing dead socket at slot %d, fd=%d, reason=%s", i, fd, reason);
                 s_clients[i].active = false;
                 s_clients[i].fd = -1;
                 // Proactively close the HTTPD session to free resources

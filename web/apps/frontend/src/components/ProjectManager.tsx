@@ -248,7 +248,11 @@ export function ProjectManager({ projects, availableDevices, gameModes }: Projec
                   </TabsList>
 
                   <TabsContent value="overview" className="mt-4">
-                    <GameOverview project={selectedProject} availableDevices={availableDevices} />
+                    <GameOverview
+                      project={selectedProject}
+                      availableDevices={availableDevices}
+                      availableGameModes={localGameModes}
+                    />
                   </TabsContent>
 
                   <TabsContent value="gamemode" className="mt-4">

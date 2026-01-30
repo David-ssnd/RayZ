@@ -1,4 +1,4 @@
-// WebSocket Protocol Types — Matches ESP32 Firmware Protocol v2.2
+// WebSocket Protocol Types — Matches ESP32 Firmware Protocol v2.3
 // Gamemode is UI-only; firmware receives explicit config values, not a gamemode label.
 
 // ============= Enums & Constants =============
@@ -21,6 +21,7 @@ export enum OpCode {
   RESPAWN = 14,
   RELOAD_EVENT = 15,
   GAME_OVER = 16,
+  GAME_STATE_UPDATE = 17,
   ACK = 20,
 }
 
@@ -30,6 +31,8 @@ export enum GameCommandType {
   RESET = 2,
   PAUSE = 3,
   UNPAUSE = 4,
+  EXTEND_TIME = 5,
+  UPDATE_TARGET = 6,
 }
 
 export type ConnectionState = 'disconnected' | 'connecting' | 'connected' | 'error'
@@ -75,8 +78,12 @@ export interface ConfigUpdateMessage extends BaseClientMessage {
   sound_profile?: number
   haptic_enabled?: boolean
 
-  // Rules & Mechanics (Health)
-  enable_hearts?: boolean // If false, player is immortal/health hidden
+  // Win Conditions
+  win_type?: string // "time" | "score" | "last_man_standing"
+  target_score?: number // Used when win_type = "score"
+  game_duration_s?: number // Used when win_type = "time"
+
+  // Rules & Mechanics (Health - used only when win_type = "last_man_standing")
   spawn_hearts?: number
   max_hearts?: number
   respawn_time_s?: number
@@ -89,9 +96,6 @@ export interface ConfigUpdateMessage extends BaseClientMessage {
   max_ammo?: number
   reload_time_ms?: number
 
-  // Game Timer
-  game_duration_s?: number // 0 = Manual Stop only
-
   // ESP-NOW Peer Management
   espnow_peers?: string // Comma-separated MAC addresses "aa:bb:cc:dd:ee:ff,11:22:33:44:55:66"
 }
@@ -100,6 +104,9 @@ export interface GameCommandMessage extends BaseClientMessage {
   op: OpCode.GAME_COMMAND
   type: 'game_command'
   command: GameCommandType
+  // Optional parameters for dynamic updates
+  extend_minutes?: number // For EXTEND_TIME command
+  new_target?: number // For UPDATE_TARGET command
 }
 
 export interface HitForwardMessage extends BaseClientMessage {
@@ -133,8 +140,12 @@ export interface DeviceFullConfig {
   soundProfile?: number
   hapticEnabled?: boolean
 
-  // Game Rules - Health
-  enableHearts?: boolean
+  // Win Conditions
+  winType?: string // "time" | "score" | "last_man_standing"
+  targetScore?: number
+  gameDurationS?: number
+
+  // Game Rules - Health (used only when winType = "last_man_standing")
   spawnHearts?: number
   maxHearts?: number
   respawnTimeS?: number
@@ -146,9 +157,6 @@ export interface DeviceFullConfig {
   enableAmmo?: boolean
   maxAmmo?: number
   reloadTimeMs?: number
-
-  // Game Timer
-  gameDurationS?: number
 
   // ESP-NOW Peers
   espnowPeers?: string[]
@@ -253,6 +261,27 @@ export interface ReloadMessage {
 export interface GameOverMessage {
   op: OpCode.GAME_OVER
   type: 'game_over'
+  // Win Information
+  win_type: 'time' | 'score' | 'elimination' | 'draw'
+  winner_team_id?: number
+  winner_player_id?: number
+  // Final Statistics
+  final_scores?: { player_id: number; score: number; kills: number; deaths: number }[]
+  match_duration_s?: number
+}
+
+export interface GameStateUpdateMessage {
+  op: OpCode.GAME_STATE_UPDATE
+  type: 'game_state_update'
+  // Game Progress
+  game_running: boolean
+  game_over: boolean
+  time_remaining_s?: number // For time mode
+  current_scores?: { player_id: number; score: number; hearts: number }[]
+  // Real-time Stats
+  total_kills?: number
+  total_shots?: number
+  total_hits?: number
 }
 
 export interface AckMessage {
@@ -270,6 +299,7 @@ export type ServerMessage =
   | RespawnMessage
   | ReloadMessage
   | GameOverMessage
+  | GameStateUpdateMessage
   | AckMessage
 
 // ============= Device State (for UI Store) =============

@@ -46,8 +46,12 @@ export interface DeviceFullConfig {
   soundProfile?: number
   hapticEnabled?: boolean
 
-  // Game Rules - Health
-  enableHearts?: boolean
+  // Win Conditions
+  winType?: string // "time" | "score" | "last_man_standing"
+  targetScore?: number
+  gameDurationS?: number
+
+  // Game Rules - Health (used only when winType = "last_man_standing")
   spawnHearts?: number
   maxHearts?: number
   respawnTimeS?: number
@@ -59,9 +63,6 @@ export interface DeviceFullConfig {
   enableAmmo?: boolean
   maxAmmo?: number
   reloadTimeMs?: number
-
-  // Game Timer
-  gameDurationS?: number // 0 = Manual stop only
 
   // ESP-NOW Peers (MAC addresses of other devices)
   espnowPeers?: string[] // ['aa:bb:cc:dd:ee:ff', ...]
@@ -183,7 +184,8 @@ export class DeviceConfigManager {
   setGameRules(
     deviceIp: string,
     rules: {
-      enableHearts?: boolean
+      winType?: string
+      targetScore?: number
       maxHearts?: number
       spawnHearts?: number
       respawnTimeS?: number
@@ -398,8 +400,12 @@ export class DeviceConfigManager {
     if (config.soundProfile !== undefined) message.sound_profile = config.soundProfile
     if (config.hapticEnabled !== undefined) message.haptic_enabled = config.hapticEnabled
 
-    // Game Rules - Health
-    if (config.enableHearts !== undefined) message.enable_hearts = config.enableHearts
+    // Win Conditions
+    if (config.winType !== undefined) message.win_type = config.winType
+    if (config.targetScore !== undefined) message.target_score = config.targetScore
+    if (config.gameDurationS !== undefined) message.game_duration_s = config.gameDurationS
+
+    // Game Rules - Health (only sent when winType = "last_man_standing")
     if (config.spawnHearts !== undefined) message.spawn_hearts = config.spawnHearts
     if (config.maxHearts !== undefined) message.max_hearts = config.maxHearts
     if (config.respawnTimeS !== undefined) message.respawn_time_s = config.respawnTimeS
@@ -411,9 +417,6 @@ export class DeviceConfigManager {
     if (config.enableAmmo !== undefined) message.enable_ammo = config.enableAmmo
     if (config.maxAmmo !== undefined) message.max_ammo = config.maxAmmo
     if (config.reloadTimeMs !== undefined) message.reload_time_ms = config.reloadTimeMs
-
-    // Game Timer
-    if (config.gameDurationS !== undefined) message.game_duration_s = config.gameDurationS
 
     // ESP-NOW Peers (comma-separated MAC addresses)
     if (config.espnowPeers !== undefined && config.espnowPeers.length > 0) {

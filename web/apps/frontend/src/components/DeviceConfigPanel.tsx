@@ -71,18 +71,22 @@ export function DeviceConfigPanel({ project }: DeviceConfigPanelProps) {
       teamId: team?.id ? parseInt(team.id) : 0,
       colorRgb: team?.color ? parseInt(team.color.replace('#', ''), 16) : 0xFFFFFF,
       
-      // Game rules from project settings
-      enableHearts: gameSettings?.enableHearts ?? true,
-      maxHearts: gameSettings?.maxHearts ?? 10,
-      spawnHearts: gameSettings?.spawnHearts ?? 10,
-      respawnTimeS: gameSettings?.respawnTimeSec ?? 5,
+      // Win conditions
+      winType: gameSettings?.winType ?? 'score',
+      targetScore: gameSettings?.targetScore ?? 100,
+      gameDurationS: gameSettings?.durationMinutes ? gameSettings.durationMinutes * 60 : 600,
+      
+      // Game rules from project settings (hearts used only for last_man_standing)
+      maxHearts: gameSettings?.maxHearts ?? 5,
+      spawnHearts: gameSettings?.spawnHearts ?? 3,
+      respawnTimeS: gameSettings?.respawnTimeSec ?? 10,
+      damageIn: gameSettings?.damageIn ?? 1,
+      damageOut: gameSettings?.damageOut ?? 1,
       friendlyFire: gameSettings?.friendlyFire ?? false,
       
       enableAmmo: gameSettings?.enableAmmo ?? true,
-      maxAmmo: gameSettings?.maxAmmo ?? 100,
-      reloadTimeMs: gameSettings?.reloadTimeMs ?? 2000,
-      
-      gameDurationS: gameSettings?.durationSeconds ?? 300,
+      maxAmmo: gameSettings?.maxAmmo ?? 30,
+      reloadTimeMs: gameSettings?.reloadTimeMs ?? 2500,
       
       // Hardware settings (defaults)
       irPower: 1, // Outdoor
@@ -132,10 +136,13 @@ export function DeviceConfigPanel({ project }: DeviceConfigPanelProps) {
 
       // Set game rules
       configManager.setGameRules(deviceIp, {
-        enableHearts: config.enableHearts,
+        winType: config.winType,
+        targetScore: config.targetScore,
         maxHearts: config.maxHearts,
         spawnHearts: config.spawnHearts,
         respawnTimeS: config.respawnTimeS,
+        damageIn: config.damageIn,
+        damageOut: config.damageOut,
         friendlyFire: config.friendlyFire,
         enableAmmo: config.enableAmmo,
         maxAmmo: config.maxAmmo,

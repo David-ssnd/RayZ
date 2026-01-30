@@ -27,7 +27,6 @@ export function ProjectSettingsManager({
 }) {
   const [name, setName] = useState(project.name)
   const [description, setDescription] = useState(project.description || '')
-  const [gameModeId, setGameModeId] = useState(project.gameModeId)
   // const [duration, setDuration] = useState(project.duration || 0)
   const [isPending, startTransition] = useTransition()
 
@@ -36,7 +35,6 @@ export function ProjectSettingsManager({
       await updateProject(project.id, {
         name,
         description,
-        gameModeId,
         // duration: Number(duration),
       })
     })
@@ -52,31 +50,6 @@ export function ProjectSettingsManager({
         <div className="grid gap-2">
           <label className="text-sm font-medium">Description</label>
           <Input value={description} onChange={(e) => setDescription(e.target.value)} />
-        </div>
-        <div className="grid grid-cols-2 gap-4">
-          <div className="grid gap-2">
-            <label className="text-sm font-medium">Game Mode</label>
-            <Select value={gameModeId} onValueChange={setGameModeId}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {gameModes.map((mode) => (
-                  <SelectItem key={mode.id} value={mode.id}>
-                    {mode.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          {/* <div className="grid gap-2">
-            <label className="text-sm font-medium">Duration (minutes)</label>
-            <Input
-              type="number"
-              value={duration}
-              onChange={(e) => setDuration(Number(e.target.value) || 0)}
-            />
-          </div> */}
         </div>
         <Button onClick={handleSave} disabled={isPending}>
           Save Changes

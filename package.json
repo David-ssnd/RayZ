@@ -1,0 +1,17 @@
+{
+  "name": "rayz",
+  "version": "1.0.0",
+  "private": true,
+  "description": "RayZ Laser Tag System",
+  "scripts": {
+    "api-docs": "node scripts/swagger-serve.js openapi.yaml",
+    "api-docs:alt": "pnpm dlx http-server -p 8080 -c-1 -o swagger-ui.html",
+    "api-docs:swagger": "pnpm dlx swagger-ui-serve openapi.json"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/David-ssnd/RayZ.git"
+  },
+  "author": "David",
+  "license": "MIT"
+}

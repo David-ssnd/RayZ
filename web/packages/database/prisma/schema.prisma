@@ -106,6 +106,7 @@ model Project {
   devices     Device[]
   players     Player[]
   teams       Team[]
+  matches     Match[]
   
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -120,21 +121,25 @@ model GameMode {
   
   // --- Protocol v2.2 Configuration Attributes ---
   
-  // Game Timer
-  durationSeconds Int     @default(600) // 0 = Manual Stop
+  // Win Conditions
+  winType         String  @default("score") // "time" | "score" | "last_man_standing"
+  durationMinutes Int     @default(10)      // Used when winType = "time"
+  targetScore     Int     @default(100)     // Used when winType = "score"
   
-  // Health
-  enableHearts    Boolean @default(true)
-  maxHearts       Int     @default(5)   // -1 = Infinite
+  // Legacy field for backward compatibility
+  durationSeconds Int     @default(600)     // Deprecated: use durationMinutes
+  
+  // Health (used only when winType = "last_man_standing")
+  maxHearts       Int     @default(5)       // -1 = Infinite
   spawnHearts     Int     @default(3)
   respawnTimeSec  Int     @default(10)
   friendlyFire    Boolean @default(false)
-  damageIn        Int     @default(1)   // Damage taken per hit
-  damageOut       Int     @default(1)   // Damage sent per shot
+  damageIn        Int     @default(1)       // Damage taken per hit
+  damageOut       Int     @default(1)       // Damage sent per shot
   
   // Ammo
   enableAmmo      Boolean @default(true)
-  maxAmmo         Int     @default(30)  // -1 = Infinite
+  maxAmmo         Int     @default(30)      // -1 = Infinite
   reloadTimeMs    Int     @default(2500)
   
   // Relations
@@ -142,6 +147,7 @@ model GameMode {
   user        User?     @relation(fields: [userId], references: [id])
   
   projects    Project[]
+  matches     Match[]
   
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
@@ -190,10 +196,75 @@ model Player {
   team      Team?    @relation(fields: [teamId], references: [id], onDelete: SetNull)
 
   devices   Device[] @relation("PlayerDevices")
+  matchStats MatchPlayer[]
   
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   // Logic: A project cannot have two players with ID "5".
   @@unique([projectId, number])
+}
+
+// ================= MATCH HISTORY =================
+
+model Match {
+  id          String   @id @default(cuid())
+  
+  projectId   String
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  
+  gameModeId  String
+  gameMode    GameMode @relation(fields: [gameModeId], references: [id])
+  
+  status      String   @default("in_progress") // in_progress, completed, aborted
+  
+  // Timestamps
+  startedAt   DateTime @default(now())
+  endedAt     DateTime?
+  
+  // Win Information
+  winType     String?  // "time" | "score" | "elimination" | "draw"
+  winnerId    String?  // Team ID or Player ID (polymorphic)
+  winnerType  String?  // "team" | "player"
+  
+  // Game Statistics
+  totalKills  Int      @default(0)
+  totalShots  Int      @default(0)
+  totalHits   Int      @default(0)
+  
+  // Relations
+  players     MatchPlayer[]
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@index([projectId])
+  @@index([startedAt])
+}
+
+model MatchPlayer {
+  id          String   @id @default(cuid())
+  
+  matchId     String
+  match       Match    @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  
+  playerId    String
+  player      Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  
+  // Player Statistics
+  kills       Int      @default(0)
+  deaths      Int      @default(0)
+  hits        Int      @default(0)  // Successful shots that hit
+  shots       Int      @default(0)  // Total shots fired
+  score       Int      @default(0)  // Calculated score
+  finalHearts Int      @default(0)  // Hearts remaining at end
+  
+  // Status
+  eliminated  Boolean  @default(false)  // For LMS mode
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@unique([matchId, playerId])
+  @@index([matchId])
 }

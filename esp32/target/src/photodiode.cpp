@@ -44,7 +44,7 @@ void Photodiode::begin()
         .atten = ADC_ATTEN_DB_12,
         .bitwidth = ADC_BITWIDTH_12,
     };
-    ESP_ERROR_CHECK(adc_oneshot_config_channel(adc_handle, ADC_CHANNEL_6, &config)); // GPIO34 = ADC1_CHANNEL_6
+    ESP_ERROR_CHECK(adc_oneshot_config_channel(adc_handle, PHOTODIODE_ADC_CHANNEL, &config));
 
     for (int i = 0; i < SAMPLES_PER_BIT; i++)
     {
@@ -74,7 +74,7 @@ void Photodiode::update()
     lastSampleTime = currentTime;
 
     int rawValue = 0;
-    ESP_ERROR_CHECK(adc_oneshot_read(adc_handle, ADC_CHANNEL_6, &rawValue));
+    ESP_ERROR_CHECK(adc_oneshot_read(adc_handle, PHOTODIODE_ADC_CHANNEL, &rawValue));
     float voltage = (rawValue * ADC_VREF) / ADC_RESOLUTION;
 
     // Decay toward recent samples to avoid stale thresholds

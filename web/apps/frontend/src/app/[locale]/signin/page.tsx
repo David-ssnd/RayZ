@@ -1,10 +1,20 @@
 import type { Metadata } from 'next'
+import { getTranslations } from 'next-intl/server'
 
 import SignInCard from './SignInCard'
 
-export const metadata: Metadata = {
-  title: 'Sign in',
-  description: 'Access your RayZ account.',
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: string }>
+}): Promise<Metadata> {
+  const { locale } = await params
+  const t = await getTranslations({ locale, namespace: 'SignIn' })
+
+  return {
+    title: t('metaTitle'),
+    description: t('metaDescription'),
+  }
 }
 
 export default async function SignInPage({ params }: { params: Promise<{ locale: string }> }) {

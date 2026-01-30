@@ -80,7 +80,7 @@ export interface DeviceConnectionsContextValue {
   /** Disconnect all devices */
   disconnectAll: () => void
   /** Send command to all connected devices */
-  broadcastCommand: (command: 'start' | 'stop' | 'reset') => void
+  broadcastCommand: (command: 'start' | 'stop' | 'reset' | 'pause' | 'unpause' | 'extend_time' | 'update_target', params?: any) => void
   /** Broadcast configuration to all connected devices */
   broadcastConfig: (config: Omit<ConfigUpdateMessage, 'type' | 'op'>) => void
   /** Request status update from all connected devices */
@@ -832,19 +832,25 @@ export function DeviceConnectionsProvider({
 
   // Broadcast command to all connected devices
   const broadcastCommand = useCallback(
-    (command: 'start' | 'stop' | 'reset') => {
+    (command: 'start' | 'stop' | 'reset' | 'pause' | 'unpause' | 'extend_time' | 'update_target', params?: any) => {
       deviceStates.forEach((state, ip) => {
         if (state.connectionState === 'connected') {
-          const commandEnum =
-            command === 'start'
-              ? GameCommandType.START
-              : command === 'stop'
-                ? GameCommandType.STOP
-                : GameCommandType.RESET
+          const commandMap = {
+            start: GameCommandType.START,
+            stop: GameCommandType.STOP,
+            reset: GameCommandType.RESET,
+            pause: GameCommandType.PAUSE,
+            unpause: GameCommandType.UNPAUSE,
+            extend_time: GameCommandType.EXTEND_TIME,
+            update_target: GameCommandType.UPDATE_TARGET,
+          }
+          const commandEnum = commandMap[command]
+          
           sendToDevice(ip, {
             op: OpCode.GAME_COMMAND,
             type: 'game_command',
             command: commandEnum,
+            ...params,
           })
         }
       })

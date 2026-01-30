@@ -37,6 +37,9 @@ extern "C" void game_task(void* pvParameters)
 
     while (1)
     {
+        // Check win conditions and update game state
+        game_state_tick();
+        
         const GameStateData* state = game_state_get();
         if (game_state_is_respawning())
         {

@@ -116,9 +116,22 @@ lv_disp_t* init_display(void)
 
     ESP_ERROR_CHECK(esp_lcd_new_panel_ssd1306(io_handle, &panel_config, &s_panel));
 
-    esp_lcd_panel_reset(s_panel);
-    esp_lcd_panel_init(s_panel);
-    esp_lcd_panel_disp_on_off(s_panel, true);
+    // Check if panel is actually connected to avoid log spam
+    esp_err_t err = esp_lcd_panel_reset(s_panel);
+    if (err == ESP_OK) err = esp_lcd_panel_init(s_panel);
+    if (err == ESP_OK) err = esp_lcd_panel_disp_on_off(s_panel, true);
+
+    if (err != ESP_OK)
+    {
+        ESP_LOGE(TAG, "SSD1306 init failed (device missing?): %s", esp_err_to_name(err));
+        // Clean up panel handle
+        if (s_panel) {
+             esp_lcd_panel_del(s_panel);
+             s_panel = NULL;
+        }
+        // Return NULL so main knows display is missing
+        return NULL;
+    }
 
     // ---------------------------------------------------------------------
     // LVGL core

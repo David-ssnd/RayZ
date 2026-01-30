@@ -1,24 +1,26 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   Activity,
-  Pause,
   Play,
   RotateCcw,
   Settings2,
   Square,
-  Timer,
   UploadCloud,
   Wifi,
   WifiOff,
+  Pause,
+  PlayCircle,
+  Clock,
+  Target,
 } from 'lucide-react'
 
 import { useDeviceConnections } from '@/lib/websocket'
-import type { GameMode as WSGameMode } from '@/lib/websocket/types'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Label } from '@/components/ui/label'
+import { Separator } from '@/components/ui/separator'
 import {
   Dialog,
   DialogContent,
@@ -35,95 +37,145 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
+import { cn } from '@/lib/utils'
+import { LiveGameStats } from './LiveGameStats'
+import { GameOverDialog } from './GameOverDialog'
 
-import type { Project } from './types'
+import type { GameMode, Project } from './types'
 
 interface GameControlPanelProps {
   project: Project
+  availableGameModes: GameMode[]
+  isGameRunning: boolean
+  setIsGameRunning: (running: boolean) => void
 }
 
-const GAME_MODES: { value: WSGameMode; label: string; description: string }[] = [
-  { value: 'free', label: 'Free Play', description: 'Open play, no restrictions' },
-  { value: 'deathmatch', label: 'Deathmatch', description: 'Everyone is enemy' },
-  { value: 'team', label: 'Team Battle', description: 'Team-based combat' },
-  { value: 'capture_flag', label: 'Capture Flag', description: 'Capture the flag mode' },
-  { value: 'timed', label: 'Timed Match', description: 'Time-limited match' },
-]
+export function GameControlPanel({ project, availableGameModes, isGameRunning, setIsGameRunning }: GameControlPanelProps) {
+  const [selectedGameModeId, setSelectedGameModeId] = useState<string>(project.gameModeId || availableGameModes[0]?.id || '')
+  const [isPaused, setIsPaused] = useState(false)
+  const [isGameOver, setIsGameOver] = useState(false)
+  const [gameStartedAt, setGameStartedAt] = useState<Date | null>(null)
+  const [showExtendTime, setShowExtendTime] = useState(false)
+  const [showUpdateTarget, setShowUpdateTarget] = useState(false)
+  const [extendMinutes, setExtendMinutes] = useState(5)
+  const [newTargetScore, setNewTargetScore] = useState(100)
+  
+  const selectedGameMode = availableGameModes.find(m => m.id === selectedGameModeId)
 
-interface GameSettings {
-  durationMinutes: number
-  maxHearts: number
-  maxAmmo: number
-  respawnTimeSeconds: number
-  friendlyFire: boolean
-  enableHearts: boolean
-  enableAmmo: boolean
-}
-
-const DEFAULT_SETTINGS: GameSettings = {
-  durationMinutes: 10,
-  maxHearts: 5,
-  maxAmmo: 30,
-  respawnTimeSeconds: 5,
-  friendlyFire: false,
-  enableHearts: true,
-  enableAmmo: true,
-}
-
-export function GameControlPanel({ project }: GameControlPanelProps) {
-  const [selectedGameMode, setSelectedGameMode] = useState<WSGameMode>('free')
-  const [isGameRunning, setIsGameRunning] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
-  const [settings, setSettings] = useState<GameSettings>(DEFAULT_SETTINGS)
+  const [tempSettings, setTempSettings] = useState<Partial<GameMode>>({})
 
   const { connectedDevices, connectAll, disconnectAll, broadcastCommand, broadcastConfig } =
     useDeviceConnections()
 
   const onlineCount = connectedDevices.length
-  // In a real app we might pass the total count of devices from props if known,
-  // effectively project.devices.length if that data is available.
   const totalDevices = project.devices?.length || 0
 
-  // Get aggregated stats from all connected devices
+  // Mock player data (in real implementation, this would come from WebSocket messages)
+  const [playerStats, setPlayerStats] = useState<any[]>([])
+
+  useEffect(() => {
+    // Mock player data from connected devices
+    const stats = project.players?.map(player => ({
+      playerId: player.id,
+      playerName: player.name,
+      playerNumber: player.number,
+      teamId: player.teamId,
+      teamName: project.teams?.find(t => t.id === player.teamId)?.name,
+      score: 0,
+      kills: 0,
+      deaths: 0,
+      hits: 0,
+      shots: 0,
+      hearts: selectedGameMode?.spawnHearts || 3,
+      eliminated: false,
+      finalHearts: 0,
+    })) || []
+    setPlayerStats(stats)
+  }, [project.players, project.teams, selectedGameMode])
+
+  // Stats
   const totalKills = connectedDevices.reduce((sum, d) => sum + (d.kills || 0), 0)
   const totalDeaths = connectedDevices.reduce((sum, d) => sum + (d.deaths || 0), 0)
   const totalShots = connectedDevices.reduce((sum, d) => sum + (d.shots || 0), 0)
 
   const handleStartGame = () => {
-    // 1. Broadcast Configuration based on mode and settings
-    broadcastConfig({
-      game_duration_s: settings.durationMinutes * 60,
-      max_hearts: settings.maxHearts,
-      max_ammo: settings.maxAmmo,
-      respawn_time_s: settings.respawnTimeSeconds,
-      friendly_fire: settings.friendlyFire,
-      enable_hearts: settings.enableHearts,
-      enable_ammo: settings.enableAmmo,
-    })
+    if (!selectedGameMode) return
 
-    // 2. Start Game
+    const config = {
+      win_type: selectedGameMode.winType,
+      target_score: selectedGameMode.targetScore,
+      game_duration_s: selectedGameMode.durationMinutes ? selectedGameMode.durationMinutes * 60 : 600,
+      max_hearts: selectedGameMode.maxHearts,
+      spawn_hearts: selectedGameMode.spawnHearts,
+      max_ammo: selectedGameMode.maxAmmo,
+      respawn_time_s: selectedGameMode.respawnTimeSec,
+      friendly_fire: selectedGameMode.friendlyFire,
+      damage_in: selectedGameMode.damageIn,
+      damage_out: selectedGameMode.damageOut,
+      enable_ammo: selectedGameMode.enableAmmo,
+      reload_time_ms: selectedGameMode.reloadTimeMs,
+      ...tempSettings
+    }
+
+    broadcastConfig(config)
+
     setTimeout(() => {
       broadcastCommand('start')
       setIsGameRunning(true)
+      setIsPaused(false)
+      setIsGameOver(false)
+      setGameStartedAt(new Date())
     }, 200)
-  }
-
-  const handleSyncRules = () => {
-    // Send updated rules without starting/stopping
-    broadcastConfig({
-      game_duration_s: settings.durationMinutes * 60,
-      max_hearts: settings.maxHearts,
-      max_ammo: settings.maxAmmo,
-      respawn_time_s: settings.respawnTimeSeconds,
-      friendly_fire: settings.friendlyFire,
-      enable_hearts: settings.enableHearts,
-      enable_ammo: settings.enableAmmo,
-    })
   }
 
   const handleStopGame = () => {
     broadcastCommand('stop')
     setIsGameRunning(false)
+    setIsPaused(false)
+  }
+
+  const handlePauseGame = () => {
+    broadcastCommand('pause')
+    setIsPaused(true)
+  }
+
+  const handleResumeGame = () => {
+    broadcastCommand('unpause')
+    setIsPaused(false)
+  }
+
+  const handleExtendTime = () => {
+    if (!selectedGameMode || selectedGameMode.winType !== 'time') return
+    // Send extend time command with parameter
+    broadcastCommand('extend_time', { extend_minutes: extendMinutes })
+    setShowExtendTime(false)
+  }
+
+  const handleUpdateTarget = () => {
+    if (!selectedGameMode || selectedGameMode.winType !== 'score') return
+    // Send update target command with parameter
+    broadcastCommand('update_target', { new_target: newTargetScore })
+    setShowUpdateTarget(false)
+  }
+
+  const handleSyncRules = () => {
+     if (!selectedGameMode) return
+     const config = {
+      win_type: selectedGameMode.winType,
+      target_score: selectedGameMode.targetScore,
+      game_duration_s: selectedGameMode.durationMinutes ? selectedGameMode.durationMinutes * 60 : 600,
+      max_hearts: selectedGameMode.maxHearts,
+      spawn_hearts: selectedGameMode.spawnHearts,
+      max_ammo: selectedGameMode.maxAmmo,
+      respawn_time_s: selectedGameMode.respawnTimeSec,
+      friendly_fire: selectedGameMode.friendlyFire,
+      damage_in: selectedGameMode.damageIn,
+      damage_out: selectedGameMode.damageOut,
+      enable_ammo: selectedGameMode.enableAmmo,
+      reload_time_ms: selectedGameMode.reloadTimeMs,
+    }
+    broadcastConfig(config)
   }
 
   const handleResetStats = () => {
@@ -131,247 +183,313 @@ export function GameControlPanel({ project }: GameControlPanelProps) {
   }
 
   return (
-    <Card className="border-2 border-primary/20">
-      <CardHeader className="pb-3">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-          <CardTitle className="flex items-center gap-2 text-lg">
-            <Activity className="w-5 h-5" />
-            Game Control
-          </CardTitle>
+    <div className="space-y-4">
+      {/* Game Control Section */}
+      <div className="p-4 border rounded-lg bg-card space-y-4">
+        {/* Header */}
+        <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Button
+            <Activity className="w-4 h-4 text-muted-foreground" />
+            <h3 className="font-medium">Game Control</h3>
+          </div>
+          <div className="flex items-center gap-2">
+            <Badge
               variant="outline"
-              size="icon"
-              className="h-8 w-8"
-              onClick={() => setShowSettings(true)}
-              disabled={isGameRunning}
+              className={cn(
+                "gap-1.5 h-6 px-2 text-xs font-normal",
+                onlineCount > 0 ? "text-emerald-600 bg-emerald-500/10 border-emerald-500/20" : ""
+              )}
             >
-              <Settings2 className="h-4 w-4" />
-            </Button>
-            <SettingsDialog
-              open={showSettings}
-              onOpenChange={setShowSettings}
-              settings={settings}
-              onSettingsChange={setSettings}
-            />
-
-            <Badge variant={onlineCount > 0 ? 'default' : 'secondary'} className="gap-1">
-              {onlineCount > 0 ? <Wifi className="w-3 h-3" /> : <WifiOff className="w-3 h-3" />}
+              {onlineCount > 0 ? (
+                <Wifi className="w-3 h-3" />
+              ) : (
+                <WifiOff className="w-3 h-3" />
+              )}
               {onlineCount}/{totalDevices} Online
             </Badge>
             {isGameRunning && (
-              <Badge variant="default" className="gap-1 bg-green-600">
-                <Activity className="w-3 h-3 animate-pulse" />
+              <Badge variant="destructive" className="gap-1.5 h-6 px-2 text-xs font-normal animate-pulse">
+                <Activity className="w-3 h-3" />
                 Live
               </Badge>
             )}
           </div>
         </div>
-      </CardHeader>
 
-      <CardContent className="space-y-4">
-        {/* Game Mode Selection */}
-        <div className="flex flex-col sm:flex-row gap-2">
-          <Select
-            value={selectedGameMode}
-            onValueChange={(v) => setSelectedGameMode(v as WSGameMode)}
-            disabled={isGameRunning}
-          >
-            <SelectTrigger className="flex-1">
-              <SelectValue placeholder="Select game mode" />
-            </SelectTrigger>
-            <SelectContent>
-              {GAME_MODES.map((mode) => (
-                <SelectItem key={mode.value} value={mode.value}>
-                  <div className="flex flex-col">
-                    <span>{mode.label}</span>
-                    <span className="text-xs text-muted-foreground">{mode.description}</span>
-                  </div>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+        <Separator />
+
+        {/* Game Mode & Start/Stop */}
+        <div className="flex flex-col sm:flex-row gap-3 items-end">
+          <div className="flex-1 w-full grid gap-1.5">
+            <label className="text-sm font-medium">Game Mode</label>
+            <Select
+              value={selectedGameModeId}
+              onValueChange={setSelectedGameModeId}
+              disabled={isGameRunning}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Select game mode" />
+              </SelectTrigger>
+              <SelectContent>
+                {availableGameModes.map((mode) => (
+                  <SelectItem key={mode.id} value={mode.id}>
+                    <div className="flex flex-col py-0.5">
+                      <span className="font-medium">{mode.name}</span>
+                      {mode.description && (
+                        <span className="text-xs text-muted-foreground">{mode.description}</span>
+                      )}
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="w-full sm:w-auto">
+            {!isGameRunning ? (
+              <Button
+                className="w-full sm:w-auto gap-2"
+                onClick={handleStartGame}
+                disabled={onlineCount === 0 || !selectedGameModeId}
+              >
+                <Play className="w-4 h-4 fill-current" />
+                Start Game
+              </Button>
+            ) : (
+              <Button
+                variant="destructive"
+                className="w-full sm:w-auto gap-2"
+                onClick={handleStopGame}
+              >
+                <Square className="w-4 h-4 fill-current" />
+                Stop Game
+              </Button>
+            )}
+          </div>
         </div>
 
-        {/* Main Game Controls */}
-        <div className="flex flex-wrap gap-2">
-          {!isGameRunning ? (
-            <Button
-              size="default"
-              className="flex-1 min-w-[140px] gap-2"
-              onClick={handleStartGame}
-              disabled={onlineCount === 0}
-            >
-              <Play className="w-4 h-4" />
-              Start Game
-            </Button>
-          ) : (
-            <Button
-              size="default"
-              variant="destructive"
-              className="flex-1 min-w-[140px] gap-2"
-              onClick={handleStopGame}
-            >
-              <Square className="w-4 h-4" />
-              Stop Game
-            </Button>
-          )}
-          
-          <Button
-            variant="outline"
-            className="flex-1 min-w-[120px] gap-2"
-            onClick={handleSyncRules}
-            disabled={isGameRunning || onlineCount === 0}
-          >
-            <UploadCloud className="w-4 h-4" />
-            Sync Rules
-          </Button>
+        <Separator />
 
-          <Button
-            variant="outline"
-            className="flex-1 min-w-[100px] gap-2"
-            onClick={handleResetStats}
-            disabled={isGameRunning}
-          >
-            <RotateCcw className="w-4 h-4" />
-            Reset
-          </Button>
+        {/* Quick Actions & Stats */}
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          {/* Quick Actions */}
+          <div className="flex items-center gap-2 flex-wrap">
+            {isGameRunning && (
+              <>
+                {!isPaused ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-2"
+                    onClick={handlePauseGame}
+                  >
+                    <Pause className="w-4 h-4" />
+                    Pause
+                  </Button>
+                ) : (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-2"
+                    onClick={handleResumeGame}
+                  >
+                    <PlayCircle className="w-4 h-4" />
+                    Resume
+                  </Button>
+                )}
 
-          <Button
-            variant="outline"
-            className="flex-1 min-w-[140px] gap-2"
-            onClick={onlineCount > 0 ? disconnectAll : connectAll}
-          >
-            {onlineCount > 0 ? <WifiOff className="w-4 h-4" /> : <Wifi className="w-4 h-4" />}
-            {onlineCount > 0 ? 'Disconnect All' : 'Connect All'}
-          </Button>
+                {selectedGameMode?.winType === 'time' && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-2"
+                    onClick={() => setShowExtendTime(true)}
+                    disabled={isPaused}
+                  >
+                    <Clock className="w-4 h-4" />
+                    Extend Time
+                  </Button>
+                )}
+
+                {selectedGameMode?.winType === 'score' && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-2"
+                    onClick={() => setShowUpdateTarget(true)}
+                    disabled={isPaused}
+                  >
+                    <Target className="w-4 h-4" />
+                    Update Target
+                  </Button>
+                )}
+              </>
+            )}
+
+            {!isGameRunning && (
+              <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-2"
+                  onClick={handleSyncRules}
+                  disabled={onlineCount === 0}
+                >
+                  <UploadCloud className="w-4 h-4" />
+                  Sync Rules
+                </Button>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-2"
+                  onClick={handleResetStats}
+                >
+                  <RotateCcw className="w-4 h-4" />
+                  Reset
+                </Button>
+              </>
+            )}
+
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2"
+              onClick={onlineCount > 0 ? disconnectAll : connectAll}
+            >
+              {onlineCount > 0 ? (
+                <>
+                  <WifiOff className="w-4 h-4" />
+                  Disconnect All
+                </>
+              ) : (
+                <>
+                  <Wifi className="w-4 h-4" />
+                  Connect All
+                </>
+              )}
+            </Button>
+          </div>
+
+          {/* Stats */}
+          <div className="flex items-center gap-4 text-sm">
+            <div className="flex flex-col items-center">
+              <span className="text-xl font-semibold">{totalKills}</span>
+              <span className="text-xs text-muted-foreground">Kills</span>
+            </div>
+            <Separator orientation="vertical" className="h-8" />
+            <div className="flex flex-col items-center">
+              <span className="text-xl font-semibold">{totalDeaths}</span>
+              <span className="text-xs text-muted-foreground">Deaths</span>
+            </div>
+            <Separator orientation="vertical" className="h-8" />
+            <div className="flex flex-col items-center">
+              <span className="text-xl font-semibold">{totalShots}</span>
+              <span className="text-xs text-muted-foreground">Shots</span>
+            </div>
+          </div>
         </div>
+      </div>
 
-        {/* Live Stats */}
-        {onlineCount > 0 && (
-          <div className="grid grid-cols-3 gap-2 pt-2 border-t">
-            <div className="text-center p-2 bg-muted/50 rounded-md">
-              <div className="text-2xl font-bold">{totalKills}</div>
-              <div className="text-xs text-muted-foreground">Total Kills</div>
-            </div>
-            <div className="text-center p-2 bg-muted/50 rounded-md">
-              <div className="text-2xl font-bold">{totalDeaths}</div>
-              <div className="text-xs text-muted-foreground">Total Deaths</div>
-            </div>
-            <div className="text-center p-2 bg-muted/50 rounded-md">
-              <div className="text-2xl font-bold">{totalShots}</div>
-              <div className="text-xs text-muted-foreground">Total Shots</div>
-            </div>
-          </div>
-        )}
+      {/* Live Game Stats */}
+      {isGameRunning && selectedGameMode && (
+        <LiveGameStats
+          winType={selectedGameMode.winType as any}
+          targetScore={selectedGameMode.targetScore}
+          durationMinutes={selectedGameMode.durationMinutes}
+          gameStartedAt={gameStartedAt || undefined}
+          players={playerStats}
+          isGameRunning={isGameRunning}
+          isGameOver={isGameOver}
+        />
+      )}
 
-        {/* No devices warning */}
-        {totalDevices === 0 && (
-          <div className="text-center py-4 text-muted-foreground text-sm">
-            Add devices to this project to start a game.
-          </div>
-        )}
-
-        {/* All offline warning */}
-        {totalDevices > 0 && onlineCount === 0 && (
-          <div className="text-center py-2 text-amber-600 text-sm">
-            No devices connected. Click "Connect" to connect all devices.
-          </div>
-        )}
-      </CardContent>
-    </Card>
-  )
-}
-
-function SettingsDialog({
-  open,
-  onOpenChange,
-  settings,
-  onSettingsChange,
-}: {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  settings: GameSettings
-  onSettingsChange: (settings: GameSettings) => void
-}) {
-  const update = (key: keyof GameSettings, value: any) => {
-    onSettingsChange({ ...settings, [key]: value })
-  }
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px]">
-        <DialogHeader>
-          <DialogTitle>Game Settings</DialogTitle>
-          <DialogDescription>Configure rules for the next match.</DialogDescription>
-        </DialogHeader>
-        <div className="grid gap-4 py-4">
-          <div className="flex items-center justify-between space-x-2">
-            <label className="text-sm font-medium leading-none">Enable Hearts (Health)</label>
-            <Switch
-              checked={settings.enableHearts}
-              onCheckedChange={(c) => update('enableHearts', c)}
-            />
-          </div>
-          {settings.enableHearts && (
-            <div className="grid grid-cols-2 gap-4">
-              <div className="grid gap-2">
-                <label className="text-sm">Max Hearts</label>
-                <Input
-                  type="number"
-                  value={settings.maxHearts}
-                  onChange={(e) => update('maxHearts', Number(e.target.value))}
-                />
-              </div>
-              <div className="grid gap-2">
-                <label className="text-sm">Respawn (sec)</label>
-                <Input
-                  type="number"
-                  value={settings.respawnTimeSeconds}
-                  onChange={(e) => update('respawnTimeSeconds', Number(e.target.value))}
-                />
-              </div>
-            </div>
-          )}
-
-          <div className="flex items-center justify-between space-x-2 pt-2 border-t">
-            <label className="text-sm font-medium leading-none">Enable Ammo</label>
-            <Switch
-              checked={settings.enableAmmo}
-              onCheckedChange={(c) => update('enableAmmo', c)}
-            />
-          </div>
-          {settings.enableAmmo && (
-            <div className="grid gap-2">
-              <label className="text-sm">Max Ammo</label>
+      {/* Extend Time Dialog */}
+      <Dialog open={showExtendTime} onOpenChange={setShowExtendTime}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Extend Game Time</DialogTitle>
+            <DialogDescription>
+              Add additional minutes to the current game
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="extend-minutes">Additional Minutes</Label>
               <Input
+                id="extend-minutes"
                 type="number"
-                value={settings.maxAmmo}
-                onChange={(e) => update('maxAmmo', Number(e.target.value))}
+                min="1"
+                max="60"
+                value={extendMinutes}
+                onChange={(e) => setExtendMinutes(parseInt(e.target.value) || 5)}
               />
             </div>
-          )}
-
-          <div className="flex items-center justify-between space-x-2 pt-2 border-t">
-            <label className="text-sm font-medium leading-none">Friendly Fire</label>
-            <Switch
-              checked={settings.friendlyFire}
-              onCheckedChange={(c) => update('friendlyFire', c)}
-            />
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => setShowExtendTime(false)} className="flex-1">
+                Cancel
+              </Button>
+              <Button onClick={handleExtendTime} className="flex-1">
+                Extend
+              </Button>
+            </div>
           </div>
+        </DialogContent>
+      </Dialog>
 
-          <div className="grid gap-2 pt-2 border-t">
-            <label className="text-sm font-medium">Game Duration (minutes)</label>
-            <Input
-              type="number"
-              value={settings.durationMinutes}
-              onChange={(e) => update('durationMinutes', Number(e.target.value))}
-              placeholder="0 = Infinite"
-            />
-            <p className="text-[10px] text-muted-foreground">Set to 0 for unlimited time.</p>
+      {/* Update Target Dialog */}
+      <Dialog open={showUpdateTarget} onOpenChange={setShowUpdateTarget}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Update Target Score</DialogTitle>
+            <DialogDescription>
+              Change the target score for this game
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="target-score">New Target Score</Label>
+              <Input
+                id="target-score"
+                type="number"
+                min="10"
+                max="10000"
+                value={newTargetScore}
+                onChange={(e) => setNewTargetScore(parseInt(e.target.value) || 100)}
+              />
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => setShowUpdateTarget(false)} className="flex-1">
+                Cancel
+              </Button>
+              <Button onClick={handleUpdateTarget} className="flex-1">
+                Update
+              </Button>
+            </div>
           </div>
-        </div>
-      </DialogContent>
-    </Dialog>
+        </DialogContent>
+      </Dialog>
+
+      {/* Game Over Dialog */}
+      <GameOverDialog
+        open={isGameOver}
+        onOpenChange={setIsGameOver}
+        winType="time"
+        winnerName={playerStats[0]?.playerName}
+        winnerType="player"
+        matchDuration={0}
+        players={playerStats}
+        onNewGame={() => {
+          setIsGameOver(false)
+          // Reset state for new game
+        }}
+        onRematch={() => {
+          setIsGameOver(false)
+          handleStartGame()
+        }}
+      />
+    </div>
   )
 }
+
+

@@ -20,7 +20,10 @@ export async function generateMetadata({
   const t = await getTranslations({ locale, namespace: 'Common' })
 
   return {
-    title: t('dashboardTitle'),
+    title: {
+      template: '%s | RayZ',
+      default: t('dashboardTitle'),
+    },
     description: t('dashboardDescription'),
     icons: {
       icon: '/r.png',

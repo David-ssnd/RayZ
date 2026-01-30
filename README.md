@@ -9,7 +9,38 @@ A laser tag system with ESP32-based embedded devices and web interface for game 
 - **Web Dashboard**: Modern web interface for game management and statistics
 - **Modular Architecture**: Shared library ensures consistent protocol across devices
 - **Independent Versioning**: Mix and match component versions as needed
-- **Optimized Performance**: Direct WebSocket connections with binary protocol (MessagePack)
+- **Optimized Performance**: Direct WebSocket connections with JSON protocol
+- **Dynamic Game Control**: Pause/resume, extend time, update targets mid-game
+- **Multiple Win Conditions**: Time-based, score-based, and last-man-standing modes
+- **Real-Time Stats**: Live leaderboards and game progress tracking
+- **Match History**: Complete statistics and player performance tracking
+
+## 📚 Documentation
+
+Complete API and protocol documentation available:
+
+- **[PROTOCOL.md](./PROTOCOL.md)** - WebSocket Protocol v2.3 specification
+  - Message formats and OpCodes
+  - Game commands and configuration
+  - Win condition implementations
+  - Sequence diagrams and examples
+  
+- **[openapi.yaml](./openapi.yaml)** - REST API specification (OpenAPI 3.0)
+  - All REST endpoints
+  - Request/response schemas
+  - Authentication
+  - **View with:** `pnpm docs` or `pnpm dlx swagger-ui-serve openapi.json`
+  
+- **[API_DOCUMENTATION.md](./API_DOCUMENTATION.md)** - Quick start guide
+  - Integration examples
+  - Common use cases
+  - Debugging tips
+  - Testing guidelines
+
+- **[VIEWING_API_DOCS.md](./VIEWING_API_DOCS.md)** - How to view the OpenAPI spec
+  - Multiple viewing methods (pnpm/npm)
+  - Troubleshooting guide
+  - Code generation examples
 
 ## 🎯 Project Structure
 

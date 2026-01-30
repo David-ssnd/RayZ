@@ -16,7 +16,7 @@
   "Control": {
     "title": "Ovládací panel",
     "description": "Ovládajte a sledujte pripojené hardvérové zariadenia",
-    "metaTitle": "Ovládanie | RayZ",
+    "metaTitle": "Ovládací panel",
     "metaDescription": "Ovládací panel na správu hardvérových zariadení",
     "addDeviceByIp": "Pridať zariadenie podľa IP adresy na LAN:",
     "addDevice": "Pridať zariadenie"
@@ -24,13 +24,13 @@
   "Presentation": {
     "title": "Prezentácia projektu",
     "description": "Interaktívne snímky, ktoré jednoducho a zrozumiteľne predstavujú projekt RayZ.",
-    "metaTitle": "Prezentácia | RayZ",
+    "metaTitle": "Prezentácia projektu",
     "metaDescription": "Ukážka projektu RayZ formou interaktívnej prezentácie."
   },
   "Hardware": {
     "title": "Prehľad hardvéru",
     "description": "Demonštračné zapojenie hardvérových zariadení.",
-    "metaTitle": "Hardvér | RayZ",
+    "metaTitle": "Prehľad hardvéru",
     "metaDescription": "Prehľadná stránka na prezenetovanie hardvérových zariadení.",
     "targetDevice": {
       "name": "Laserový terč",
@@ -51,7 +51,7 @@
   "TechStack": {
     "title": "Použité technológie",
     "description": "Hlavné technológie, ktoré stoja za projektom RayZ.",
-    "metaTitle": "Technológie | RayZ",
+    "metaTitle": "Použité technológie",
     "metaDescription": "Prehľad technológií, ktoré tvoria základ projektu RayZ.",
     "currentStack": "Aktuálne technológie",
     "futureStack": "Plánované technológie",
@@ -116,6 +116,18 @@
       "development": "Vývoj",
       "database": "Databáza"
     }
+  },
+  "WSDemo": {
+    "metaTitle": "WebSocket Demo",
+    "metaDescription": "Ukážka komunikácie v reálnom čase pomocou WebSocket a Ably"
+  },
+  "SignIn": {
+    "metaTitle": "Prihlásenie",
+    "metaDescription": "Prihláste sa do svojho účtu"
+  },
+  "SignUp": {
+    "metaTitle": "Registrácia",
+    "metaDescription": "Vytvorte si nový účet"
   },
   "Common": {
     "dashboardTitle": "RayZ Dashboard",

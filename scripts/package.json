@@ -1,0 +1,11 @@
+{
+  "name": "rayz-scripts",
+  "version": "1.0.0",
+  "private": true,
+  "bin": {
+    "swagger-serve": "./swagger-serve.js"
+  },
+  "dependencies": {
+    "js-yaml": "^4.1.0"
+  }
+}

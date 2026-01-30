@@ -16,7 +16,7 @@
   "Control": {
     "title": "Control Panel",
     "description": "Control and monitor connected hardware devices",
-    "metaTitle": "Control | RayZ",
+    "metaTitle": "Control Panel",
     "metaDescription": "Control panel for managing hardware devices",
     "addDeviceByIp": "Add device by IP address on LAN:",
     "addDevice": "Add Device"
@@ -24,13 +24,13 @@
   "Presentation": {
     "title": "Project Presentation",
     "description": "Interactive presentation slides showcasing the RayZ project",
-    "metaTitle": "Presentation | RayZ",
+    "metaTitle": "Project Presentation",
     "metaDescription": "Project presentation and overview slides"
   },
   "Hardware": {
     "title": "Hardware Monitoring",
     "description": "Monitor and control connected hardware devices",
-    "metaTitle": "Hardware | RayZ",
+    "metaTitle": "Hardware Monitoring",
     "metaDescription": "Real-time hardware monitoring and control dashboard",
     "targetDevice": {
       "name": "Target Device",
@@ -51,7 +51,7 @@
   "TechStack": {
     "title": "Technology Stack",
     "description": "Tools and technologies powering the RayZ project",
-    "metaTitle": "Tech Stack | RayZ",
+    "metaTitle": "Technology Stack",
     "metaDescription": "Technology stack and architecture overview",
     "currentStack": "Current Stack",
     "futureStack": "Future Stack",
@@ -116,6 +116,18 @@
       "development": "Development",
       "database": "Database"
     }
+  },
+  "WSDemo": {
+    "metaTitle": "WebSocket Demo",
+    "metaDescription": "Real-time communication demo with WebSocket and Ably"
+  },
+  "SignIn": {
+    "metaTitle": "Sign In",
+    "metaDescription": "Sign in to your account"
+  },
+  "SignUp": {
+    "metaTitle": "Sign Up",
+    "metaDescription": "Create a new account"
   },
   "Common": {
     "dashboardTitle": "RayZ Dashboard",

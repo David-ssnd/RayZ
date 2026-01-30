@@ -7,7 +7,9 @@ import { prisma } from '@/lib/server/prisma'
 
 type GameModeOverrides = {
   durationSeconds?: number
-  enableHearts?: boolean
+  durationMinutes?: number
+  winType?: string
+  targetScore?: number
   maxHearts?: number
   spawnHearts?: number
   respawnTimeSec?: number
@@ -140,8 +142,10 @@ export async function createCustomGameMode({
         description: description ?? base.description,
         isSystem: false,
         userId,
+        winType: overrides.winType ?? base.winType,
+        durationMinutes: overrides.durationMinutes ?? base.durationMinutes,
+        targetScore: overrides.targetScore ?? base.targetScore,
         durationSeconds: overrides.durationSeconds ?? base.durationSeconds,
-        enableHearts: overrides.enableHearts ?? base.enableHearts,
         maxHearts: overrides.maxHearts ?? base.maxHearts,
         spawnHearts: overrides.spawnHearts ?? base.spawnHearts,
         respawnTimeSec: overrides.respawnTimeSec ?? base.respawnTimeSec,

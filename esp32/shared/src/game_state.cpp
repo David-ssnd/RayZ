@@ -221,24 +221,43 @@ void game_state_apply_game_config(const GameConfig* cfg, bool* clamped)
 void game_state_load_default_game_config(void)
 {
     GameConfig cfg = {};
+    
+    // Win Conditions
+    strncpy(cfg.win_type, "score", sizeof(cfg.win_type) - 1);
+    cfg.target_score = 100;
+    cfg.time_limit_s = 600;  // 10 minutes default for "time" mode
+    
+    // Health (used for "last_man_standing")
     cfg.max_hearts = 5;
-    cfg.respawn_cooldown_ms = 5000;
+    cfg.spawn_hearts = 3;
+    cfg.respawn_cooldown_ms = 10000;  // 10 seconds
     cfg.invulnerability_ms = 500;
+    cfg.damage_in = 1;
+    cfg.damage_out = 1;
+    
+    // Legacy scoring
     cfg.kill_score = 1;
     cfg.hit_score = 1;
     cfg.assist_score = 0;
-    cfg.score_to_win = 0;
-    cfg.time_limit_s = 0;
+    cfg.score_to_win = 0;  // Deprecated: use target_score
+    
+    // Game mechanics
     cfg.overtime_enabled = false;
     cfg.sudden_death = false;
-    cfg.max_ammo = 0;
-    cfg.mag_capacity = 0;
-    cfg.reload_time_ms = 0;
+    
+    // Ammo
+    cfg.max_ammo = 30;
+    cfg.mag_capacity = 30;
+    cfg.reload_time_ms = 2500;
     cfg.shot_rate_limit_ms = 100;
+    
+    // Team rules
     cfg.team_play = false;
     cfg.friendly_fire_enabled = false;
-    cfg.unlimited_ammo = true;
+    cfg.unlimited_ammo = false;
     cfg.unlimited_respawn = true;
+    
+    // Misc
     cfg.random_teams_on_start = false;
     cfg.hit_sound_enabled = true;
 
@@ -420,12 +439,16 @@ int game_state_to_json(char* buffer, size_t max_len)
     int len = snprintf(buffer, max_len,
                        "{"
                        "\"shots\":%lu,\"hits\":%lu,\"kills\":%lu,\"deaths\":%lu,\"hearts\":%u,"
-                       "\"respawning\":%s,"
+                       "\"score\":%lu,\"respawning\":%s,\"game_running\":%s,\"game_over\":%s,"
                        "\"server_connected\":%s,\"uptime\":%lu"
                        "}",
                        (unsigned long)s_state.shots_fired, (unsigned long)s_state.hits_landed,
                        (unsigned long)s_state.kills, (unsigned long)s_state.deaths, (unsigned)s_state.hearts_remaining,
-                       s_state.respawning ? "true" : "false", s_state.server_connected ? "true" : "false",
+                       (unsigned long)s_state.player_score,
+                       s_state.respawning ? "true" : "false",
+                       s_state.game_running ? "true" : "false",
+                       s_state.game_over ? "true" : "false",
+                       s_state.server_connected ? "true" : "false",
                        (unsigned long)uptime);
     return len < (int)max_len ? len : -1;
 }
@@ -470,4 +493,195 @@ int game_state_create_shot_fired_json(char* buffer, size_t max_len)
     int len = snprintf(buffer, max_len, "{\"shots\":%lu,\"ts\":%lu}", (unsigned long)s_state.shots_fired,
                        (unsigned long)(esp_timer_get_time() / 1000));
     return len < (int)max_len ? len : -1;
+}
+
+// ============================================================================
+// GAME CONTROL & WIN CONDITIONS
+// ============================================================================
+
+void game_state_start_game(void)
+{
+    LOCK();
+    uint32_t now_ms = (uint32_t)(esp_timer_get_time() / 1000);
+    s_state.game_running = true;
+    s_state.game_over = false;
+    s_state.game_start_time_ms = now_ms;
+    
+    // Set game end time for "time" mode
+    if (strcmp(s_game_cfg.win_type, "time") == 0 && s_game_cfg.time_limit_s > 0)
+    {
+        s_state.game_end_time_ms = now_ms + (s_game_cfg.time_limit_s * 1000);
+        ESP_LOGI(TAG, "Game started (time mode): %us, ends at %lu ms", s_game_cfg.time_limit_s, s_state.game_end_time_ms);
+    }
+    else
+    {
+        s_state.game_end_time_ms = 0;
+        ESP_LOGI(TAG, "Game started (mode: %s)", s_game_cfg.win_type);
+    }
+    
+    // Reset player hearts to spawn_hearts for LMS mode
+    if (strcmp(s_game_cfg.win_type, "last_man_standing") == 0)
+    {
+        s_state.hearts_remaining = s_game_cfg.spawn_hearts;
+    }
+    
+    UNLOCK();
+}
+
+void game_state_stop_game(void)
+{
+    LOCK();
+    s_state.game_running = false;
+    s_state.game_paused = false;
+    s_state.game_over = true;
+    ESP_LOGI(TAG, "Game stopped");
+    UNLOCK();
+}
+
+void game_state_pause_game(void)
+{
+    LOCK();
+    if (s_state.game_running && !s_state.game_paused)
+    {
+        s_state.game_paused = true;
+        s_state.pause_time_ms = (uint32_t)(esp_timer_get_time() / 1000);
+        ESP_LOGI(TAG, "Game paused");
+    }
+    UNLOCK();
+}
+
+void game_state_resume_game(void)
+{
+    LOCK();
+    if (s_state.game_running && s_state.game_paused)
+    {
+        uint32_t now_ms = (uint32_t)(esp_timer_get_time() / 1000);
+        uint32_t pause_duration = now_ms - s_state.pause_time_ms;
+        
+        // Adjust game end time if in time mode
+        if (strcmp(s_game_cfg.win_type, "time") == 0 && s_state.game_end_time_ms > 0)
+        {
+            s_state.game_end_time_ms += pause_duration;
+            ESP_LOGI(TAG, "Game resumed, end time adjusted by +%lu ms", pause_duration);
+        }
+        else
+        {
+            ESP_LOGI(TAG, "Game resumed");
+        }
+        
+        s_state.game_paused = false;
+        s_state.pause_time_ms = 0;
+    }
+    UNLOCK();
+}
+
+void game_state_extend_time(int additional_minutes)
+{
+    LOCK();
+    if (s_state.game_running && strcmp(s_game_cfg.win_type, "time") == 0)
+    {
+        uint32_t additional_ms = additional_minutes * 60 * 1000;
+        s_state.game_end_time_ms += additional_ms;
+        s_game_cfg.time_limit_s += (additional_minutes * 60);
+        ESP_LOGI(TAG, "Game time extended by %d minutes, new end time: %lu ms", 
+                 additional_minutes, s_state.game_end_time_ms);
+    }
+    UNLOCK();
+}
+
+void game_state_update_target(int new_target)
+{
+    LOCK();
+    if (s_state.game_running && strcmp(s_game_cfg.win_type, "score") == 0)
+    {
+        s_game_cfg.target_score = new_target;
+        ESP_LOGI(TAG, "Target score updated to %d", new_target);
+    }
+    UNLOCK();
+}
+
+void game_state_tick(void)
+{
+    if (!s_state.game_running || s_state.game_over || s_state.game_paused)
+        return;
+        
+    LOCK();
+    uint32_t now_ms = (uint32_t)(esp_timer_get_time() / 1000);
+    
+    // Check win condition based on win_type
+    if (strcmp(s_game_cfg.win_type, "time") == 0)
+    {
+        // Time mode: Check if time limit reached
+        if (s_state.game_end_time_ms > 0 && now_ms >= s_state.game_end_time_ms)
+        {
+            s_state.game_over = true;
+            s_state.game_running = false;
+            ESP_LOGI(TAG, "Game over: Time limit reached");
+            // TODO: Send GAME_OVER message via WebSocket
+        }
+    }
+    else if (strcmp(s_game_cfg.win_type, "score") == 0)
+    {
+        // Score mode: Check if target score reached
+        s_state.player_score = (s_state.kills * s_game_cfg.kill_score) + (s_state.hits_landed * s_game_cfg.hit_score);
+        
+        if (s_state.player_score >= s_game_cfg.target_score)
+        {
+            s_state.game_over = true;
+            s_state.game_running = false;
+            ESP_LOGI(TAG, "Game over: Target score reached (%lu >= %u)", s_state.player_score, s_game_cfg.target_score);
+            // TODO: Send GAME_OVER message with winner info via WebSocket
+        }
+    }
+    else if (strcmp(s_game_cfg.win_type, "last_man_standing") == 0)
+    {
+        // Last Man Standing: Game ends when player has 0 hearts
+        // (Server will detect when all players/teams are eliminated)
+        if (s_state.hearts_remaining == 0)
+        {
+            ESP_LOGI(TAG, "Player eliminated (0 hearts remaining)");
+            // Player is eliminated but game continues until server declares winner
+        }
+    }
+    
+    UNLOCK();
+}
+
+bool game_state_is_running(void)
+{
+    return s_state.game_running;
+}
+
+bool game_state_is_paused(void)
+{
+    return s_state.game_paused;
+}
+
+bool game_state_is_game_over(void)
+{
+    return s_state.game_over;
+}
+
+bool game_state_can_shoot(void)
+{
+    // In Last Man Standing mode, player can't shoot if they have 0 hearts
+    if (strcmp(s_game_cfg.win_type, "last_man_standing") == 0)
+    {
+        return s_state.hearts_remaining > 0;
+    }
+    
+    // In other modes, can always shoot (unless respawning)
+    return !s_state.respawning;
+}
+
+bool game_state_can_take_damage(void)
+{
+    // In Last Man Standing mode, player can't take damage if they have 0 hearts
+    if (strcmp(s_game_cfg.win_type, "last_man_standing") == 0)
+    {
+        return s_state.hearts_remaining > 0;
+    }
+    
+    // In other modes, can always take damage
+    return true;
 }

@@ -40,7 +40,6 @@ import {
   GripVertical,
   Loader2,
   Monitor,
-  Play,
   RotateCcw,
   Send,
   Shield,
@@ -54,36 +53,22 @@ import {
 
 import { cn } from '@/lib/utils'
 import { useDeviceConnections } from '@/lib/websocket'
-import type { GameMode as WSGameMode } from '@/lib/websocket/types'
-import { useDeviceConfig } from '@/hooks/useDeviceConfig'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
+import { Separator } from '@/components/ui/separator'
+import { GameControlPanel } from './GameControlPanel'
 
 import { AddDeviceDialog, AddPlayerDialog, AddTeamDialog } from './AddDialogs'
 import { DeviceConsole } from './DeviceConsole'
-import { GameControlPanel } from './GameControlPanel'
-import type { Device, Player, Project, Team } from './types'
+import { GameModeManager } from './GameModeManager'
+import type { Device, GameMode, Player, Project, Team } from './types'
 
 interface GameOverviewProps {
   project: Project
   availableDevices?: Device[]
+  availableGameModes?: GameMode[]
 }
-
-const GAME_MODES: { value: WSGameMode; label: string; icon: React.ReactNode }[] = [
-  { value: 'free', label: 'Free Play', icon: <Zap className="w-4 h-4" /> },
-  { value: 'deathmatch', label: 'Deathmatch', icon: <Target className="w-4 h-4" /> },
-  { value: 'team', label: 'Team Battle', icon: <Users className="w-4 h-4" /> },
-  { value: 'capture_flag', label: 'Capture Flag', icon: <Shield className="w-4 h-4" /> },
-  { value: 'timed', label: 'Timed Match', icon: <Activity className="w-4 h-4" /> },
-]
 
 type DraggableType = 'team' | 'player' | 'device'
 
@@ -498,7 +483,7 @@ type OptimisticAction =
     }
   | { type: 'MOVE_DEVICE'; deviceId: string; targetPlayerId: string | null }
 
-export function GameOverview({ project, availableDevices = [] }: GameOverviewProps) {
+export function GameOverview({ project, availableDevices = [], availableGameModes = [] }: GameOverviewProps) {
   const [optimisticProject, addOptimisticUpdate] = useOptimistic(
     project,
     (state: Project, action: OptimisticAction) => {
@@ -552,31 +537,16 @@ export function GameOverview({ project, availableDevices = [] }: GameOverviewPro
     }
   )
 
-  const [selectedGameMode, setSelectedGameMode] = useState<WSGameMode>('free')
+  const { connections } = useDeviceConnections()
+
   const [isGameRunning, setIsGameRunning] = useState(false)
+
   const [expandedTeams, setExpandedTeams] = useState<Set<string>>(
     () => new Set(project.teams?.map((t) => t.id) || [])
   )
   const [activeId, setActiveId] = useState<UniqueIdentifier | null>(null)
   const [overId, setOverId] = useState<UniqueIdentifier | null>(null)
   const [isPending, startTransition] = useTransition()
-  const [isSendingConfig, setIsSendingConfig] = useState(false)
-
-  const { broadcastCommand, connectAll, disconnectAll, connectedDevices, connections } =
-    useDeviceConnections()
-  const { sendToAllDevices, hasDevices } = useDeviceConfig(project)
-
-  // Handle send config to all devices
-  const handleSendConfigToAll = async () => {
-    setIsSendingConfig(true)
-    try {
-      const result = await sendToAllDevices()
-      console.log(`Config sent: ${result.sent} devices, ${result.failed} failed`)
-      // Could add toast notification here
-    } finally {
-      setIsSendingConfig(false)
-    }
-  }
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -588,12 +558,6 @@ export function GameOverview({ project, availableDevices = [] }: GameOverviewPro
       coordinateGetter: sortableKeyboardCoordinates,
     })
   )
-
-  // Computed values
-  const totalDevices = optimisticProject.devices?.length || 0
-  const onlineCount = connectedDevices.length
-  const totalKills = connectedDevices.reduce((sum, d) => sum + (d.kills || 0), 0)
-  const totalDeaths = connectedDevices.reduce((sum, d) => sum + (d.deaths || 0), 0)
 
   // Helper functions
   const getPlayersInTeam = useCallback(
@@ -644,21 +608,6 @@ export function GameOverview({ project, availableDevices = [] }: GameOverviewPro
 
   const collapseAll = () => {
     setExpandedTeams(new Set())
-  }
-
-  // Game controls
-  const handleStartGame = () => {
-    broadcastCommand('start')
-    setIsGameRunning(true)
-  }
-
-  const handleStopGame = () => {
-    broadcastCommand('stop')
-    setIsGameRunning(false)
-  }
-
-  const handleResetStats = () => {
-    broadcastCommand('reset')
   }
 
   // Drag and drop handlers
@@ -834,126 +783,12 @@ export function GameOverview({ project, availableDevices = [] }: GameOverviewPro
     >
       <div className="space-y-4">
         {/* Game Control Section */}
-        <Card className="border-0 gap-2">
-          <CardHeader className="pb-2 px-0">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <CardTitle className="flex items-center gap-2">
-                <Activity className="w-5 h-5" />
-                Game Control
-              </CardTitle>
-              <div className="flex items-center gap-2">
-                <Badge variant={onlineCount > 0 ? 'default' : 'secondary'} className="gap-1">
-                  {onlineCount > 0 ? <Wifi className="w-3 h-3" /> : <WifiOff className="w-3 h-3" />}
-                  {onlineCount}/{totalDevices} Online
-                </Badge>
-                {isGameRunning && (
-                  <Badge className="gap-1 bg-green-600">
-                    <Activity className="w-3 h-3 animate-pulse" />
-                    Live
-                  </Badge>
-                )}
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-2 px-0">
-            {/* Game Mode Selection */}
-            <div className="flex flex-col sm:flex-row gap-3">
-              <Select
-                value={selectedGameMode}
-                onValueChange={(v) => setSelectedGameMode(v as WSGameMode)}
-                disabled={isGameRunning}
-              >
-                <SelectTrigger className="flex-1">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {GAME_MODES.map((mode) => (
-                    <SelectItem key={mode.value} value={mode.value}>
-                      <div className="flex items-center gap-2">
-                        {mode.icon}
-                        <span>{mode.label}</span>
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Game Controls */}
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
-              {!isGameRunning ? (
-                <Button
-                  size="lg"
-                  className="col-span-2 h-12 gap-2"
-                  onClick={handleStartGame}
-                  disabled={onlineCount === 0}
-                >
-                  <Play className="w-5 h-5" />
-                  Start Game
-                </Button>
-              ) : (
-                <Button
-                  size="lg"
-                  variant="destructive"
-                  className="col-span-2 h-12 gap-2"
-                  onClick={handleStopGame}
-                >
-                  <Square className="w-5 h-5" />
-                  Stop Game
-                </Button>
-              )}
-              <Button
-                variant="outline"
-                className="h-12 gap-2"
-                onClick={handleResetStats}
-                disabled={isGameRunning}
-              >
-                <RotateCcw className="w-4 h-4" />
-                <span className="hidden sm:inline">Reset</span>
-              </Button>
-              <Button
-                variant="outline"
-                className="h-12 gap-2"
-                onClick={onlineCount > 0 ? disconnectAll : connectAll}
-              >
-                {onlineCount > 0 ? <WifiOff className="w-4 h-4" /> : <Wifi className="w-4 h-4" />}
-                <span className="hidden sm:inline">{onlineCount > 0 ? 'Disconnect' : 'Connect All'}</span>
-              </Button>
-              <Button
-                variant="secondary"
-                className="h-12 gap-2"
-                onClick={handleSendConfigToAll}
-                disabled={!hasDevices || isSendingConfig}
-              >
-                {isSendingConfig ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    <span className="hidden sm:inline">Sending...</span>
-                  </>
-                ) : (
-                  <>
-                    <Send className="w-4 h-4" />
-                    <span className="hidden sm:inline">Send Config</span>
-                  </>
-                )}
-              </Button>
-            </div>
-
-            {/* Live Stats */}
-            {isGameRunning && (
-              <div className="grid grid-cols-2 gap-4 pt-2">
-                <div className="text-center">
-                  <p className="text-2xl font-bold text-green-600">{totalKills}</p>
-                  <p className="text-xs text-muted-foreground">Total Kills</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-2xl font-bold text-red-600">{totalDeaths}</p>
-                  <p className="text-xs text-muted-foreground">Total Deaths</p>
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        <GameControlPanel 
+          project={optimisticProject} 
+          availableGameModes={availableGameModes} 
+          isGameRunning={isGameRunning}
+          setIsGameRunning={setIsGameRunning}
+        />
 
         {/* Device Console - Show first when game is running */}
         {isGameRunning && <DeviceConsole />}
@@ -987,7 +822,7 @@ export function GameOverview({ project, availableDevices = [] }: GameOverviewPro
                 >
                   <ChevronsDownUp className="w-4 h-4" />
                 </Button>
-                <div className="w-px h-6 bg-border mx-1" />
+                <Separator orientation="vertical" className="h-6 mx-1" />
                 {/* Add buttons */}
                 <AddTeamDialog projectId={optimisticProject.id} />
                 <AddPlayerDialog project={optimisticProject} />
