@@ -64,7 +64,6 @@ import { Separator } from '@/components/ui/separator'
 import { GameControlPanel } from './GameControlPanel'
 
 import { AddDeviceDialog, AddPlayerDialog, AddTeamDialog } from './AddDialogs'
-import { DeviceConsole } from './DeviceConsole'
 import { GameModeManager } from './GameModeManager'
 import type { Device, GameMode, Player, Project, Team } from './types'
 
@@ -828,10 +827,7 @@ export function GameOverview({ project, availableDevices = [], availableGameMode
           setIsGameRunning={setIsGameRunning}
         />
 
-        {/* Device Console - Show first when game is running */}
-        {isGameRunning && <DeviceConsole />}
-
-        {/* Teams Section - Hide when game is running */}
+        {/* Teams Section */}
         {!isGameRunning && (
           <>
             {/* Toolbar */}
@@ -1016,9 +1012,6 @@ export function GameOverview({ project, availableDevices = [], availableGameMode
           )}
       </>
     )}
-
-    {/* Device Console - Show at bottom when game is not running */}
-    {!isGameRunning && <DeviceConsole />}
   </div>
 
       {/* Drag Overlay */}

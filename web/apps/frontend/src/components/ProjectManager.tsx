@@ -37,6 +37,7 @@ import { PlayerManager } from './project-manager/PlayerManager'
 import { ProjectDeviceManager } from './project-manager/ProjectDeviceManager'
 import { ProjectSettingsManager } from './project-manager/ProjectSettingsManager'
 import { TeamManager } from './project-manager/TeamManager'
+import { DeviceConsole } from './project-manager/DeviceConsole'
 import { Device, GameMode, Project } from './project-manager/types'
 
 interface ProjectManagerProps {
@@ -289,6 +290,13 @@ export function ProjectManager({ projects, availableDevices, gameModes }: Projec
                 </Tabs>
               </CardContent>
             </Card>
+          )}
+
+          {/* Device Console - Always visible below tabs */}
+          {selectedProject && (
+            <div className="mt-4">
+              <DeviceConsole />
+            </div>
           )}
         </ModeAwareConnectionProvider>
       )}
