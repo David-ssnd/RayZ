@@ -44,6 +44,14 @@ static const char* reason_to_str(int reason)
             return "no ap found";
         case WIFI_REASON_ASSOC_FAIL:
             return "assoc fail";
+        case WIFI_REASON_4WAY_HANDSHAKE_TIMEOUT:
+            return "4-way handshake timeout";
+        case WIFI_REASON_HANDSHAKE_TIMEOUT:
+            return "handshake timeout";
+        case WIFI_REASON_MIC_FAILURE:
+            return "MIC failure";
+        case 205:
+            return "connection failed";
         default:
             return "other";
     }
@@ -83,17 +91,36 @@ static void on_wifi_disconnect(void* arg, esp_event_base_t base, int32_t id, voi
             }
         }
 
-        // Exponential backoff: 500ms, 1s, 2s, 5s, 5s, ...
-        int backoff_ms = 500;
+        // Exponential backoff: 1s, 2s, 3s, 5s, 5s, ...
+        int backoff_ms = 1000;
         if (s_retry_count == 1)
-            backoff_ms = 500;
-        else if (s_retry_count == 2)
             backoff_ms = 1000;
-        else if (s_retry_count == 3)
+        else if (s_retry_count == 2)
             backoff_ms = 2000;
+        else if (s_retry_count == 3)
+            backoff_ms = 3000;
         else
             backoff_ms = 5000;
         vTaskDelay(pdMS_TO_TICKS(backoff_ms));
+        
+        // On handshake timeout, try adjusting WiFi config
+        if (data)
+        {
+            wifi_event_sta_disconnected_t* ev = (wifi_event_sta_disconnected_t*)data;
+            if (ev->reason == WIFI_REASON_4WAY_HANDSHAKE_TIMEOUT || ev->reason == WIFI_REASON_HANDSHAKE_TIMEOUT)
+            {
+                ESP_LOGW(TAG, "Handshake timeout - adjusting auth mode");
+                wifi_config_t conf = {};
+                if (esp_wifi_get_config(WIFI_IF_STA, &conf) == ESP_OK)
+                {
+                    // Try more permissive auth mode
+                    conf.sta.threshold.authmode = WIFI_AUTH_OPEN;
+                    conf.sta.pmf_cfg.required = false;
+                    esp_wifi_set_config(WIFI_IF_STA, &conf);
+                }
+            }
+        }
+        
         esp_wifi_set_ps(WIFI_PS_NONE); // Disable power saving before reconnect
         esp_err_t cret = esp_wifi_connect();
         if (cret != ESP_OK)
@@ -288,12 +315,13 @@ void wifi_start_sta(const char* ssid, const char* pass)
     strncpy((char*)sta_config.sta.password, pass, sizeof(sta_config.sta.password));
     sta_config.sta.bssid_set = false;
     memset(sta_config.sta.bssid, 0, 6);
-    sta_config.sta.threshold.authmode = WIFI_AUTH_WPA2_PSK;
+    sta_config.sta.threshold.authmode = WIFI_AUTH_WPA_PSK; // Allow WPA/WPA2/WPA3
     sta_config.sta.pmf_cfg.capable = true;
     sta_config.sta.pmf_cfg.required = false;
     sta_config.sta.sae_pwe_h2e = WPA3_SAE_PWE_BOTH;
-    sta_config.sta.listen_interval = 3;
+    sta_config.sta.listen_interval = 10; // Increased from 3 to avoid beacon timeouts
     sta_config.sta.scan_method = WIFI_ALL_CHANNEL_SCAN;
+    sta_config.sta.sort_method = WIFI_CONNECT_AP_BY_SIGNAL; // Connect to strongest AP
 
     /*
     wifi_ap_record_t best = {};
@@ -325,6 +353,9 @@ void wifi_start_sta(const char* ssid, const char* pass)
         return;
     }
 
+    // Allow WiFi driver to fully initialize before connecting
+    vTaskDelay(pdMS_TO_TICKS(500));
+    
     // Non-blocking connect - will retry asynchronously via event handler
     esp_wifi_set_ps(WIFI_PS_NONE); // Disable power saving before connect
     ret = esp_wifi_connect();
