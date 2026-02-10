@@ -52,6 +52,7 @@ extern "C"
     void game_state_set_connected(bool connected);
     void game_state_update_heartbeat(void);
     bool game_state_heartbeat_due(void);
+    uint32_t game_state_next_seq_id(void);  // Get and increment sequence ID for broadcasts
     
     // Game Control & Win Conditions
     void game_state_start_game(void);

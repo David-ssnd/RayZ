@@ -49,14 +49,32 @@ interface GameControlPanelProps {
   availableGameModes: GameMode[]
   isGameRunning: boolean
   setIsGameRunning: (running: boolean) => void
+  gameStartedAt: Date | null
+  setGameStartedAt: (date: Date | null) => void
+  isGameOver: boolean
+  setIsGameOver: (over: boolean) => void
+  selectedGameModeId: string
+  setSelectedGameModeId: (id: string) => void
+  playerStats: any[]
+  setPlayerStats: (stats: any[]) => void
 }
 
-export function GameControlPanel({ project, availableGameModes, isGameRunning, setIsGameRunning }: GameControlPanelProps) {
+export function GameControlPanel({
+  project,
+  availableGameModes,
+  isGameRunning,
+  setIsGameRunning,
+  gameStartedAt,
+  setGameStartedAt,
+  isGameOver,
+  setIsGameOver,
+  selectedGameModeId,
+  setSelectedGameModeId,
+  playerStats,
+  setPlayerStats,
+}: GameControlPanelProps) {
   const t = useTranslations('Control.gameControl')
-  const [selectedGameModeId, setSelectedGameModeId] = useState<string>(project.gameModeId || availableGameModes[0]?.id || '')
   const [isPaused, setIsPaused] = useState(false)
-  const [isGameOver, setIsGameOver] = useState(false)
-  const [gameStartedAt, setGameStartedAt] = useState<Date | null>(null)
   const [showExtendTime, setShowExtendTime] = useState(false)
   const [showUpdateTarget, setShowUpdateTarget] = useState(false)
   const [extendMinutes, setExtendMinutes] = useState(5)
@@ -72,9 +90,6 @@ export function GameControlPanel({ project, availableGameModes, isGameRunning, s
 
   const onlineCount = connectedDevices.length
   const totalDevices = project.devices?.length || 0
-
-  // Mock player data (in real implementation, this would come from WebSocket messages)
-  const [playerStats, setPlayerStats] = useState<any[]>([])
 
   useEffect(() => {
     // Mock player data from connected devices
@@ -387,19 +402,6 @@ export function GameControlPanel({ project, availableGameModes, isGameRunning, s
           </div>
         </div>
       </div>
-
-      {/* Live Game Stats */}
-      {isGameRunning && selectedGameMode && (
-        <LiveGameStats
-          winType={selectedGameMode.winType as any}
-          targetScore={selectedGameMode.targetScore}
-          durationMinutes={selectedGameMode.durationMinutes}
-          gameStartedAt={gameStartedAt || undefined}
-          players={playerStats}
-          isGameRunning={isGameRunning}
-          isGameOver={isGameOver}
-        />
-      )}
 
       {/* Extend Time Dialog */}
       <Dialog open={showExtendTime} onOpenChange={setShowExtendTime}>

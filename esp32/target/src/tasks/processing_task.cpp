@@ -27,16 +27,25 @@ extern "C" void processing_task(void* pvParameters)
             continue;
         }
 
+        // Debug: Log raw bits received
+        ESP_LOGI(TAG, "[RAW] Received bits: 0x%04X (%s)", message_bits, toBinaryString(message_bits, MESSAGE_TOTAL_BITS).c_str());
+
         uint8_t rx_player = 0;
         uint8_t rx_device = 0;
         bool isValid = validateLaserMessage(message_bits, &rx_player, &rx_device);
+        
+        // Debug: Log validation result
         if (!isValid)
         {
+            ESP_LOGI(TAG, "[VALIDATION] Invalid message - failed checksum or format");
             continue;
         }
+        
+        ESP_LOGI(TAG, "[VALIDATION] Valid message - Player: %u, Device: %u", rx_player, rx_device);
 
         if (game_state_is_respawning())
         {
+            ESP_LOGI(TAG, "[GAME] Ignoring hit - device is respawning");
             continue;
         }
 
@@ -51,6 +60,8 @@ extern "C" void processing_task(void* pvParameters)
             if (hasExpectedMessage && (xTaskGetTickCount() - last_expected_update) < pdMS_TO_TICKS(5000))
             {
                 matchesExpected = (message_bits == expectedMessage);
+                ESP_LOGI(TAG, "[EXPECTED] Has expected message - Expected: 0x%04X, Matches: %s", 
+                        expectedMessage, matchesExpected ? "YES" : "NO");
                 if (matchesExpected)
                 {
                     correct_messages++;
@@ -59,6 +70,11 @@ extern "C" void processing_task(void* pvParameters)
                 {
                     not_expected_messages++;
                 }
+            }
+            else
+            {
+                ESP_LOGI(TAG, "[EXPECTED] No expected message set or expired - accepting all valid hits");
+                matchesExpected = true; // Accept all valid hits when no expected message
             }
 
             correctSnapshot = correct_messages;
@@ -79,6 +95,7 @@ extern "C" void processing_task(void* pvParameters)
 
         if (isValid && matchesExpected)
         {
+            ESP_LOGI(TAG, "[HIT REGISTERED] Triggering vibration and recording death");
             gpio_set_level((gpio_num_t)VIBRATION_PIN, 1);
             vTaskDelay(pdMS_TO_TICKS(VIBRATION_DURATION_MS));
             gpio_set_level((gpio_num_t)VIBRATION_PIN, 0);
@@ -107,6 +124,11 @@ extern "C" void processing_task(void* pvParameters)
                 ws_server_broadcast_hit("unknown");
                 ESP_LOGI(TAG, "Hit reported to connected browsers");
             }
+        }
+        else
+        {
+            ESP_LOGI(TAG, "[HIT REJECTED] Valid: %s, Matches Expected: %s", 
+                    isValid ? "YES" : "NO", matchesExpected ? "YES" : "NO");
         }
     }
 }

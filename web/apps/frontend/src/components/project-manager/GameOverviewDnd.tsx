@@ -42,6 +42,7 @@ import {
   ChevronsUpDown,
   Gamepad2,
   GripVertical,
+  Heart,
   Loader2,
   Monitor,
   RotateCcw,
@@ -64,6 +65,7 @@ import { Separator } from '@/components/ui/separator'
 
 import { AddDeviceDialog, AddPlayerDialog, AddTeamDialog } from './AddDialogs'
 import { GameModeManager } from './GameModeManager'
+import { LiveGameStats } from './LiveGameStats'
 import type { Device, GameMode, Player, Project, Team } from './types'
 
 interface GameOverviewProps {
@@ -72,6 +74,11 @@ interface GameOverviewProps {
   availableGameModes?: GameMode[]
   isGameRunning: boolean
   setIsGameRunning: (running: boolean) => void
+  gameStartedAt?: Date | null
+  isGameOver?: boolean
+  selectedGameMode?: GameMode
+  playerStats?: any[]
+  connectedDevices?: any[]
 }
 
 type DraggableType = 'team' | 'player' | 'device'
@@ -500,6 +507,11 @@ export function GameOverview({
   availableGameModes = [],
   isGameRunning,
   setIsGameRunning,
+  gameStartedAt,
+  isGameOver = false,
+  selectedGameMode,
+  playerStats = [],
+  connectedDevices = [],
 }: GameOverviewProps) {
   const [optimisticProject, addOptimisticUpdate] = useOptimistic(
     project,
@@ -1008,6 +1020,47 @@ export function GameOverview({
                 </Card>
               )}
           </>
+        )}
+
+        {/* Live Game Stats - shown when game is running */}
+        {isGameRunning && selectedGameMode && (
+          <div className="space-y-4">
+            {/* Overall Statistics */}
+            <div className="grid grid-cols-3 gap-3">
+              <div className="flex flex-col items-center p-3 rounded-md bg-muted/50">
+                <Target className="w-5 h-5 mb-1 text-red-500" />
+                <span className="text-2xl font-semibold">
+                  {connectedDevices.reduce((sum, d) => sum + (d.kills || 0), 0)}
+                </span>
+                <span className="text-xs text-muted-foreground">Total Kills</span>
+              </div>
+              <div className="flex flex-col items-center p-3 rounded-md bg-muted/50">
+                <Heart className="w-5 h-5 mb-1 text-rose-500" />
+                <span className="text-2xl font-semibold">
+                  {connectedDevices.reduce((sum, d) => sum + (d.deaths || 0), 0)}
+                </span>
+                <span className="text-xs text-muted-foreground">Total Deaths</span>
+              </div>
+              <div className="flex flex-col items-center p-3 rounded-md bg-muted/50">
+                <Zap className="w-5 h-5 mb-1 text-yellow-500" />
+                <span className="text-2xl font-semibold">
+                  {connectedDevices.reduce((sum, d) => sum + (d.shots || 0), 0)}
+                </span>
+                <span className="text-xs text-muted-foreground">Total Shots</span>
+              </div>
+            </div>
+
+            {/* Leaderboard */}
+            <LiveGameStats
+              winType={selectedGameMode.winType as any}
+              targetScore={selectedGameMode.targetScore}
+              durationMinutes={selectedGameMode.durationMinutes}
+              gameStartedAt={gameStartedAt || undefined}
+              players={playerStats}
+              isGameRunning={isGameRunning}
+              isGameOver={isGameOver}
+            />
+          </div>
         )}
       </div>
 
