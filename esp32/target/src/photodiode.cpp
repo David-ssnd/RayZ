@@ -76,6 +76,15 @@ void Photodiode::update()
     int rawValue = 0;
     ESP_ERROR_CHECK(adc_oneshot_read(adc_handle, PHOTODIODE_ADC_CHANNEL, &rawValue));
     float voltage = (rawValue * ADC_VREF) / ADC_RESOLUTION;
+    
+    // Debug: Log voltage periodically (every ~1 second)
+    static uint32_t lastLogTime = 0;
+    if (currentTime - lastLogTime > 1000)
+    {
+        ESP_LOGI(TAG, "[ADC] Raw: %d, Voltage: %.3fV, Min: %.3fV, Max: %.3fV, Threshold: %.3fV", 
+                rawValue, voltage, runningMin, runningMax, dynamicThreshold);
+        lastLogTime = currentTime;
+    }
 
     // Decay toward recent samples to avoid stale thresholds
     runningMin = runningMin * THRESHOLD_MIN_WEIGHT + voltage * THRESHOLD_NEW_WEIGHT;
@@ -112,6 +121,7 @@ void Photodiode::update()
                 {
                     bufferFull = true;
                     bitCount = PHOTODIODE_BUFFER_SIZE;
+                    ESP_LOGI(TAG, "Bit buffer full - ready to decode messages");
                 }
             }
             xSemaphoreGive(bufferMutex);

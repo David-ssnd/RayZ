@@ -237,11 +237,20 @@ function ProjectLayout({
 }) {
   const t = useTranslations('Control')
   const [isGameRunning, setIsGameRunning] = useState(false)
+  const [gameStartedAt, setGameStartedAt] = useState<Date | null>(null)
+  const [isGameOver, setIsGameOver] = useState(false)
+  const [selectedGameModeId, setSelectedGameModeId] = useState<string>(
+    project.gameModeId || localGameModes[0]?.id || ''
+  )
+  const [playerStats, setPlayerStats] = useState<any[]>([])
+  
+  const selectedGameMode = localGameModes.find((m) => m.id === selectedGameModeId)
+
   const leftPanelRef = useRef<PanelImperativeHandle>(null)
   const rightPanelRef = useRef<PanelImperativeHandle>(null)
   const [isLeftCollapsed, setIsLeftCollapsed] = useState(false)
   const [isRightCollapsed, setIsRightCollapsed] = useState(false)
-  const { messageLog } = useDeviceConnections()
+  const { messageLog, connectedDevices } = useDeviceConnections()
 
   const handleLeftCollapse = () => {
     leftPanelRef.current?.collapse()
@@ -329,6 +338,14 @@ function ProjectLayout({
                 availableGameModes={localGameModes}
                 isGameRunning={isGameRunning}
                 setIsGameRunning={setIsGameRunning}
+                gameStartedAt={gameStartedAt}
+                setGameStartedAt={setGameStartedAt}
+                isGameOver={isGameOver}
+                setIsGameOver={setIsGameOver}
+                selectedGameModeId={selectedGameModeId}
+                setSelectedGameModeId={setSelectedGameModeId}
+                playerStats={playerStats}
+                setPlayerStats={setPlayerStats}
               />
             </div>
           )}
@@ -387,6 +404,11 @@ function ProjectLayout({
                 availableGameModes={localGameModes}
                 isGameRunning={isGameRunning}
                 setIsGameRunning={setIsGameRunning}
+                gameStartedAt={gameStartedAt}
+                isGameOver={isGameOver}
+                selectedGameMode={selectedGameMode}
+                playerStats={playerStats}
+                connectedDevices={connectedDevices}
               />
             </TabsContent>
 
