@@ -52,6 +52,7 @@ interface DeviceConnection {
   reconnectTimeout: NodeJS.Timeout | null
   heartbeatInterval: NodeJS.Timeout | null
   lastActivity: number
+  lastSeqId: number // Last sequence ID received for deduplication
 }
 
 type MessageHandler = (message: ServerMessage, device: string) => void
@@ -88,6 +89,7 @@ function createDeviceConnection(ip: string): DeviceConnection {
     reconnectTimeout: null,
     heartbeatInterval: null,
     lastActivity: Date.now(),
+    lastSeqId: 0,
   }
 }
 
@@ -405,6 +407,19 @@ export class LocalComm implements GameComm {
 
     try {
       const message = this.decodeMessage(event.data)
+      
+      // Check for duplicate messages using seq_id if present
+      if ('seq_id' in message && typeof message.seq_id === 'number') {
+        // Allow seq_id wrapping (uint32 overflow)
+        const seqId = message.seq_id as number
+        if (seqId > 0 && seqId <= device.lastSeqId) {
+          // Duplicate or out-of-order message - ignore
+          log.debug(`Dropping duplicate message from ${device.ip}: seq_id=${seqId}, last=${device.lastSeqId}`)
+          return
+        }
+        device.lastSeqId = seqId
+      }
+      
       this.emitMessage(device.ip, message)
     } catch (err) {
       log.error(`Failed to handle message from ${device.ip}:`, err)
