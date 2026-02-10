@@ -17,6 +17,7 @@ import {
   useFeatureFlags,
 } from '@/lib/comm'
 import { DeviceConnectionsProvider } from '@/lib/websocket'
+import { cn } from '@/lib/utils'
 
 import { Device } from './project-manager/types'
 
@@ -74,7 +75,7 @@ export function ModeStatusBar({ className }: { className?: string }) {
 
   return (
     <div
-      className={`flex items-center justify-between p-2 bg-muted/50 rounded-lg ${className ?? ''}`}
+      className={cn("flex items-center justify-between p-2 bg-muted/50 rounded-lg", className)}
     >
       <CommModeIndicator />
       <div className="flex items-center gap-4 text-xs text-muted-foreground">

@@ -10,11 +10,13 @@ import {
 import {
   closestCenter,
   closestCorners,
+  CollisionDetection,
   DndContext,
   DragEndEvent,
   DragOverEvent,
   DragOverlay,
   DragStartEvent,
+  getFirstCollision,
   KeyboardSensor,
   PointerSensor,
   pointerWithin,
@@ -23,8 +25,6 @@ import {
   useDroppable,
   useSensor,
   useSensors,
-  CollisionDetection,
-  getFirstCollision,
 } from '@dnd-kit/core'
 import {
   arrayMove,
@@ -61,7 +61,6 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
-import { GameControlPanel } from './GameControlPanel'
 
 import { AddDeviceDialog, AddPlayerDialog, AddTeamDialog } from './AddDialogs'
 import { GameModeManager } from './GameModeManager'
@@ -495,12 +494,12 @@ type OptimisticAction =
     }
   | { type: 'MOVE_DEVICE'; deviceId: string; targetPlayerId: string | null }
 
-export function GameOverview({ 
-  project, 
-  availableDevices = [], 
+export function GameOverview({
+  project,
+  availableDevices = [],
   availableGameModes = [],
   isGameRunning,
-  setIsGameRunning
+  setIsGameRunning,
 }: GameOverviewProps) {
   const [optimisticProject, addOptimisticUpdate] = useOptimistic(
     project,
@@ -576,25 +575,22 @@ export function GameOverview({
   )
 
   // Custom collision detection - more forgiving, always finds nearest valid target
-  const customCollisionDetection: CollisionDetection = useCallback(
-    (args) => {
-      // First, try pointer intersection for precision when directly over
-      const pointerCollisions = pointerWithin(args)
-      if (pointerCollisions.length > 0) {
-        return pointerCollisions
-      }
+  const customCollisionDetection: CollisionDetection = useCallback((args) => {
+    // First, try pointer intersection for precision when directly over
+    const pointerCollisions = pointerWithin(args)
+    if (pointerCollisions.length > 0) {
+      return pointerCollisions
+    }
 
-      // If no direct hit, find the closest corner for better edge detection
-      const closestCornerCollisions = closestCorners(args)
-      if (closestCornerCollisions.length > 0) {
-        return closestCornerCollisions
-      }
+    // If no direct hit, find the closest corner for better edge detection
+    const closestCornerCollisions = closestCorners(args)
+    if (closestCornerCollisions.length > 0) {
+      return closestCornerCollisions
+    }
 
-      // Fallback to closest center
-      return closestCenter(args)
-    },
-    []
-  )
+    // Fallback to closest center
+    return closestCenter(args)
+  }, [])
 
   // Helper functions
   const getPlayersInTeam = useCallback(
@@ -825,14 +821,6 @@ export function GameOverview({
       onDragEnd={handleDragEnd}
     >
       <div className="space-y-4">
-        {/* Game Control Section */}
-        <GameControlPanel 
-          project={optimisticProject} 
-          availableGameModes={availableGameModes} 
-          isGameRunning={isGameRunning}
-          setIsGameRunning={setIsGameRunning}
-        />
-
         {/* Teams Section */}
         {!isGameRunning && (
           <>
@@ -871,154 +859,157 @@ export function GameOverview({
             </div>
 
             {/* Two-column layout: Active (left) | Unassigned (right) */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          {/* Left side - Active Teams */}
-          <div className="lg:col-span-2 space-y-2">
-            <h4 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-              <Users className="w-4 h-4" />
-              Active Teams
-            </h4>
-            {optimisticProject.teams?.length > 0 ? (
-              <SortableContext
-                items={optimisticProject.teams.map((t) => `team-${t.id}`)}
-                strategy={verticalListSortingStrategy}
-              >
-                <div className="space-y-2">
-                  {optimisticProject.teams.map((team) => (
-                    <SortableTeam
-                      key={team.id}
-                      team={team}
-                      players={getPlayersInTeam(team.id)}
-                      isExpanded={expandedTeams.has(team.id)}
-                      onToggle={() => toggleTeam(team.id)}
-                      getDevicesForPlayer={getDevicesForPlayer}
-                      getDeviceConnectionState={getDeviceConnectionState}
-                      activeId={activeId}
-                      overId={overId}
-                      project={optimisticProject}
-                    />
-                  ))}
-                </div>
-              </SortableContext>
-            ) : (
-              <div className="min-h-[100px] p-4 rounded border-2 border-dashed bg-muted/20 flex items-center justify-center">
-                <p className="text-sm text-muted-foreground text-center">
-                  No teams yet. Add a team to get started.
-                </p>
-              </div>
-            )}
-          </div>
-
-          {/* Right side - Unassigned */}
-          <div className="space-y-4">
-            {/* Unassigned Players */}
-            <div className="space-y-2">
-              <h4 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                <Gamepad2 className="w-4 h-4" />
-                Unassigned Players
-              </h4>
-              <SortableContext
-                items={playersWithoutTeam.map((p) => `player-${p.id}`)}
-                strategy={verticalListSortingStrategy}
-              >
-                <DroppableZone
-                  id="unassigned-players"
-                  className={cn(
-                    'min-h-[80px] p-2 rounded border-2 border-dashed',
-                    playersWithoutTeam.length === 0 && 'bg-muted/20'
-                  )}
-                >
-                  <div className="space-y-1">
-                    {playersWithoutTeam.length > 0 &&
-                      playersWithoutTeam.map((player) => (
-                        <SortablePlayer
-                          key={player.id}
-                          player={player}
-                          devices={getDevicesForPlayer(player)}
+            <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 min-w-0">
+              {/* Left side - Active Teams */}
+              <div className="xl:col-span-2 space-y-2 min-w-0">
+                <h4 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                  <Users className="w-4 h-4" />
+                  Active Teams
+                </h4>
+                {optimisticProject.teams?.length > 0 ? (
+                  <SortableContext
+                    items={optimisticProject.teams.map((t) => `team-${t.id}`)}
+                    strategy={verticalListSortingStrategy}
+                  >
+                    <div className="space-y-2">
+                      {optimisticProject.teams.map((team) => (
+                        <SortableTeam
+                          key={team.id}
+                          team={team}
+                          players={getPlayersInTeam(team.id)}
+                          isExpanded={expandedTeams.has(team.id)}
+                          onToggle={() => toggleTeam(team.id)}
+                          getDevicesForPlayer={getDevicesForPlayer}
                           getDeviceConnectionState={getDeviceConnectionState}
                           activeId={activeId}
                           overId={overId}
                           project={optimisticProject}
                         />
                       ))}
-                    {/* Player Preview - Only if NOT in this list already */}
-                    {activeId?.toString().startsWith('player-') &&
-                      overId === 'unassigned-players' &&
-                      !playersWithoutTeam.some(
-                        (p) => p.id === activeId.toString().replace('player-', '')
-                      ) && (
-                        <PlayerPreview
-                          player={
-                            optimisticProject.players?.find(
-                              (p) => p.id === activeId.toString().replace('player-', '')
-                            ) as Player
-                          }
-                        />
-                      )}
-                  </div>
-                  {playersWithoutTeam.length === 0 &&
-                    !(
-                      activeId?.toString().startsWith('player-') && overId === 'unassigned-players'
-                    ) && (
-                      <div className="text-xs text-muted-foreground text-center py-4">
-                        Drop players here
-                      </div>
-                    )}
-                </DroppableZone>
-              </SortableContext>
-            </div>
-
-            {/* Unassigned Devices */}
-            <div className="space-y-2">
-              <h4 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                <Monitor className="w-4 h-4" />
-                Unassigned Devices
-              </h4>
-              <SortableContext
-                items={unassignedDevices.map((d) => `device-${d.id}`)}
-                strategy={verticalListSortingStrategy}
-              >
-                <DroppableZone
-                  id="unassigned-devices"
-                  className={cn(
-                    'min-h-[60px] p-2 rounded border-2 border-dashed flex flex-wrap gap-1',
-                    unassignedDevices.length === 0 && 'bg-muted/20'
-                  )}
-                >
-                  {unassignedDevices.length > 0 ? (
-                    unassignedDevices.map((device) => (
-                      <SortableDevice
-                        key={device.id}
-                        device={device}
-                        getDeviceConnectionState={getDeviceConnectionState}
-                      />
-                    ))
-                  ) : (
-                    <div className="text-xs text-muted-foreground text-center py-2 w-full">
-                      Drop devices here
                     </div>
-                  )}
-                </DroppableZone>
-              </SortableContext>
-            </div>
-          </div>
-        </div>
+                  </SortableContext>
+                ) : (
+                  <div className="min-h-[100px] p-4 rounded border-2 border-dashed bg-muted/20 flex items-center justify-center">
+                    <p className="text-sm text-muted-foreground text-center">
+                      No teams yet. Add a team to get started.
+                    </p>
+                  </div>
+                )}
+              </div>
 
-        {/* Empty State */}
-        {(!optimisticProject.teams || optimisticProject.teams.length === 0) &&
-          (!optimisticProject.players || optimisticProject.players.length === 0) &&
-          (!optimisticProject.devices || optimisticProject.devices.length === 0) && (
-            <Card>
-              <CardContent className="py-6 text-center text-muted-foreground">
-                <Users className="w-12 h-12 mx-auto mb-3 opacity-50" />
-                <p>No teams, players or devices configured.</p>
-                <p className="text-sm">Use the buttons above to add teams, players, and devices.</p>
-              </CardContent>
-            </Card>
-          )}
-      </>
-    )}
-  </div>
+              {/* Right side - Unassigned */}
+              <div className="space-y-4 min-w-0">
+                {/* Unassigned Players */}
+                <div className="space-y-2">
+                  <h4 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                    <Gamepad2 className="w-4 h-4" />
+                    Unassigned Players
+                  </h4>
+                  <SortableContext
+                    items={playersWithoutTeam.map((p) => `player-${p.id}`)}
+                    strategy={verticalListSortingStrategy}
+                  >
+                    <DroppableZone
+                      id="unassigned-players"
+                      className={cn(
+                        'min-h-[80px] p-2 rounded border-2 border-dashed',
+                        playersWithoutTeam.length === 0 && 'bg-muted/20'
+                      )}
+                    >
+                      <div className="space-y-1">
+                        {playersWithoutTeam.length > 0 &&
+                          playersWithoutTeam.map((player) => (
+                            <SortablePlayer
+                              key={player.id}
+                              player={player}
+                              devices={getDevicesForPlayer(player)}
+                              getDeviceConnectionState={getDeviceConnectionState}
+                              activeId={activeId}
+                              overId={overId}
+                              project={optimisticProject}
+                            />
+                          ))}
+                        {/* Player Preview - Only if NOT in this list already */}
+                        {activeId?.toString().startsWith('player-') &&
+                          overId === 'unassigned-players' &&
+                          !playersWithoutTeam.some(
+                            (p) => p.id === activeId.toString().replace('player-', '')
+                          ) && (
+                            <PlayerPreview
+                              player={
+                                optimisticProject.players?.find(
+                                  (p) => p.id === activeId.toString().replace('player-', '')
+                                ) as Player
+                              }
+                            />
+                          )}
+                      </div>
+                      {playersWithoutTeam.length === 0 &&
+                        !(
+                          activeId?.toString().startsWith('player-') &&
+                          overId === 'unassigned-players'
+                        ) && (
+                          <div className="text-xs text-muted-foreground text-center py-4">
+                            Drop players here
+                          </div>
+                        )}
+                    </DroppableZone>
+                  </SortableContext>
+                </div>
+
+                {/* Unassigned Devices */}
+                <div className="space-y-2">
+                  <h4 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                    <Monitor className="w-4 h-4" />
+                    Unassigned Devices
+                  </h4>
+                  <SortableContext
+                    items={unassignedDevices.map((d) => `device-${d.id}`)}
+                    strategy={verticalListSortingStrategy}
+                  >
+                    <DroppableZone
+                      id="unassigned-devices"
+                      className={cn(
+                        'min-h-[60px] p-2 rounded border-2 border-dashed flex flex-wrap gap-1',
+                        unassignedDevices.length === 0 && 'bg-muted/20'
+                      )}
+                    >
+                      {unassignedDevices.length > 0 ? (
+                        unassignedDevices.map((device) => (
+                          <SortableDevice
+                            key={device.id}
+                            device={device}
+                            getDeviceConnectionState={getDeviceConnectionState}
+                          />
+                        ))
+                      ) : (
+                        <div className="text-xs text-muted-foreground text-center py-2 w-full">
+                          Drop devices here
+                        </div>
+                      )}
+                    </DroppableZone>
+                  </SortableContext>
+                </div>
+              </div>
+            </div>
+
+            {/* Empty State */}
+            {(!optimisticProject.teams || optimisticProject.teams.length === 0) &&
+              (!optimisticProject.players || optimisticProject.players.length === 0) &&
+              (!optimisticProject.devices || optimisticProject.devices.length === 0) && (
+                <Card>
+                  <CardContent className="py-6 text-center text-muted-foreground">
+                    <Users className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                    <p>No teams, players or devices configured.</p>
+                    <p className="text-sm">
+                      Use the buttons above to add teams, players, and devices.
+                    </p>
+                  </CardContent>
+                </Card>
+              )}
+          </>
+        )}
+      </div>
 
       {/* Drag Overlay */}
       <DragOverlay>

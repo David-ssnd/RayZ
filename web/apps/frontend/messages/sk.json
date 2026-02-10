@@ -26,6 +26,8 @@
       "createProject": "Vytvoriť projekt",
       "enterProjectName": "Zadajte názov projektu...",
       "deleteConfirm": "Ste si istí?",
+      "selectProject": "Vybrať projekt",
+      "addNew": "Pridať nový...",
       "tabs": {
         "overview": "Prehľad",
         "teams": "Tímy",
@@ -34,6 +36,67 @@
         "modes": "Herné režimy",
         "settings": "Nastavenia"
       }
+    },
+    "gameControl": {
+      "title": "Ovládanie hry",
+      "online": "Online",
+      "live": "Naživo",
+      "gameMode": "Herný režim",
+      "selectGameMode": "Vybrať herný režim",
+      "startGame": "Spustiť hru",
+      "stopGame": "Zastaviť hru",
+      "pause": "Pozastaviť",
+      "resume": "Pokračovať",
+      "extendTime": "Predĺžiť čas",
+      "updateTarget": "Aktualizovať cieľ",
+      "syncRules": "Synchronizovať pravidlá",
+      "reset": "Resetovať",
+      "connectAll": "Pripojiť všetko",
+      "disconnectAll": "Odpojiť všetko",
+      "kills": "Zabité",
+      "deaths": "Smrti",
+      "shots": "Výstrely",
+      "extendTimeDialog": {
+        "title": "Predĺžiť čas hry",
+        "description": "Pridať ďalšie minúty do aktuálnej hry",
+        "label": "Ďalšie minúty",
+        "cancel": "Zrušiť",
+        "extend": "Predĺžiť"
+      },
+      "updateTargetDialog": {
+        "title": "Aktualizovať cieľové skóre",
+        "description": "Zmeniť cieľové skóre pre túto hru",
+        "label": "Nové cieľové skóre",
+        "cancel": "Zrušiť",
+        "update": "Aktualizovať"
+      }
+    },
+    "liveStats": {
+      "timeRemaining": "Zostávajúci čas",
+      "targetScore": "Cieľové skóre",
+      "playersAlive": "Hráči nažive",
+      "leaderboard": "Poradie",
+      "noPlayerData": "Zatiaľ žiadne údaje o hráčoch",
+      "eliminated": "Vyradený"
+    },
+    "gameOver": {
+      "title": "Koniec hry",
+      "teamVictory": "Víťazstvo tímu",
+      "playerVictory": "Víťazstvo hráča",
+      "draw": "Remíza!",
+      "timeExpired": "Čas vypršal",
+      "targetReached": "Cieľové skóre dosiahnuté",
+      "lastStanding": "Posledný stojí",
+      "duration": "Trvanie",
+      "totalKills": "Celkové zabité",
+      "accuracy": "Presnosť",
+      "finalStandings": "Konečné poradie",
+      "eliminated": "Vyradený",
+      "score": "Skóre",
+      "kd": "Z/S",
+      "ratio": "Pomer",
+      "rematch": "Odveta",
+      "newGame": "Nová hra"
     }
   },
   "Presentation": {

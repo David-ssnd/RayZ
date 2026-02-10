@@ -9,9 +9,10 @@ interface IpAddressInputProps {
   value?: string
   onChange?: (value: string) => void
   className?: string
+  disabled?: boolean
 }
 
-export function IpAddressInput({ value = '', onChange, className }: IpAddressInputProps) {
+export function IpAddressInput({ value = '', onChange, className, disabled }: IpAddressInputProps) {
   const [octets, setOctets] = useState<string[]>(['', '', '', ''])
   const inputsRef = useRef<(HTMLInputElement | null)[]>([])
 
@@ -76,6 +77,7 @@ export function IpAddressInput({ value = '', onChange, className }: IpAddressInp
             className="w-14 text-center p-2 h-10"
             maxLength={3}
             placeholder="0"
+            disabled={disabled}
           />
           {index < 3 && <span className="font-bold text-muted-foreground">.</span>}
         </React.Fragment>

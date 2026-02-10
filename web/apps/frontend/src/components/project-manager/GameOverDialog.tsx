@@ -7,6 +7,7 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Trophy, Target, Clock, Heart, Zap, TrendingUp } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 
 interface PlayerResult {
   playerId: string
@@ -46,6 +47,7 @@ export function GameOverDialog({
   onNewGame,
   onRematch
 }: GameOverDialogProps) {
+  const t = useTranslations('Control.gameOver')
   const sortedPlayers = [...players].sort((a, b) => b.score - a.score)
   const topPlayer = sortedPlayers[0]
 
@@ -76,15 +78,15 @@ export function GameOverDialog({
   const getWinTypeLabel = () => {
     switch (winType) {
       case 'time':
-        return 'Time Expired'
+        return t('timeExpired')
       case 'score':
-        return 'Target Score Reached'
+        return t('targetReached')
       case 'elimination':
-        return 'Last Standing'
+        return t('lastStanding')
       case 'draw':
-        return 'Draw'
+        return t('draw')
       default:
-        return 'Game Over'
+        return t('title')
     }
   }
 
@@ -92,7 +94,7 @@ export function GameOverDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="text-center text-2xl">Game Over</DialogTitle>
+          <DialogTitle className="text-center text-2xl">{t('title')}</DialogTitle>
         </DialogHeader>
 
         {/* Winner Announcement */}
@@ -105,7 +107,7 @@ export function GameOverDialog({
             </div>
             <div>
               <div className="text-lg font-semibold text-yellow-600 dark:text-yellow-400">
-                {winnerType === 'team' ? 'Team' : 'Player'} Victory
+                {winnerType === 'team' ? t('teamVictory') : t('playerVictory')}
               </div>
               <div className="text-2xl font-bold mt-1">{winnerName}</div>
             </div>
@@ -118,7 +120,7 @@ export function GameOverDialog({
 
         {winType === 'draw' && (
           <div className="text-center py-6 space-y-3 border rounded-lg">
-            <div className="text-xl font-semibold">It's a Draw!</div>
+            <div className="text-xl font-semibold">{t('draw')}</div>
             <div className="text-sm text-muted-foreground">{getWinTypeLabel()}</div>
           </div>
         )}
@@ -127,22 +129,22 @@ export function GameOverDialog({
         <div className="grid grid-cols-3 gap-3">
           <div className="border rounded-lg p-3 text-center">
             <div className="text-2xl font-bold">{formatDuration(matchDuration || 0)}</div>
-            <div className="text-xs text-muted-foreground mt-1">Duration</div>
+            <div className="text-xs text-muted-foreground mt-1">{t('duration')}</div>
           </div>
           <div className="border rounded-lg p-3 text-center">
             <div className="text-2xl font-bold">{totalKills}</div>
-            <div className="text-xs text-muted-foreground mt-1">Total Kills</div>
+            <div className="text-xs text-muted-foreground mt-1">{t('totalKills')}</div>
           </div>
           <div className="border rounded-lg p-3 text-center">
             <div className="text-2xl font-bold">{accuracy}%</div>
-            <div className="text-xs text-muted-foreground mt-1">Accuracy</div>
+            <div className="text-xs text-muted-foreground mt-1">{t('accuracy')}</div>
           </div>
         </div>
 
         {/* Final Leaderboard */}
         <div className="border rounded-lg">
           <div className="p-2 border-b bg-muted/50">
-            <h3 className="text-sm font-medium">Final Standings</h3>
+            <h3 className="text-sm font-medium">{t('finalStandings')}</h3>
           </div>
           <div className="divide-y">
             {sortedPlayers.map((player, index) => (
@@ -169,7 +171,7 @@ export function GameOverDialog({
                     <div className="flex items-center gap-2">
                       <span className="font-medium">{player.playerName}</span>
                       {player.eliminated && (
-                        <span className="text-xs text-muted-foreground">(Eliminated)</span>
+                        <span className="text-xs text-muted-foreground">({t('eliminated')})</span>
                       )}
                     </div>
                     {player.teamName && (
@@ -178,20 +180,20 @@ export function GameOverDialog({
 
                     <div className="grid grid-cols-4 gap-3 mt-2 text-xs">
                       <div>
-                        <div className="text-muted-foreground">Score</div>
+                        <div className="text-muted-foreground">{t('score')}</div>
                         <div className="font-medium flex items-center gap-1">
                           <Zap className="w-3 h-3" />
                           {player.score}
                         </div>
                       </div>
                       <div>
-                        <div className="text-muted-foreground">K/D</div>
+                        <div className="text-muted-foreground">{t('kd')}</div>
                         <div className="font-medium">
                           {player.kills} / {player.deaths}
                         </div>
                       </div>
                       <div>
-                        <div className="text-muted-foreground">Accuracy</div>
+                        <div className="text-muted-foreground">{t('accuracy')}</div>
                         <div className="font-medium">
                           {player.shots > 0
                             ? `${((player.hits / player.shots) * 100).toFixed(0)}%`
@@ -199,7 +201,7 @@ export function GameOverDialog({
                         </div>
                       </div>
                       <div>
-                        <div className="text-muted-foreground">Ratio</div>
+                        <div className="text-muted-foreground">{t('ratio')}</div>
                         <div className="font-medium">
                           {player.deaths > 0 ? (player.kills / player.deaths).toFixed(2) : player.kills}
                         </div>
@@ -221,10 +223,10 @@ export function GameOverDialog({
         {/* Actions */}
         <div className="flex gap-2">
           <Button onClick={onRematch} variant="outline" className="flex-1">
-            Rematch
+            {t('rematch')}
           </Button>
           <Button onClick={onNewGame} className="flex-1">
-            New Game
+            {t('newGame')}
           </Button>
         </div>
       </DialogContent>

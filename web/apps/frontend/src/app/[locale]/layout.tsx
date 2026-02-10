@@ -61,11 +61,11 @@ export default async function LocaleLayout({
             enableSystem
             disableTransitionOnChange
           >
-            <main className="flex min-h-screen flex-col items-center px-4 py-4">
-              <div className="w-full max-w-6xl">
+            <main className="flex h-screen flex-col px-4 py-4">
+              <div className="w-full max-w-6xl mx-auto flex-none">
                 <Navigation />
-                <div className="mt-6 sm:mt-8">{children}</div>
               </div>
+              <div className="w-full flex-1 flex flex-col mt-6 sm:mt-8 min-h-0">{children}</div>
             </main>
           </ThemeProvider>
         </NextIntlClientProvider>

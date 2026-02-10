@@ -7,6 +7,7 @@
 
 import { Clock, Target, Heart, Trophy, Zap } from 'lucide-react'
 import { useEffect, useState } from 'react'
+import { useTranslations } from 'next-intl'
 
 interface PlayerScore {
   playerId: string
@@ -40,6 +41,7 @@ export function LiveGameStats({
   isGameRunning,
   isGameOver
 }: LiveGameStatsProps) {
+  const t = useTranslations('Control.liveStats')
   const [timeRemaining, setTimeRemaining] = useState<number>(0)
 
   useEffect(() => {
@@ -90,7 +92,7 @@ export function LiveGameStats({
             <div className="flex items-center justify-between text-sm">
               <div className="flex items-center gap-1.5">
                 <Clock className="w-4 h-4" />
-                <span className="font-medium">Time Remaining</span>
+                <span className="font-medium">{t('timeRemaining')}</span>
               </div>
               <span className={`text-lg font-mono ${timeRemaining < 60 ? 'text-destructive' : ''}`}>
                 {formatTime(timeRemaining)}
@@ -112,7 +114,7 @@ export function LiveGameStats({
             <div className="flex items-center justify-between text-sm">
               <div className="flex items-center gap-1.5">
                 <Target className="w-4 h-4" />
-                <span className="font-medium">Target Score</span>
+                <span className="font-medium">{t('targetScore')}</span>
               </div>
               <span className="text-lg font-semibold">
                 {topPlayer?.score || 0} / {targetScore}
@@ -132,7 +134,7 @@ export function LiveGameStats({
             <div className="flex items-center justify-between text-sm">
               <div className="flex items-center gap-1.5">
                 <Heart className="w-4 h-4" />
-                <span className="font-medium">Players Alive</span>
+                <span className="font-medium">{t('playersAlive')}</span>
               </div>
               <span className="text-lg font-semibold">
                 {players.filter(p => !p.eliminated && p.hearts > 0).length} / {players.length}
@@ -147,13 +149,13 @@ export function LiveGameStats({
         <div className="p-2 border-b">
           <div className="flex items-center gap-1.5">
             <Trophy className="w-4 h-4" />
-            <h3 className="text-sm font-medium">Leaderboard</h3>
+            <h3 className="text-sm font-medium">{t('leaderboard')}</h3>
           </div>
         </div>
         <div className="divide-y max-h-[280px] overflow-y-auto">
           {sortedPlayers.length === 0 ? (
             <div className="p-3 text-center text-sm text-muted-foreground">
-              No player data yet
+              {t('noPlayerData')}
             </div>
           ) : (
             sortedPlayers.map((player, index) => (
@@ -178,7 +180,7 @@ export function LiveGameStats({
                       {player.playerName}
                     </span>
                     {player.eliminated && (
-                      <span className="text-xs text-muted-foreground">(Eliminated)</span>
+                      <span className="text-xs text-muted-foreground">({t('eliminated')})</span>
                     )}
                   </div>
                   {player.teamName && (

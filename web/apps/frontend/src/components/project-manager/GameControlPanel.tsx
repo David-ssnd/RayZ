@@ -15,6 +15,7 @@ import {
   Clock,
   Target,
 } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 
 import { useDeviceConnections } from '@/lib/websocket'
 import { Badge } from '@/components/ui/badge'
@@ -51,6 +52,7 @@ interface GameControlPanelProps {
 }
 
 export function GameControlPanel({ project, availableGameModes, isGameRunning, setIsGameRunning }: GameControlPanelProps) {
+  const t = useTranslations('Control.gameControl')
   const [selectedGameModeId, setSelectedGameModeId] = useState<string>(project.gameModeId || availableGameModes[0]?.id || '')
   const [isPaused, setIsPaused] = useState(false)
   const [isGameOver, setIsGameOver] = useState(false)
@@ -183,20 +185,20 @@ export function GameControlPanel({ project, availableGameModes, isGameRunning, s
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 min-w-0">
       {/* Game Control Section */}
-      <div className="p-4 border rounded-lg bg-card space-y-4">
+      <div className="p-3 border rounded-lg bg-card space-y-3 shadow-sm">
         {/* Header */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Activity className="w-4 h-4 text-muted-foreground" />
-            <h3 className="font-medium">Game Control</h3>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0">
+            <Activity className="w-4 h-4 text-muted-foreground flex-none" />
+            <h3 className="font-medium truncate">{t('title')}</h3>
           </div>
           <div className="flex items-center gap-2">
             <Badge
               variant="outline"
               className={cn(
-                "gap-1.5 h-6 px-2 text-xs font-normal",
+                "gap-1.5 h-6 px-2 text-xs font-normal whitespace-nowrap",
                 onlineCount > 0 ? "text-emerald-600 bg-emerald-500/10 border-emerald-500/20" : ""
               )}
             >
@@ -205,12 +207,12 @@ export function GameControlPanel({ project, availableGameModes, isGameRunning, s
               ) : (
                 <WifiOff className="w-3 h-3" />
               )}
-              {onlineCount}/{totalDevices} Online
+              {onlineCount}/{totalDevices} {t('online')}
             </Badge>
             {isGameRunning && (
               <Badge variant="destructive" className="gap-1.5 h-6 px-2 text-xs font-normal animate-pulse">
                 <Activity className="w-3 h-3" />
-                Live
+                {t('live')}
               </Badge>
             )}
           </div>
@@ -219,16 +221,16 @@ export function GameControlPanel({ project, availableGameModes, isGameRunning, s
         <Separator />
 
         {/* Game Mode & Start/Stop */}
-        <div className="flex flex-col sm:flex-row gap-3 items-end">
-          <div className="flex-1 w-full grid gap-1.5">
-            <label className="text-sm font-medium">Game Mode</label>
+        <div className="space-y-3">
+          <div className="grid gap-1.5">
+            <label className="text-sm font-medium">{t('gameMode')}</label>
             <Select
               value={selectedGameModeId}
               onValueChange={setSelectedGameModeId}
               disabled={isGameRunning}
             >
               <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select game mode" />
+                <SelectValue placeholder={t('selectGameMode')} />
               </SelectTrigger>
               <SelectContent>
                 {availableGameModes.map((mode) => (
@@ -245,148 +247,143 @@ export function GameControlPanel({ project, availableGameModes, isGameRunning, s
             </Select>
           </div>
 
-          <div className="w-full sm:w-auto">
-            {!isGameRunning ? (
-              <Button
-                className="w-full sm:w-auto gap-2"
-                onClick={handleStartGame}
-                disabled={onlineCount === 0 || !selectedGameModeId}
-              >
-                <Play className="w-4 h-4 fill-current" />
-                Start Game
-              </Button>
-            ) : (
-              <Button
-                variant="destructive"
-                className="w-full sm:w-auto gap-2"
-                onClick={handleStopGame}
-              >
-                <Square className="w-4 h-4 fill-current" />
-                Stop Game
-              </Button>
-            )}
-          </div>
+          {!isGameRunning ? (
+            <Button
+              className="w-full gap-2"
+              onClick={handleStartGame}
+              disabled={onlineCount === 0 || !selectedGameModeId}
+            >
+              <Play className="w-4 h-4 fill-current" />
+              {t('startGame')}
+            </Button>
+          ) : (
+            <Button
+              variant="destructive"
+              className="w-full gap-2"
+              onClick={handleStopGame}
+            >
+              <Square className="w-4 h-4 fill-current" />
+              {t('stopGame')}
+            </Button>
+          )}
         </div>
 
         <Separator />
 
-        {/* Quick Actions & Stats */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          {/* Quick Actions */}
-          <div className="flex items-center gap-2 flex-wrap">
-            {isGameRunning && (
-              <>
-                {!isPaused ? (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="gap-2"
-                    onClick={handlePauseGame}
-                  >
-                    <Pause className="w-4 h-4" />
-                    Pause
-                  </Button>
-                ) : (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="gap-2"
-                    onClick={handleResumeGame}
-                  >
-                    <PlayCircle className="w-4 h-4" />
-                    Resume
-                  </Button>
-                )}
-
-                {selectedGameMode?.winType === 'time' && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="gap-2"
-                    onClick={() => setShowExtendTime(true)}
-                    disabled={isPaused}
-                  >
-                    <Clock className="w-4 h-4" />
-                    Extend Time
-                  </Button>
-                )}
-
-                {selectedGameMode?.winType === 'score' && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="gap-2"
-                    onClick={() => setShowUpdateTarget(true)}
-                    disabled={isPaused}
-                  >
-                    <Target className="w-4 h-4" />
-                    Update Target
-                  </Button>
-                )}
-              </>
-            )}
-
-            {!isGameRunning && (
-              <>
+        {/* Quick Actions */}
+        <div className="flex flex-wrap gap-2">
+          {isGameRunning && (
+            <>
+              {!isPaused ? (
                 <Button
                   variant="outline"
                   size="sm"
                   className="gap-2"
-                  onClick={handleSyncRules}
-                  disabled={onlineCount === 0}
+                  onClick={handlePauseGame}
                 >
-                  <UploadCloud className="w-4 h-4" />
-                  Sync Rules
+                  <Pause className="w-4 h-4" />
+                  {t('pause')}
                 </Button>
-
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="gap-2"
-                  onClick={handleResetStats}
-                >
-                  <RotateCcw className="w-4 h-4" />
-                  Reset
-                </Button>
-              </>
-            )}
-
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-2"
-              onClick={onlineCount > 0 ? disconnectAll : connectAll}
-            >
-              {onlineCount > 0 ? (
-                <>
-                  <WifiOff className="w-4 h-4" />
-                  Disconnect All
-                </>
               ) : (
-                <>
-                  <Wifi className="w-4 h-4" />
-                  Connect All
-                </>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-2"
+                  onClick={handleResumeGame}
+                >
+                  <PlayCircle className="w-4 h-4" />
+                  {t('resume')}
+                </Button>
               )}
-            </Button>
-          </div>
 
-          {/* Stats */}
-          <div className="flex items-center gap-4 text-sm">
-            <div className="flex flex-col items-center">
-              <span className="text-xl font-semibold">{totalKills}</span>
-              <span className="text-xs text-muted-foreground">Kills</span>
-            </div>
-            <Separator orientation="vertical" className="h-8" />
-            <div className="flex flex-col items-center">
-              <span className="text-xl font-semibold">{totalDeaths}</span>
-              <span className="text-xs text-muted-foreground">Deaths</span>
-            </div>
-            <Separator orientation="vertical" className="h-8" />
-            <div className="flex flex-col items-center">
-              <span className="text-xl font-semibold">{totalShots}</span>
-              <span className="text-xs text-muted-foreground">Shots</span>
-            </div>
+              {selectedGameMode?.winType === 'time' && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-2"
+                  onClick={() => setShowExtendTime(true)}
+                  disabled={isPaused}
+                >
+                  <Clock className="w-4 h-4" />
+                  {t('extendTime')}
+                </Button>
+              )}
+
+              {selectedGameMode?.winType === 'score' && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-2"
+                  onClick={() => setShowUpdateTarget(true)}
+                  disabled={isPaused}
+                >
+                  <Target className="w-4 h-4" />
+                  {t('updateTarget')}
+                </Button>
+              )}
+            </>
+          )}
+
+          {!isGameRunning && (
+            <>
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-2"
+                onClick={handleSyncRules}
+                disabled={onlineCount === 0}
+              >
+                <UploadCloud className="w-4 h-4" />
+                {t('syncRules')}
+              </Button>
+
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-2"
+                onClick={handleResetStats}
+              >
+                <RotateCcw className="w-4 h-4" />
+                {t('reset')}
+              </Button>
+            </>
+          )}
+
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-2"
+            onClick={onlineCount > 0 ? disconnectAll : connectAll}
+          >
+            {onlineCount > 0 ? (
+              <>
+                <WifiOff className="w-4 h-4" />
+                {t('disconnectAll')}
+              </>
+            ) : (
+              <>
+                <Wifi className="w-4 h-4" />
+                {t('connectAll')}
+              </>
+            )}
+          </Button>
+        </div>
+
+        <Separator />
+
+        {/* Stats - compact grid for sidebar */}
+        <div className="grid grid-cols-3 gap-2 text-center text-xs sm:text-sm">
+          <div className="flex flex-col items-center p-2 rounded-md bg-muted/50 overflow-hidden">
+            <span className="text-lg sm:text-xl font-semibold truncate w-full">{totalKills}</span>
+            <span className="text-[10px] sm:text-xs text-muted-foreground truncate w-full">{t('kills')}</span>
+          </div>
+          <div className="flex flex-col items-center p-2 rounded-md bg-muted/50 overflow-hidden">
+            <span className="text-lg sm:text-xl font-semibold truncate w-full">{totalDeaths}</span>
+            <span className="text-[10px] sm:text-xs text-muted-foreground truncate w-full">{t('deaths')}</span>
+          </div>
+          <div className="flex flex-col items-center p-2 rounded-md bg-muted/50 overflow-hidden">
+            <span className="text-lg sm:text-xl font-semibold truncate w-full">{totalShots}</span>
+            <span className="text-[10px] sm:text-xs text-muted-foreground truncate w-full">{t('shots')}</span>
           </div>
         </div>
       </div>
@@ -408,14 +405,14 @@ export function GameControlPanel({ project, availableGameModes, isGameRunning, s
       <Dialog open={showExtendTime} onOpenChange={setShowExtendTime}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Extend Game Time</DialogTitle>
+            <DialogTitle>{t('extendTimeDialog.title')}</DialogTitle>
             <DialogDescription>
-              Add additional minutes to the current game
+              {t('extendTimeDialog.description')}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="extend-minutes">Additional Minutes</Label>
+              <Label htmlFor="extend-minutes">{t('extendTimeDialog.label')}</Label>
               <Input
                 id="extend-minutes"
                 type="number"
@@ -427,10 +424,10 @@ export function GameControlPanel({ project, availableGameModes, isGameRunning, s
             </div>
             <div className="flex gap-2">
               <Button variant="outline" onClick={() => setShowExtendTime(false)} className="flex-1">
-                Cancel
+                {t('extendTimeDialog.cancel')}
               </Button>
               <Button onClick={handleExtendTime} className="flex-1">
-                Extend
+                {t('extendTimeDialog.extend')}
               </Button>
             </div>
           </div>
@@ -441,14 +438,14 @@ export function GameControlPanel({ project, availableGameModes, isGameRunning, s
       <Dialog open={showUpdateTarget} onOpenChange={setShowUpdateTarget}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Update Target Score</DialogTitle>
+            <DialogTitle>{t('updateTargetDialog.title')}</DialogTitle>
             <DialogDescription>
-              Change the target score for this game
+              {t('updateTargetDialog.description')}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="target-score">New Target Score</Label>
+              <Label htmlFor="target-score">{t('updateTargetDialog.label')}</Label>
               <Input
                 id="target-score"
                 type="number"
@@ -460,10 +457,10 @@ export function GameControlPanel({ project, availableGameModes, isGameRunning, s
             </div>
             <div className="flex gap-2">
               <Button variant="outline" onClick={() => setShowUpdateTarget(false)} className="flex-1">
-                Cancel
+                {t('updateTargetDialog.cancel')}
               </Button>
               <Button onClick={handleUpdateTarget} className="flex-1">
-                Update
+                {t('updateTargetDialog.update')}
               </Button>
             </div>
           </div>
@@ -481,7 +478,6 @@ export function GameControlPanel({ project, availableGameModes, isGameRunning, s
         players={playerStats}
         onNewGame={() => {
           setIsGameOver(false)
-          // Reset state for new game
         }}
         onRematch={() => {
           setIsGameOver(false)

@@ -26,6 +26,8 @@
       "createProject": "Create Project",
       "enterProjectName": "Enter project name...",
       "deleteConfirm": "Are you sure?",
+      "selectProject": "Select Project",
+      "addNew": "Add new...",
       "tabs": {
         "overview": "Overview",
         "teams": "Teams",
@@ -34,6 +36,67 @@
         "modes": "Game Modes",
         "settings": "Settings"
       }
+    },
+    "gameControl": {
+      "title": "Game Control",
+      "online": "Online",
+      "live": "Live",
+      "gameMode": "Game Mode",
+      "selectGameMode": "Select game mode",
+      "startGame": "Start Game",
+      "stopGame": "Stop Game",
+      "pause": "Pause",
+      "resume": "Resume",
+      "extendTime": "Extend Time",
+      "updateTarget": "Update Target",
+      "syncRules": "Sync Rules",
+      "reset": "Reset",
+      "connectAll": "Connect All",
+      "disconnectAll": "Disconnect All",
+      "kills": "Kills",
+      "deaths": "Deaths",
+      "shots": "Shots",
+      "extendTimeDialog": {
+        "title": "Extend Game Time",
+        "description": "Add additional minutes to the current game",
+        "label": "Additional Minutes",
+        "cancel": "Cancel",
+        "extend": "Extend"
+      },
+      "updateTargetDialog": {
+        "title": "Update Target Score",
+        "description": "Change the target score for this game",
+        "label": "New Target Score",
+        "cancel": "Cancel",
+        "update": "Update"
+      }
+    },
+    "liveStats": {
+      "timeRemaining": "Time Remaining",
+      "targetScore": "Target Score",
+      "playersAlive": "Players Alive",
+      "leaderboard": "Leaderboard",
+      "noPlayerData": "No player data yet",
+      "eliminated": "Eliminated"
+    },
+    "gameOver": {
+      "title": "Game Over",
+      "teamVictory": "Team Victory",
+      "playerVictory": "Player Victory",
+      "draw": "It's a Draw!",
+      "timeExpired": "Time Expired",
+      "targetReached": "Target Score Reached",
+      "lastStanding": "Last Standing",
+      "duration": "Duration",
+      "totalKills": "Total Kills",
+      "accuracy": "Accuracy",
+      "finalStandings": "Final Standings",
+      "eliminated": "Eliminated",
+      "score": "Score",
+      "kd": "K/D",
+      "ratio": "Ratio",
+      "rematch": "Rematch",
+      "newGame": "New Game"
     }
   },
   "Presentation": {

@@ -6,7 +6,7 @@ interface PageLayoutProps {
 
 export function PageLayout({ title, description, children }: PageLayoutProps) {
   return (
-    <div className="space-y-6 sm:space-y-8">
+    <div className="space-y-6 sm:space-y-8 max-w-6xl mx-auto w-full overflow-y-auto">
       <div className="space-y-2">
         <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight">{title}</h1>
         {description && (
