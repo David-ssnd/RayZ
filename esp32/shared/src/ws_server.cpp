@@ -14,7 +14,7 @@ static const char* TAG = "WsServer";
 
 #define MAX_WS_CLIENTS 8
 #define WS_MAX_FRAME_SIZE 1024
-#define WS_CLIENT_TIMEOUT_MS 40000 // 40 seconds (client heartbeat is 30s)
+#define WS_CLIENT_TIMEOUT_MS 30000 // 30 seconds (client heartbeat is 10s + 20s buffer)
 
 typedef struct
 {

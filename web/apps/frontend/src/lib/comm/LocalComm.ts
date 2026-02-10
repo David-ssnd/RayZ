@@ -34,7 +34,7 @@ const DEFAULT_CONFIG: Required<LocalCommConfig> = {
   reconnectDelay: 3000,
   maxRetries: Infinity,
   connectionTimeout: 5000,
-  heartbeatInterval: 0, // Native WebSocket ping/pong
+  heartbeatInterval: 10000, // 10 seconds per protocol v2.3
   useBinaryProtocol: true,
 } as const
 
@@ -50,6 +50,7 @@ interface DeviceConnection {
   connected: boolean
   reconnecting: boolean
   reconnectTimeout: NodeJS.Timeout | null
+  heartbeatInterval: NodeJS.Timeout | null
   lastActivity: number
 }
 
@@ -85,6 +86,7 @@ function createDeviceConnection(ip: string): DeviceConnection {
     connected: false,
     reconnecting: false,
     reconnectTimeout: null,
+    heartbeatInterval: null,
     lastActivity: Date.now(),
   }
 }
@@ -96,6 +98,11 @@ function cleanupDeviceConnection(device: DeviceConnection): void {
   if (device.reconnectTimeout) {
     clearTimeout(device.reconnectTimeout)
     device.reconnectTimeout = null
+  }
+
+  if (device.heartbeatInterval) {
+    clearInterval(device.heartbeatInterval)
+    device.heartbeatInterval = null
   }
 
   if (device.ws) {
@@ -376,6 +383,17 @@ export class LocalComm implements GameComm {
     // Request initial status
     this.send(device.ip, { op: 1, type: 'get_status' } as ClientMessage)
 
+    // Start heartbeat interval if configured
+    if (this.config.heartbeatInterval > 0) {
+      device.heartbeatInterval = setInterval(() => {
+        if (device.connected && device.ws) {
+          this.send(device.ip, { op: 2, type: 'heartbeat' } as ClientMessage)
+          log.debug(`Sent heartbeat to ${device.ip}`)
+        }
+      }, this.config.heartbeatInterval)
+      log.debug(`Started heartbeat for ${device.ip} (interval: ${this.config.heartbeatInterval}ms)`)
+    }
+
     this.updateGlobalState()
   }
 
@@ -398,6 +416,13 @@ export class LocalComm implements GameComm {
    */
   private handleWebSocketClose(device: DeviceConnection): void {
     log.info(`Disconnected from ${device.ip}`)
+
+    // Stop heartbeat interval
+    if (device.heartbeatInterval) {
+      clearInterval(device.heartbeatInterval)
+      device.heartbeatInterval = null
+      log.debug(`Stopped heartbeat for ${device.ip}`)
+    }
 
     device.ws = null
     device.connected = false
