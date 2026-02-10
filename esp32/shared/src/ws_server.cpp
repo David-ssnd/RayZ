@@ -695,6 +695,7 @@ static cJSON* create_status_json()
     cJSON_AddNumberToObject(root, "op", OP_STATUS);
     cJSON_AddStringToObject(root, "type", "status");
     cJSON_AddNumberToObject(root, "uptime_ms", esp_timer_get_time() / 1000);
+    cJSON_AddNumberToObject(root, "seq_id", game_state_next_seq_id());
 
     cJSON* config = cJSON_CreateObject();
     cJSON_AddNumberToObject(config, "device_id", cfg->device_id);
@@ -769,6 +770,7 @@ void ws_server_broadcast_hit(const char* shooter_id_str)
     cJSON_AddNumberToObject(root, "timestamp_ms", esp_timer_get_time() / 1000);
     int shooter = shooter_id_str ? atoi(shooter_id_str) : 0;
     cJSON_AddNumberToObject(root, "shooter_id", shooter);
+    cJSON_AddNumberToObject(root, "seq_id", game_state_next_seq_id());
 
     char* str = cJSON_PrintUnformatted(root);
     ws_server_broadcast(str);
@@ -783,7 +785,7 @@ void ws_server_broadcast_shot(void)
     cJSON_AddNumberToObject(root, "op", OP_SHOT_FIRED);
     cJSON_AddStringToObject(root, "type", "shot_fired");
     cJSON_AddNumberToObject(root, "timestamp_ms", esp_timer_get_time() / 1000);
-    cJSON_AddNumberToObject(root, "seq_id", st->shots_fired);
+    cJSON_AddNumberToObject(root, "seq_id", game_state_next_seq_id());
 
     char* str = cJSON_PrintUnformatted(root);
     ws_server_broadcast(str);
@@ -805,6 +807,7 @@ void ws_server_broadcast_respawn(void)
     cJSON_AddStringToObject(root, "type", "respawn");
     cJSON_AddNumberToObject(root, "timestamp_ms", esp_timer_get_time() / 1000);
     cJSON_AddNumberToObject(root, "current_hearts", st->hearts_remaining);
+    cJSON_AddNumberToObject(root, "seq_id", game_state_next_seq_id());
 
     char* str = cJSON_PrintUnformatted(root);
     ws_server_broadcast(str);

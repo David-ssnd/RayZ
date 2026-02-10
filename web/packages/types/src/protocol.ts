@@ -214,6 +214,7 @@ export interface DeviceStatusMessage {
   op: OpCode.STATUS
   type: 'status'
   uptime_ms: number
+  seq_id: number // Sequence number for deduplication
 
   // v2.2 Protocol nests these
   config: DeviceConfigStatus
@@ -232,14 +233,14 @@ export interface ShotFiredMessage {
   op: OpCode.SHOT_FIRED
   type: 'shot_fired'
   timestamp_ms: number
-  seq_id: number
+  seq_id: number // Sequence number for deduplication
 }
 
 export interface HitReportMessage {
   op: OpCode.HIT_REPORT
   type: 'hit_report'
   timestamp_ms: number
-  seq_id: number
+  seq_id: number // Sequence number for deduplication
   shooter_id: number
   damage: number
   fatal: boolean // Did this hit cause death?
@@ -249,6 +250,7 @@ export interface RespawnMessage {
   op: OpCode.RESPAWN
   type: 'respawn'
   timestamp_ms: number
+  seq_id: number // Sequence number for deduplication
   current_hearts?: number // Optional sync
 }
 

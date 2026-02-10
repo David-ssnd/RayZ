@@ -415,6 +415,14 @@ bool game_state_heartbeat_due(void)
     return (now - s_state.last_heartbeat_ms) >= 10000; // 10 seconds per protocol v2.3
 }
 
+uint32_t game_state_next_seq_id(void)
+{
+    LOCK();
+    uint32_t seq = ++s_state.broadcast_seq_id;
+    UNLOCK();
+    return seq;
+}
+
 // JSON stubs (to be implemented with actual JSON lib)
 
 int game_state_config_to_json(char* buffer, size_t max_len, bool clamp_noted)

@@ -127,6 +127,7 @@ extern "C"
         
         uint32_t last_heartbeat_ms;
         bool server_connected;
+        uint32_t broadcast_seq_id;      // Sequence number for broadcast messages (for deduplication)
     } GameStateData;
 
 #ifdef __cplusplus
