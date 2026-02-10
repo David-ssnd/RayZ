@@ -33,9 +33,10 @@ class Photodiode
     Photodiode();
     void begin();
     void update();
-    uint16_t convertToBits();
+    uint32_t convertToBits();
     float getDynamicThreshold();
     bool isBufferFull();
     bool isSampleBufferFull();
     float getSignalStrength();
+    int getBitHead();
 };

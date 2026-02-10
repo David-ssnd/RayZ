@@ -25,6 +25,42 @@ uint32_t metric_last_hit_ms_ago(void)
     return (uint32_t)(esp_timer_get_time() / 1000) - s_last_hit_ms;
 }
 
+int metric_hearts_remaining(void)
+{
+    return (int)game_state_get()->hearts_remaining;
+}
+
+int metric_max_hearts(void)
+{
+    return (int)game_state_get_game_config()->max_hearts;
+}
+
+int metric_score(void)
+{
+    return (int)game_state_get()->kills;
+}
+
+int metric_deaths(void)
+{
+    return (int)game_state_get()->deaths;
+}
+
+uint32_t metric_respawn_time_left(void)
+{
+    if (!game_state_is_respawning())
+        return 0;
+    const GameStateData* state = game_state_get();
+    uint32_t now = (uint32_t)(esp_timer_get_time() / 1000);
+    if (now < state->respawn_end_time_ms)
+        return state->respawn_end_time_ms - now;
+    return 0;
+}
+
+bool metric_is_respawning(void)
+{
+    return game_state_is_respawning();
+}
+
 extern "C" void game_task_record_hit(void)
 {
     s_hit_count++;

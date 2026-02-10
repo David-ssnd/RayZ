@@ -27,41 +27,27 @@ extern "C" void processing_task(void* pvParameters)
             continue;
         }
 
-        // Debug: Log raw bits received
-        ESP_LOGI(TAG, "[RAW] Received bits: 0x%04X (%s)", message_bits, toBinaryString(message_bits, MESSAGE_TOTAL_BITS).c_str());
-
         uint8_t rx_player = 0;
         uint8_t rx_device = 0;
         bool isValid = validateLaserMessage(message_bits, &rx_player, &rx_device);
         
-        // Debug: Log validation result
         if (!isValid)
         {
-            ESP_LOGI(TAG, "[VALIDATION] Invalid message - failed checksum or format");
-            continue;
+            continue; // Skip invalid messages silently
         }
-        
-        ESP_LOGI(TAG, "[VALIDATION] Valid message - Player: %u, Device: %u", rx_player, rx_device);
 
         if (game_state_is_respawning())
         {
-            ESP_LOGI(TAG, "[GAME] Ignoring hit - device is respawning");
             continue;
         }
 
         bool matchesExpected = false;
-        uint16_t correctSnapshot = correct_messages;
-        uint16_t allSnapshot = all_expected_messages;
-        uint16_t notExpectedSnapshot = not_expected_messages;
-        float accuracy = 0.0f;
 
         if (xSemaphoreTake(statsMutex, portMAX_DELAY) == pdTRUE)
         {
             if (hasExpectedMessage && (xTaskGetTickCount() - last_expected_update) < pdMS_TO_TICKS(5000))
             {
                 matchesExpected = (message_bits == expectedMessage);
-                ESP_LOGI(TAG, "[EXPECTED] Has expected message - Expected: 0x%04X, Matches: %s", 
-                        expectedMessage, matchesExpected ? "YES" : "NO");
                 if (matchesExpected)
                 {
                     correct_messages++;
@@ -73,40 +59,52 @@ extern "C" void processing_task(void* pvParameters)
             }
             else
             {
-                ESP_LOGI(TAG, "[EXPECTED] No expected message set or expired - accepting all valid hits");
                 matchesExpected = true; // Accept all valid hits when no expected message
             }
-
-            correctSnapshot = correct_messages;
-            allSnapshot = all_expected_messages;
-            notExpectedSnapshot = not_expected_messages;
-            accuracy = (allSnapshot > 0) ? (correctSnapshot * 100.0f / allSnapshot) : 0.0f;
 
             xSemaphoreGive(statsMutex);
         }
 
-        ESP_LOGI(TAG, "[Laser] %lu ms | %s | P:%u D:%u | Sig: %.3fV | Thr: %.4fV | %s",
-                 pdTICKS_TO_MS(xTaskGetTickCount()), toBinaryString(message_bits, MESSAGE_TOTAL_BITS).c_str(),
-                 rx_player, rx_device, photodiode.getSignalStrength(), photodiode.getDynamicThreshold(),
-                 matchesExpected ? "MATCH" : "MISMATCH");
-
-        ESP_LOGI(TAG, "Stats: %u/%u | Incorrect: %u | Not Expected: %u | Accuracy: %.2f%%", correctSnapshot,
-                 allSnapshot, allSnapshot - correctSnapshot, notExpectedSnapshot, accuracy);
+        // Log only valid hits
+        ESP_LOGI(TAG, "HIT: Player %u | Device %u | %s", rx_player, rx_device, matchesExpected ? "✓" : "✗");
 
         if (isValid && matchesExpected)
         {
-            ESP_LOGI(TAG, "[HIT REGISTERED] Triggering vibration and recording death");
             gpio_set_level((gpio_num_t)VIBRATION_PIN, 1);
             vTaskDelay(pdMS_TO_TICKS(VIBRATION_DURATION_MS));
             gpio_set_level((gpio_num_t)VIBRATION_PIN, 0);
 
+            // Record hit (decrements health and starts respawn if needed)
             game_state_record_death();
             game_task_record_hit();
 
-            // Display hit notification
-            dm_event_t hit_evt = {};
-            hit_evt.type = DM_EVT_HIT;
-            display_manager_post(&hit_evt);
+            // Check if player is now respawning (dead)
+            const GameStateData* state = game_state_get();
+            bool is_dead = game_state_is_respawning();
+
+            // Display notification
+            if (is_dead)
+            {
+                // Player died - show killer info
+                dm_event_t killed_evt = {};
+                killed_evt.type = DM_EVT_KILLED;
+                killed_evt.killed.player_id = rx_player;
+                killed_evt.killed.device_id = rx_device;
+                display_manager_post(&killed_evt);
+
+                // Start respawn countdown display
+                dm_event_t respawn_evt = {};
+                respawn_evt.type = DM_EVT_RESPAWN_START;
+                respawn_evt.respawn.remaining_ms = game_state_get_game_config()->respawn_cooldown_ms;
+                display_manager_post(&respawn_evt);
+            }
+            else
+            {
+                // Just hit notification
+                dm_event_t hit_evt = {};
+                hit_evt.type = DM_EVT_HIT;
+                display_manager_post(&hit_evt);
+            }
 
             PlayerMessage hit_msg = {};
             hit_msg.type = ESPNOW_MSG_HIT_EVENT;
@@ -122,13 +120,7 @@ extern "C" void processing_task(void* pvParameters)
             if (ws_server_is_connected())
             {
                 ws_server_broadcast_hit("unknown");
-                ESP_LOGI(TAG, "Hit reported to connected browsers");
             }
-        }
-        else
-        {
-            ESP_LOGI(TAG, "[HIT REJECTED] Valid: %s, Matches Expected: %s", 
-                    isValid ? "YES" : "NO", matchesExpected ? "YES" : "NO");
         }
     }
 }

@@ -76,15 +76,6 @@ void Photodiode::update()
     int rawValue = 0;
     ESP_ERROR_CHECK(adc_oneshot_read(adc_handle, PHOTODIODE_ADC_CHANNEL, &rawValue));
     float voltage = (rawValue * ADC_VREF) / ADC_RESOLUTION;
-    
-    // Debug: Log voltage periodically (every ~1 second)
-    static uint32_t lastLogTime = 0;
-    if (currentTime - lastLogTime > 1000)
-    {
-        ESP_LOGI(TAG, "[ADC] Raw: %d, Voltage: %.3fV, Min: %.3fV, Max: %.3fV, Threshold: %.3fV", 
-                rawValue, voltage, runningMin, runningMax, dynamicThreshold);
-        lastLogTime = currentTime;
-    }
 
     // Decay toward recent samples to avoid stale thresholds
     runningMin = runningMin * THRESHOLD_MIN_WEIGHT + voltage * THRESHOLD_NEW_WEIGHT;
@@ -121,7 +112,6 @@ void Photodiode::update()
                 {
                     bufferFull = true;
                     bitCount = PHOTODIODE_BUFFER_SIZE;
-                    ESP_LOGI(TAG, "Bit buffer full - ready to decode messages");
                 }
             }
             xSemaphoreGive(bufferMutex);
@@ -132,24 +122,21 @@ void Photodiode::update()
     }
 }
 
-uint16_t Photodiode::convertToBits()
+uint32_t Photodiode::convertToBits()
 {
     if (!bufferFull)
     {
         return 0;
     }
 
-    sampleBufferFull = false;
-
-    uint16_t result = 0;
+    uint32_t result = 0;
     float threshold = dynamicThreshold;
 
     // Lock buffer for thread safety
     if (xSemaphoreTake(bufferMutex, portMAX_DELAY) == pdTRUE)
     {
-        int start = bufferFull ? bitHead : 0;
-        int count = bufferFull ? PHOTODIODE_BUFFER_SIZE : bitCount;
-        for (int i = 0; i < count; i++)
+        int start = bitHead; // Read from current head position
+        for (int i = 0; i < MESSAGE_TOTAL_BITS; i++)
         {
             result <<= 1;
             int idx = (start + i) % PHOTODIODE_BUFFER_SIZE;
@@ -161,7 +148,7 @@ uint16_t Photodiode::convertToBits()
         xSemaphoreGive(bufferMutex);
     }
 
-    return result;
+    return result & 0xFFFF; // Return only 16 bits
 }
 
 float Photodiode::getDynamicThreshold()
@@ -182,4 +169,9 @@ bool Photodiode::isSampleBufferFull()
 float Photodiode::getSignalStrength()
 {
     return runningMax - runningMin;
+}
+
+int Photodiode::getBitHead()
+{
+    return bitHead;
 }

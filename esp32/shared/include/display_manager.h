@@ -14,7 +14,15 @@ extern "C"
         DM_EVT_HIT,
         DM_EVT_MSG,
         DM_EVT_ERROR_SET,
-        DM_EVT_ERROR_CLEAR
+        DM_EVT_ERROR_CLEAR,
+        DM_EVT_KILLED,
+        DM_EVT_KILL,
+        DM_EVT_RESPAWN_START,
+        DM_EVT_RESPAWN_COMPLETE,
+        DM_EVT_WIFI_CONNECTED,
+        DM_EVT_WIFI_DISCONNECTED,
+        DM_EVT_HEALTH_UPDATE,
+        DM_EVT_SCORE_UPDATE
     } dm_event_type_t;
 
     typedef struct
@@ -30,6 +38,30 @@ extern "C"
             {
                 char text[24];
             } msg;
+            struct
+            {
+                uint8_t player_id;
+                uint8_t device_id;
+            } killed;
+            struct
+            {
+                uint8_t player_id;
+                uint8_t device_id;
+            } kill;
+            struct
+            {
+                uint32_t remaining_ms;
+            } respawn;
+            struct
+            {
+                uint8_t hearts;
+                uint8_t max_hearts;
+            } health;
+            struct
+            {
+                uint32_t score;
+                uint32_t deaths;
+            } score;
         };
     } dm_event_t;
 
@@ -59,6 +91,14 @@ extern "C"
         // target-specific
         int (*hit_count)(void);
         uint32_t (*last_hit_ms_ago)(void);
+
+        // game state info
+        int (*hearts_remaining)(void);
+        int (*max_hearts)(void);
+        int (*score)(void);
+        int (*deaths)(void);
+        uint32_t (*respawn_time_left)(void);
+        bool (*is_respawning)(void);
     } dm_sources_t;
 
     bool display_manager_init(lv_disp_t* disp, const dm_sources_t* src);

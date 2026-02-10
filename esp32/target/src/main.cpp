@@ -83,6 +83,12 @@ extern "C" void app_main(void)
             .tx_count = metric_tx_count,
             .hit_count = metric_hit_count,
             .last_hit_ms_ago = metric_last_hit_ms_ago,
+            .hearts_remaining = metric_hearts_remaining,
+            .max_hearts = metric_max_hearts,
+            .score = metric_score,
+            .deaths = metric_deaths,
+            .respawn_time_left = metric_respawn_time_left,
+            .is_respawning = metric_is_respawning,
         };
 
         if (!display_manager_init(disp, &dm_sources))
