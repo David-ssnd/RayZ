@@ -5,7 +5,7 @@
  * Discovered devices are added to the WS Bridge for communication.
  */
 
-import Bonjour, { type Service } from 'bonjour-service'
+import Bonjour, { type Service, type Browser } from 'bonjour-service'
 
 export interface DiscoveredDevice {
   ip: string
@@ -19,13 +19,13 @@ export interface DiscoveredDevice {
 export type DeviceDiscoveryCallback = (device: DiscoveredDevice) => void
 
 export class DeviceDiscovery {
-  private bonjour: Bonjour
-  private browser: any
+  private bonjour: ReturnType<typeof Bonjour>
+  private browser: Browser | null = null
   private onDeviceFound: DeviceDiscoveryCallback
   private discoveredDevices: Map<string, DiscoveredDevice> = new Map()
 
   constructor(onDeviceFound: DeviceDiscoveryCallback) {
-    this.bonjour = new Bonjour()
+    this.bonjour = Bonjour()
     this.onDeviceFound = onDeviceFound
   }
 
