@@ -25,7 +25,7 @@ export class DeviceDiscovery {
   private discoveredDevices: Map<string, DiscoveredDevice> = new Map()
 
   constructor(onDeviceFound: DeviceDiscoveryCallback) {
-    this.bonjour = Bonjour()
+    this.bonjour = new Bonjour()
     this.onDeviceFound = onDeviceFound
   }
 
