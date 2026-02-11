@@ -4,13 +4,13 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
 }
 
 // ================= USER & AUTH =================
 
 model User {
-  id            String     @id @default(cuid())
+  id            String     @id @default(uuid())
   email         String     @unique
   emailVerified DateTime?
   name          String?
@@ -28,7 +28,7 @@ model User {
 }
 
 model Profile {
-  id        String   @id @default(cuid())
+  id        String   @id @default(uuid())
   userId    String   @unique
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   bio       String?
@@ -40,7 +40,7 @@ model Profile {
 }
 
 model Account {
-  id                 String   @id @default(cuid())
+  id                 String   @id @default(uuid())
   userId             String
   type               String
   provider           String
@@ -64,10 +64,10 @@ model Account {
 // ================= DEVICE MANAGEMENT =================
 
 model Device {
-  id        String   @id @default(cuid())
+  id        String   @id @default(uuid())
   name      String?
   ipAddress String   // Used for WebSocket connection
-  status    String   @default("offline") 
+  status    String   @default("offline")
   
   // Display order in UI
   order     Int      @default(0)
@@ -90,7 +90,7 @@ model Device {
 // ================= GAMEPLAY LOGIC =================
 
 model Project {
-  id          String   @id @default(cuid())
+  id          String   @id @default(uuid())
   name        String
   description String?
   status      String   @default("draft") // draft, active, archived
@@ -113,7 +113,7 @@ model Project {
 }
 
 model GameMode {
-  id          String    @id @default(cuid())
+  id          String    @id @default(uuid())
   name        String    @unique
   description String?
   
@@ -154,7 +154,7 @@ model GameMode {
 }
 
 model Team {
-  id        String   @id @default(cuid())
+  id        String   @id @default(uuid())
   name      String
   color     String   // Hex Code e.g. "#FF0000"
   
@@ -178,7 +178,7 @@ model Team {
 }
 
 model Player {
-  id        String   @id @default(cuid())
+  id        String   @id @default(uuid())
   name      String
 
   // PROTOCOL ID: The integer (0-255) sent to ESP32
@@ -208,7 +208,7 @@ model Player {
 // ================= MATCH HISTORY =================
 
 model Match {
-  id          String   @id @default(cuid())
+  id          String   @id @default(uuid())
   
   projectId   String
   project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
@@ -243,7 +243,7 @@ model Match {
 }
 
 model MatchPlayer {
-  id          String   @id @default(cuid())
+  id          String   @id @default(uuid())
   
   matchId     String
   match       Match    @relation(fields: [matchId], references: [id], onDelete: Cascade)

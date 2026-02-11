@@ -1,5 +1,7 @@
 import { neonConfig } from '@neondatabase/serverless'
 import { PrismaNeon } from '@prisma/adapter-neon'
+import { PrismaLibSql } from '@prisma/adapter-libsql'
+import { createClient } from '@libsql/client'
 import ws from 'ws'
 
 import { PrismaClient } from './generated/client'
@@ -25,19 +27,31 @@ function getConnectionUrl(): string {
   return url
 }
 
-function createClient(): PrismaClient {
+function createPrismaClient(): PrismaClient {
   const connectionString = getConnectionUrl()
+  const isLocalMode = process.env.DATABASE_MODE === 'local' || connectionString.startsWith('file:')
 
-  // Pass connectionString directly to PrismaNeon adapter (new API in Prisma 7+)
-  const adapter = new PrismaNeon({ connectionString })
-
-  return new PrismaClient({
-    adapter,
-    log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
-  })
+  if (isLocalMode) {
+    // Local mode: Use SQLite with LibSQL adapter
+    console.log('🗄️  Using local SQLite database')
+    const adapter = new PrismaLibSql({ url: connectionString })
+    
+    return new PrismaClient({
+      adapter,
+      log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
+    })
+  } else {
+    // Cloud mode: Use Neon adapter for PostgreSQL
+    console.log('☁️  Using cloud PostgreSQL database')
+    const adapter = new PrismaNeon({ connectionString })
+    return new PrismaClient({
+      adapter,
+      log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
+    })
+  }
 }
 
-export const prisma = globalForPrisma.prisma ?? createClient()
+export const prisma = globalForPrisma.prisma ?? createPrismaClient()
 
 if (process.env.NODE_ENV !== 'production') {
   globalForPrisma.prisma = prisma

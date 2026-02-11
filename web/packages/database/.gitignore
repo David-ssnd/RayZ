@@ -1,1 +1,6 @@
 src/generated
+
+# Local SQLite database
+*.db
+*.db-shm
+*.db-wal
