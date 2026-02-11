@@ -14,6 +14,13 @@ const nextConfig = {
   turbopack: {
     root: repoRoot,
   },
+  serverExternalPackages: ['@libsql/client', '@prisma/adapter-libsql'],
+  webpack: (config, { isServer }) => {
+    if (isServer) {
+      config.externals.push('@libsql/client', '@prisma/adapter-libsql')
+    }
+    return config
+  },
 }
 
 export default withNextIntl(nextConfig)
