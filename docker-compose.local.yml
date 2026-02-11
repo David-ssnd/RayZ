@@ -1,0 +1,70 @@
+# RayZ Local Mode - Docker Compose Configuration
+#
+# This docker-compose file runs RayZ in local mode with SQLite database.
+# Perfect for offline deployments on local networks.
+#
+# Usage:
+#   docker-compose -f docker-compose.local.yml up
+#
+# Access:
+#   Frontend: http://localhost:3000
+#   WS Bridge: ws://localhost:8080
+
+version: '3.8'
+
+services:
+  # Combined Next.js Frontend + WS Bridge Service
+  rayz-local:
+    build:
+      context: ./web
+      dockerfile: ../Dockerfile.local
+      args:
+        - NODE_VERSION=18
+    container_name: rayz-local
+    ports:
+      - "3000:3000"    # Next.js Frontend
+      - "8080:8080"    # WebSocket Bridge
+    environment:
+      # Database Configuration (SQLite)
+      DATABASE_MODE: local
+      DATABASE_URL: file:/data/rayz.db
+      
+      # Next.js Configuration
+      NEXT_PUBLIC_MODE: local
+      NEXT_PUBLIC_LOCAL_WS_URL: ws://localhost:8080
+      NODE_ENV: production
+      
+      # Authentication
+      AUTH_SECRET: ${AUTH_SECRET:-change-me-in-production}
+      AUTH_URL: http://localhost:3000
+      
+      # Auto-discovery
+      ENABLE_AUTO_DISCOVERY: "true"
+      
+    volumes:
+      # Persist SQLite database
+      - rayz-data:/data
+      
+      # Optional: Mount local code for development
+      # - ./web:/app
+      
+    restart: unless-stopped
+    
+    # Healthcheck to ensure services are running
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    
+    networks:
+      - rayz-network
+
+volumes:
+  rayz-data:
+    driver: local
+
+networks:
+  rayz-network:
+    driver: bridge

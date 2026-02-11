@@ -7,6 +7,8 @@ A laser tag system with ESP32-based embedded devices and web interface for game 
 - **Dual-Device System**: Separate target (wearable) and weapon (gun) devices
 - **Wireless Communication**: ESP32-powered devices with real-time game data
 - **Web Dashboard**: Modern web interface for game management and statistics
+- **🆕 Local & Cloud Modes**: Run completely offline or connect to cloud services
+- **🆕 Auto-Discovery**: Automatically finds ESP32 devices on your network
 - **Modular Architecture**: Shared library ensures consistent protocol across devices
 - **Independent Versioning**: Mix and match component versions as needed
 - **Optimized Performance**: Direct WebSocket connections with JSON protocol
@@ -14,6 +16,42 @@ A laser tag system with ESP32-based embedded devices and web interface for game 
 - **Multiple Win Conditions**: Time-based, score-based, and last-man-standing modes
 - **Real-Time Stats**: Live leaderboards and game progress tracking
 - **Match History**: Complete statistics and player performance tracking
+
+## 🚀 Quick Start
+
+### Local Mode (Offline, No Internet Required)
+
+Perfect for events, gyms, or anywhere without reliable internet.
+
+```bash
+# Option 1: Docker (Recommended)
+curl -O https://raw.githubusercontent.com/David-ssnd/RayZ/main/docker-compose.local.yml
+docker-compose -f docker-compose.local.yml up -d
+
+# Option 2: One-Line Install (Linux/macOS)
+curl -fsSL https://raw.githubusercontent.com/David-ssnd/RayZ/main/scripts/install-local.sh | bash
+
+# Option 3: One-Line Install (Windows PowerShell)
+irm https://raw.githubusercontent.com/David-ssnd/RayZ/main/scripts/install-local.ps1 | iex
+```
+
+**Login**: `admin@localhost` / `admin` → http://localhost:3000
+
+See **[QUICK_START.md](./QUICK_START.md)** for detailed instructions.
+
+### Cloud Mode (Internet-Connected)
+
+For cloud deployments with PostgreSQL database.
+
+```bash
+git clone https://github.com/David-ssnd/RayZ.git
+cd RayZ/web
+pnpm install
+pnpm db:switch:cloud
+pnpm dev
+```
+
+See **[web/packages/database/LOCAL_MODE.md](./web/packages/database/LOCAL_MODE.md)** for mode switching details.
 
 ## 📚 Documentation
 
@@ -36,6 +74,24 @@ Complete API and protocol documentation available:
   - Common use cases
   - Debugging tips
   - Testing guidelines
+
+- **[QUICK_START.md](./QUICK_START.md)** - Get started in < 10 minutes
+  - Installation options
+  - First login
+  - Device setup
+  - Troubleshooting
+
+- **[TROUBLESHOOTING.md](./TROUBLESHOOTING.md)** - Common issues and solutions
+  - Database problems
+  - Connection issues
+  - Discovery problems
+  - Performance tips
+
+- **[LOCAL_MODE.md](./web/packages/database/LOCAL_MODE.md)** - Complete local deployment guide
+  - SQLite setup
+  - Mode switching
+  - Configuration details
+  - Architecture diagrams
 
 - **[VIEWING_API_DOCS.md](./VIEWING_API_DOCS.md)** - How to view the OpenAPI spec
   - Multiple viewing methods (pnpm/npm)

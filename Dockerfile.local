@@ -1,0 +1,80 @@
+# Multi-stage Dockerfile for RayZ Local Mode
+#
+# This Dockerfile creates an optimized production image for local deployments
+# with SQLite database support.
+
+# Stage 1: Dependencies
+FROM node:18-alpine AS deps
+RUN apk add --no-cache libc6-compat
+WORKDIR /app
+
+# Install pnpm
+RUN corepack enable && corepack prepare pnpm@latest --activate
+
+# Copy package files
+COPY web/package.json web/pnpm-lock.yaml web/pnpm-workspace.yaml ./
+COPY web/apps/ ./apps/
+COPY web/packages/ ./packages/
+
+# Install dependencies
+RUN pnpm install --frozen-lockfile
+
+# Stage 2: Builder
+FROM node:18-alpine AS builder
+WORKDIR /app
+
+# Install pnpm
+RUN corepack enable && corepack prepare pnpm@latest --activate
+
+# Copy dependencies from deps stage
+COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps /app/apps ./apps
+COPY --from=deps /app/packages ./packages
+COPY web/ ./
+
+# Switch to local mode schema
+WORKDIR /app/packages/database
+RUN pnpm db:switch:local
+
+# Build the application
+WORKDIR /app
+RUN pnpm build
+
+# Stage 3: Runner
+FROM node:18-alpine AS runner
+WORKDIR /app
+
+ENV NODE_ENV production
+
+RUN addgroup --system --gid 1001 nodejs
+RUN adduser --system --uid 1001 nextjs
+
+# Copy built application
+COPY --from=builder /app/apps/frontend/.next ./apps/frontend/.next
+COPY --from=builder /app/apps/frontend/public ./apps/frontend/public
+COPY --from=builder /app/apps/frontend/package.json ./apps/frontend/
+COPY --from=builder /app/apps/ws-bridge/dist ./apps/ws-bridge/dist
+COPY --from=builder /app/apps/ws-bridge/package.json ./apps/ws-bridge/
+COPY --from=builder /app/packages ./packages
+COPY --from=builder /app/package.json ./
+COPY --from=builder /app/pnpm-workspace.yaml ./
+
+# Install production dependencies only
+RUN corepack enable && corepack prepare pnpm@latest --activate
+RUN pnpm install --prod --frozen-lockfile
+
+# Create data directory for SQLite
+RUN mkdir -p /data && chown nextjs:nodejs /data
+
+USER nextjs
+
+EXPOSE 3000 8080
+
+# Initialize database and start services
+CMD ["sh", "-c", "\
+  cd /app/packages/database && \
+  pnpm db:init:local && \
+  cd /app && \
+  pnpm --filter frontend start & \
+  pnpm --filter ws-bridge start & \
+  wait"]
