@@ -54,7 +54,7 @@ async function main() {
     data: {
       name: 'Deathmatch',
       description: 'Classic free-for-all. First to reach target score wins.',
-      isSystemDefault: true,
+      isSystem: true,
       config: JSON.stringify({
         winType: 'score',
         targetScore: 100,
@@ -77,7 +77,7 @@ async function main() {
     data: {
       name: 'Team Deathmatch',
       description: 'Team-based combat. First team to reach target score wins.',
-      isSystemDefault: true,
+      isSystem: true,
       config: JSON.stringify({
         winType: 'score',
         targetScore: 200,
@@ -100,7 +100,7 @@ async function main() {
     data: {
       name: 'Last Man Standing',
       description: 'Elimination mode. Last player alive wins.',
-      isSystemDefault: true,
+      isSystem: true,
       config: JSON.stringify({
         winType: 'last_man_standing',
         targetScore: 0,
