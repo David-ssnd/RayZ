@@ -5,7 +5,7 @@
  * Discovered devices are added to the WS Bridge for communication.
  */
 
-import Bonjour, { type Service, type Browser } from 'bonjour-service'
+import { Bonjour, type Service, type Browser } from 'bonjour-service'
 
 export interface DiscoveredDevice {
   ip: string
