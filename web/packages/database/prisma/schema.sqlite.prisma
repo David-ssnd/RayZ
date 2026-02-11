@@ -19,11 +19,23 @@ model User {
   role          String     @default("user")
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @updatedAt
+  profile       Profile?
   accounts      Account[]
   sessions      Session[]
-  devices       Device[]
   gameSessions  GameSession[]
   matchParticipations MatchParticipation[]
+}
+
+model Profile {
+  id        String   @id @default(uuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bio       String?
+  avatarUrl String?
+  devices   Device[]
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Account {
@@ -75,8 +87,8 @@ model Device {
   signalStrength  Int?
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
-  userId          String
-  user            User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  profileId       String
+  profile         Profile     @relation(fields: [profileId], references: [id], onDelete: Cascade)
   weaponId        Int?
   gameSessions    GameSession[]
 }
