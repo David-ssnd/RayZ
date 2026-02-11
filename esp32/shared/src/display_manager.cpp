@@ -1,4 +1,5 @@
 #include "display_manager.h"
+#include "display_ui.h"
 #include <freertos/FreeRTOS.h>
 #include <freertos/queue.h>
 #include <freertos/task.h>
@@ -29,6 +30,15 @@ static uint32_t s_state_until_ms = 0;
 static uint32_t s_last_slow_ms = 0;
 static uint32_t s_last_fast_ms = 0;
 static uint32_t s_error_code = 0;
+
+// New UI components
+static ui_status_bar_t* s_status_bar = NULL;
+static ui_content_area_t* s_content_area = NULL;
+static ui_overlay_t* s_overlay_ui = NULL;
+static ui_progress_t* s_progress_ui = NULL;
+static lv_obj_t* s_scr = NULL;
+
+// Legacy elements (will phase out)
 static lv_obj_t* s_row1;
 static lv_obj_t* s_row2;
 static lv_obj_t* s_row3;
@@ -60,12 +70,28 @@ static void overlay_hide(void)
 
 static void ui_init(lv_disp_t* disp)
 {
-    lv_obj_t* scr = lv_disp_get_scr_act(disp);
-    lv_obj_set_style_bg_color(scr, lv_color_black(), 0);
+    s_scr = lv_disp_get_scr_act(disp);
+    lv_obj_set_style_bg_color(s_scr, lv_color_black(), 0);
 
-    s_row1 = lv_label_create(scr);
-    s_row2 = lv_label_create(scr);
-    s_row3 = lv_label_create(scr);
+    // Initialize UI component system
+    ui_screens_init(disp);
+
+    // Create modern UI components
+    s_status_bar = ui_status_bar_create(s_scr);
+    s_content_area = ui_content_area_create(s_scr);
+    s_overlay_ui = ui_overlay_create(s_scr);
+    s_progress_ui = ui_progress_create(s_scr, false); // Use bar for now
+    
+    // Hide progress by default
+    if (s_progress_ui && s_progress_ui->container)
+    {
+        lv_obj_add_flag(s_progress_ui->container, LV_OBJ_FLAG_HIDDEN);
+    }
+
+    // Keep legacy elements for backward compatibility during transition
+    s_row1 = lv_label_create(s_scr);
+    s_row2 = lv_label_create(s_scr);
+    s_row3 = lv_label_create(s_scr);
 
     lv_obj_align(s_row1, LV_ALIGN_TOP_LEFT, 0, 0);
     lv_obj_align(s_row2, LV_ALIGN_TOP_LEFT, 0, 11);
@@ -75,17 +101,23 @@ static void ui_init(lv_disp_t* disp)
     lv_obj_set_style_text_color(s_row2, lv_color_white(), 0);
     lv_obj_set_style_text_color(s_row3, lv_color_white(), 0);
 
-    s_overlay = lv_label_create(scr);
+    // Hide legacy elements initially - we'll use new components
+    lv_obj_add_flag(s_row1, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_add_flag(s_row2, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_add_flag(s_row3, LV_OBJ_FLAG_HIDDEN);
+
+    s_overlay = lv_label_create(s_scr);
     lv_obj_set_style_text_color(s_overlay, lv_color_white(), 0);
+    lv_obj_set_style_text_font(s_overlay, &lv_font_montserrat_16, 0);
     lv_obj_align(s_overlay, LV_ALIGN_CENTER, 0, 0);
     lv_obj_add_flag(s_overlay, LV_OBJ_FLAG_HIDDEN);
 
-    // Progress bar for respawn countdown
-    s_progress_bar = lv_bar_create(scr);
+    // Progress bar for respawn countdown (legacy)
+    s_progress_bar = lv_bar_create(s_scr);
     lv_obj_set_size(s_progress_bar, 120, 10);
     lv_obj_align(s_progress_bar, LV_ALIGN_BOTTOM_MID, 0, -2);
     lv_obj_set_style_bg_color(s_progress_bar, lv_color_make(50, 50, 50), LV_PART_MAIN);
-    lv_obj_set_style_bg_color(s_progress_bar, lv_color_make(0, 255, 0), LV_PART_INDICATOR);
+    lv_obj_set_style_bg_color(s_progress_bar, lv_color_white(), LV_PART_INDICATOR);
     lv_bar_set_range(s_progress_bar, 0, 100);
     lv_bar_set_value(s_progress_bar, 0, LV_ANIM_OFF);
     lv_obj_add_flag(s_progress_bar, LV_OBJ_FLAG_HIDDEN);
@@ -233,6 +265,110 @@ static void render_error(void)
     set_rows(r1, r2, r3);
 }
 
+// ======================================================================
+// NEW IMPROVED RENDER FUNCTIONS using UI components
+// ======================================================================
+
+static void render_game_idle_new(void)
+{
+    if (!s_status_bar || !s_content_area)
+        return;
+
+    // Update status bar
+    const bool wifi = s_src.wifi_connected ? s_src.wifi_connected() : false;
+    const bool ws = s_src.ws_connected ? s_src.ws_connected() : false;
+    const int rssi = s_src.wifi_rssi ? s_src.wifi_rssi() : 0;
+    ui_status_bar_update(s_status_bar, wifi, ws, rssi);
+
+    // Update content with game stats
+    const int hearts = s_src.hearts_remaining ? s_src.hearts_remaining() : 0;
+    const int max_hearts = s_src.max_hearts ? s_src.max_hearts() : 5;
+    const int score = s_src.score ? s_src.score() : 0;
+    const int deaths = s_src.deaths ? s_src.deaths() : 0;
+
+    char title[32], content[64];
+    
+    // Title with hearts using symbols
+    snprintf(title, sizeof(title), "%s x%d/%d", LV_SYMBOL_HEART, hearts, max_hearts);
+    ui_content_area_set_title(s_content_area, title, &lv_font_montserrat_12);
+
+    // Content with score and deaths
+    snprintf(content, sizeof(content), "Score: %d\nDeaths: %d", score, deaths);
+    ui_content_area_set_content(s_content_area, content);
+
+    // Footer with IDs (small text)
+    const int pid = s_src.player_id ? s_src.player_id() : 0;
+    const int did = s_src.device_id ? s_src.device_id() : 0;
+    char footer[32];
+    snprintf(footer, sizeof(footer), "P:%d D:%d", pid, did);
+    lv_label_set_text(s_content_area->footer, footer);
+}
+
+static void render_respawning_new(void)
+{
+    if (!s_progress_ui || !s_overlay_ui)
+        return;
+
+    const uint32_t remaining = s_src.respawn_time_left ? s_src.respawn_time_left() : 0;
+    const float seconds = remaining / 1000.0f;
+
+    // Show large countdown in center
+    char countdown[16];
+    snprintf(countdown, sizeof(countdown), "%.1fs", seconds);
+    
+    // Use overlay for prominent display
+    lv_label_set_text(s_overlay, "RESPAWNING");
+    lv_obj_set_style_text_font(s_overlay, &lv_font_montserrat_12, 0);
+    lv_obj_clear_flag(s_overlay, LV_OBJ_FLAG_HIDDEN);
+    
+    // Show progress bar at bottom
+    lv_obj_clear_flag(s_progress_ui->container, LV_OBJ_FLAG_HIDDEN);
+    
+    const uint32_t respawn_total_ms = 10000; // Should get from config
+    int32_t progress = 0;
+    if (respawn_total_ms > 0 && remaining > 0)
+    {
+        progress = (int32_t)((respawn_total_ms - remaining) * 100 / respawn_total_ms);
+        if (progress > 100) progress = 100;
+        if (progress < 0) progress = 0;
+    }
+    else
+    {
+        progress = 100;
+    }
+    
+    ui_progress_set_value(s_progress_ui, progress, countdown);
+}
+
+static void render_connecting_new(void)
+{
+    if (!s_status_bar || !s_content_area)
+        return;
+
+    const char* ssid = s_src.wifi_ssid ? s_src.wifi_ssid() : "?";
+    const int rssi = s_src.wifi_rssi ? s_src.wifi_rssi() : 0;
+
+    // Update status bar
+    ui_status_bar_update(s_status_bar, false, false, rssi);
+
+    // Content
+    ui_content_area_set_title(s_content_area, "Connecting...", &lv_font_montserrat_12);
+    
+    char content[64];
+    snprintf(content, sizeof(content), "%s %s\nRSSI: %d", LV_SYMBOL_WIFI, ssid, rssi);
+    ui_content_area_set_content(s_content_area, content);
+}
+
+static void render_boot_new(void)
+{
+    if (!s_content_area)
+        return;
+
+    // Large centered title
+    ui_content_area_set_title(s_content_area, "RayZ", &lv_font_montserrat_24);
+    ui_content_area_set_content(s_content_area, "Starting...");
+}
+
 static void enter_state(dm_state_t st, uint32_t dur_ms)
 {
     s_state = st;
@@ -250,7 +386,9 @@ bool display_manager_init(lv_disp_t* disp, const dm_sources_t* src)
 
     ui_init(disp);
 
-    set_rows("RayZ", "BOOT", "");
+    // Use new boot screen
+    render_boot_new();
+    
     s_state = DM_ST_BOOT;
     enter_state(DM_ST_BOOT, 800);
     return true;

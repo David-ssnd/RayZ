@@ -10,6 +10,7 @@
 #include "game_protocol.h"
 #include "game_state.h"
 #include "gpio_init.h"
+#include "mdns_service.h"
 #include "runtime_metrics.h"
 #include "tasks.h"
 #include "wifi_manager.h"
@@ -84,6 +85,16 @@ extern "C" void app_main(void)
     }
 
     debug_print_nvs_contents();
+
+    // Start mDNS service for auto-discovery
+    const DeviceConfig* config = game_state_get_config();
+    if (wifi_manager_is_connected()) {
+        if (mdns_service_init("weapon", config->device_id, config->player_id, 80)) {
+            ESP_LOGI(TAG, "mDNS service started for auto-discovery");
+        } else {
+            ESP_LOGW(TAG, "mDNS service failed to start (continuing without discovery)");
+        }
+    }
 
     ESP_LOGI(TAG, "Weapon device ready");
     xTaskCreate(control_task, "control", 4096, NULL, 5, NULL);
