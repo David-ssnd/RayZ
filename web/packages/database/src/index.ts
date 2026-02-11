@@ -31,7 +31,7 @@ async function createPrismaClient(): Promise<PrismaClient> {
     
     return new PrismaClient({
       adapter,
-      log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
+      log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
     })
   } else {
     // Cloud mode: Use Neon adapter for PostgreSQL
@@ -46,37 +46,42 @@ async function createPrismaClient(): Promise<PrismaClient> {
     const adapter = new PrismaNeon({ connectionString })
     return new PrismaClient({
       adapter,
-      log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
+      log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
     })
   }
 }
 
-// Create client lazily - this avoids issues with edge runtime
+// Initialize client on first import
 let prismaPromise: Promise<PrismaClient> | null = null
+let prismaClient: PrismaClient | null = null
 
-export async function getPrisma(): Promise<PrismaClient> {
+async function initializePrisma(): Promise<PrismaClient> {
+  if (prismaClient) {
+    return prismaClient
+  }
+  
   if (globalForPrisma.prisma) {
-    return globalForPrisma.prisma
+    prismaClient = globalForPrisma.prisma
+    return prismaClient
   }
   
   if (!prismaPromise) {
     prismaPromise = createPrismaClient()
   }
   
-  const client = await prismaPromise
+  prismaClient = await prismaPromise
   
   if (process.env.NODE_ENV !== 'production') {
-    globalForPrisma.prisma = client
+    globalForPrisma.prisma = prismaClient
   }
   
-  return client
+  return prismaClient
 }
 
-// Export synchronous version for backwards compatibility (will be deprecated)
-export const prisma = new Proxy({} as PrismaClient, {
-  get(target, prop) {
-    throw new Error(
-      'Direct prisma access is deprecated. Use getPrisma() instead: const prisma = await getPrisma()'
-    )
-  }
-})
+// Export singleton instance (initialized lazily)
+export const prisma = await initializePrisma()
+
+// Also export async getter for explicit async contexts
+export async function getPrisma(): Promise<PrismaClient> {
+  return prisma
+}
