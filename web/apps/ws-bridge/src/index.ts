@@ -12,11 +12,13 @@
 
 import type { IncomingMessage } from 'http'
 import { WebSocket, WebSocketServer } from 'ws'
+import { DeviceDiscovery, type DiscoveredDevice } from './discovery.js'
 
 // Configuration
 const PORT = parseInt(process.env.WS_BRIDGE_PORT ?? '8080', 10)
 const DEVICE_RECONNECT_DELAY = 3000
 const HEARTBEAT_INTERVAL = 30000
+const ENABLE_AUTO_DISCOVERY = process.env.ENABLE_AUTO_DISCOVERY !== 'false' // Enabled by default
 
 interface DeviceConnection {
   ip: string
@@ -42,13 +44,48 @@ class WsBridge {
   private browserClients: Set<WebSocket> = new Set()
   private devices: Map<string, DeviceConnection> = new Map()
   private heartbeatTimer: NodeJS.Timeout | null = null
+  private discovery: DeviceDiscovery | null = null
 
   constructor(port: number) {
     this.server = new WebSocketServer({ port })
     this.setupServer()
     this.startHeartbeat()
 
+    // Start mDNS discovery if enabled
+    if (ENABLE_AUTO_DISCOVERY) {
+      this.startDiscovery()
+    }
+
     console.log(`[WsBridge] Server started on ws://localhost:${port}`)
+    if (ENABLE_AUTO_DISCOVERY) {
+      console.log(`[WsBridge] Auto-discovery enabled`)
+    }
+  }
+
+  /**
+   * Start mDNS discovery for ESP32 devices
+   */
+  private startDiscovery() {
+    this.discovery = new DeviceDiscovery((device: DiscoveredDevice) => {
+      console.log(
+        `[WsBridge] Auto-discovered device: ${device.ip} (${device.role}) - Device: ${device.deviceId}, Player: ${device.playerId}`
+      )
+      this.addDevice(device.ip)
+      
+      // Notify browsers about discovered device
+      this.broadcastToBrowsers({
+        type: 'device_discovered',
+        device: {
+          ip: device.ip,
+          hostname: device.hostname,
+          role: device.role,
+          deviceId: device.deviceId,
+          playerId: device.playerId,
+          version: device.version,
+        },
+      })
+    })
+    this.discovery.start()
   }
 
   private setupServer() {
@@ -331,6 +368,11 @@ class WsBridge {
   stop() {
     if (this.heartbeatTimer) {
       clearInterval(this.heartbeatTimer)
+    }
+
+    // Stop discovery
+    if (this.discovery) {
+      this.discovery.stop()
     }
 
     // Close all device connections

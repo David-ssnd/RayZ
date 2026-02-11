@@ -7,13 +7,14 @@ Local WebSocket bridge server that connects the browser UI to ESP32 devices on t
 In **local mode**, the browser cannot connect directly to ESP32 devices when served over HTTPS (mixed content security). This bridge server runs locally and:
 
 1. Accepts connections from the browser (`ws://localhost:8080`)
-2. Maintains connections to ESP32 devices on the LAN
-3. Forwards messages bidirectionally
+2. **Auto-discovers ESP32 devices using mDNS**
+3. Maintains connections to ESP32 devices on the LAN
+4. Forwards messages bidirectionally
 
 ```
 ┌─────────────┐     ws://localhost:8080     ┌─────────────┐
 │   Browser   │ ◄─────────────────────────► │  WS Bridge  │
-│   (Next.js) │                             │   Server    │
+│   (Next.js) │                             │   Server    │ ◄── mDNS Discovery
 └─────────────┘                             └──────┬──────┘
                                                    │
                               ┌────────────────────┼────────────────────┐
@@ -24,6 +25,31 @@ In **local mode**, the browser cannot connect directly to ESP32 devices when ser
                          │  ESP32  │          │  ESP32  │          │  ESP32  │
                          │ Device  │          │ Device  │          │ Device  │
                          └─────────┘          └─────────┘          └─────────┘
+```
+
+## Features
+
+- **Auto-Discovery**: Automatically finds ESP32 devices advertising `_rayz._tcp` service
+- **Device Management**: Manual add/remove device support
+- **Bi-directional Communication**: Browser ↔ ESP32 messaging
+- **Heartbeat**: Keeps connections alive
+- **Reconnection**: Automatic reconnection to disconnected devices
+
+## Auto-Discovery
+
+The bridge automatically discovers RayZ devices on the network using mDNS (Bonjour).
+
+Discovered devices include:
+- IP address
+- Hostname (`rayz-target-234.local`)
+- Role (weapon/target)
+- Device ID
+- Player ID  
+- Firmware version
+
+To disable auto-discovery:
+```bash
+ENABLE_AUTO_DISCOVERY=false pnpm dev
 ```
 
 ## Quick Start
@@ -144,6 +170,22 @@ WS_BRIDGE_PORT=9000 pnpm dev
 }
 ```
 
+**Device discovered (auto-discovery):**
+
+```json
+{
+  "type": "device_discovered",
+  "device": {
+    "ip": "192.168.1.100",
+    "hostname": "rayz-target-234.local",
+    "role": "target",
+    "deviceId": 234,
+    "playerId": 5,
+    "version": "1.0.0"
+  }
+}
+```
+
 ## Building for Production
 
 ```bash
@@ -215,9 +257,10 @@ fn main() {
 
 ## Environment Variables
 
-| Variable         | Default | Description                   |
-| ---------------- | ------- | ----------------------------- |
-| `WS_BRIDGE_PORT` | `8080`  | Port for the WebSocket server |
+| Variable                | Default | Description                        |
+| ----------------------- | ------- | ---------------------------------- |
+| `WS_BRIDGE_PORT`        | `8080`  | Port for the WebSocket server      |
+| `ENABLE_AUTO_DISCOVERY` | `true`  | Enable mDNS auto-discovery         |
 
 ## Troubleshooting
 

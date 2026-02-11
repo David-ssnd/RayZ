@@ -417,35 +417,78 @@ static void handle_event(const dm_event_t* e)
         case DM_EVT_HIT:
             s_return_state = s_state;
             enter_state(DM_ST_OVERLAY_HIT, 1000);
-            overlay_show("HIT! -1H");
+            // Use new overlay system with larger font
+            if (s_overlay_ui)
+            {
+                ui_overlay_show(s_overlay_ui, "HIT! -1" LV_SYMBOL_HEART, 1000);
+            }
+            else
+            {
+                overlay_show("HIT! -1H");
+            }
             break;
         case DM_EVT_KILLED:
             {
-                char txt[32];
+                char txt[48];
                 snprintf(txt, sizeof(txt), "KILLED BY\nP:%u D:%u", e->killed.player_id, e->killed.device_id);
                 s_return_state = s_state;
                 enter_state(DM_ST_POPUP_KILLED, 2000);
-                overlay_show(txt);
+                if (s_overlay_ui)
+                {
+                    ui_overlay_show(s_overlay_ui, txt, 2000);
+                }
+                else
+                {
+                    overlay_show(txt);
+                }
             }
             break;
         case DM_EVT_KILL:
             {
-                char txt[32];
-                snprintf(txt, sizeof(txt), "KILLED\nP:%u D:%u", e->kill.player_id, e->kill.device_id);
+                char txt[48];
+                snprintf(txt, sizeof(txt), "ELIMINATED\nP:%u D:%u", e->kill.player_id, e->kill.device_id);
                 s_return_state = s_state;
                 enter_state(DM_ST_POPUP_KILL, 1500);
-                overlay_show(txt);
+                if (s_overlay_ui)
+                {
+                    ui_overlay_show(s_overlay_ui, txt, 1500);
+                }
+                else
+                {
+                    overlay_show(txt);
+                }
             }
             break;
         case DM_EVT_RESPAWN_START:
             enter_state(DM_ST_RESPAWNING, 0);
-            lv_obj_clear_flag(s_progress_bar, LV_OBJ_FLAG_HIDDEN);
+            if (s_progress_ui && s_progress_ui->container)
+            {
+                lv_obj_clear_flag(s_progress_ui->container, LV_OBJ_FLAG_HIDDEN);
+            }
+            else
+            {
+                lv_obj_clear_flag(s_progress_bar, LV_OBJ_FLAG_HIDDEN);
+            }
             break;
         case DM_EVT_RESPAWN_COMPLETE:
-            lv_obj_add_flag(s_progress_bar, LV_OBJ_FLAG_HIDDEN);
+            if (s_progress_ui && s_progress_ui->container)
+            {
+                lv_obj_add_flag(s_progress_ui->container, LV_OBJ_FLAG_HIDDEN);
+            }
+            else
+            {
+                lv_obj_add_flag(s_progress_bar, LV_OBJ_FLAG_HIDDEN);
+            }
             s_return_state = s_state;
             enter_state(DM_ST_OVERLAY_MSG, 500);
-            overlay_show("READY!");
+            if (s_overlay_ui)
+            {
+                ui_overlay_show(s_overlay_ui, "READY! " LV_SYMBOL_OK, 500);
+            }
+            else
+            {
+                overlay_show("READY!");
+            }
             break;
         case DM_EVT_WIFI_CONNECTED:
             if (s_state == DM_ST_CONNECTING)
@@ -456,12 +499,26 @@ static void handle_event(const dm_event_t* e)
         case DM_EVT_WIFI_DISCONNECTED:
             s_return_state = s_state;
             enter_state(DM_ST_POPUP_DISCONNECTED, 0);
-            overlay_show("NO WIFI");
+            if (s_overlay_ui)
+            {
+                ui_overlay_show(s_overlay_ui, LV_SYMBOL_WARNING " NO WIFI", 0);
+            }
+            else
+            {
+                overlay_show("NO WIFI");
+            }
             break;
         case DM_EVT_MSG:
             s_return_state = s_state;
             enter_state(DM_ST_OVERLAY_MSG, 800);
-            overlay_show(e->msg.text);
+            if (s_overlay_ui)
+            {
+                ui_overlay_show(s_overlay_ui, e->msg.text, 800);
+            }
+            else
+            {
+                overlay_show(e->msg.text);
+            }
             break;
         default:
             break;
@@ -536,6 +593,7 @@ void display_manager_task(void* pv)
         const bool slow = (t - s_last_slow_ms) >= 1000;
         const bool fast = (t - s_last_fast_ms) >= 100;
 
+        // Use new render functions where available
         if (s_state == DM_ST_ERROR)
         {
             if (slow)
@@ -548,7 +606,11 @@ void display_manager_task(void* pv)
         {
             if (fast)
             {
-                render_connecting();
+                // Use new renderer if components available
+                if (s_status_bar && s_content_area)
+                    render_connecting_new();
+                else
+                    render_connecting();
                 s_last_fast_ms = t;
             }
             if (slow)
@@ -558,19 +620,29 @@ void display_manager_task(void* pv)
         {
             if (fast)
             {
-                render_game_idle();
+                // Use new renderer if components available
+                if (s_status_bar && s_content_area)
+                    render_game_idle_new();
+                else
+                    render_game_idle();
                 s_last_fast_ms = t;
             }
             if (slow)
                 s_last_slow_ms = t;
-            // Hide progress bar in game idle
+            // Hide progress bars in game idle
+            if (s_progress_ui && s_progress_ui->container)
+                lv_obj_add_flag(s_progress_ui->container, LV_OBJ_FLAG_HIDDEN);
             lv_obj_add_flag(s_progress_bar, LV_OBJ_FLAG_HIDDEN);
         }
         else if (s_state == DM_ST_RESPAWNING)
         {
             if (fast)
             {
-                render_respawning();
+                // Use new renderer if components available
+                if (s_progress_ui)
+                    render_respawning_new();
+                else
+                    render_respawning();
                 s_last_fast_ms = t;
             }
         }
@@ -590,7 +662,24 @@ void display_manager_task(void* pv)
             {
                 static bool on = false;
                 on = !on;
-                overlay_show(on ? "HIT! -1H" : "        ");
+                // Blinking effect for hit
+                if (on)
+                {
+                    if (s_overlay_ui)
+                        ui_overlay_show(s_overlay_ui, "HIT! -1" LV_SYMBOL_HEART, 0);
+                    else
+                        overlay_show("HIT! -1H");
+                }
+                else
+                {
+                    if (s_overlay_ui)
+                        ui_overlay_hide(s_overlay_ui);
+                    else
+                        overlay_hide();
+                }
+                s_last_fast_ms = t;
+            }
+        }
                 s_last_fast_ms = t;
             }
         }
