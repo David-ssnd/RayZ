@@ -8,6 +8,17 @@ This guide explains how to run RayZ in **local mode** without requiring a cloud 
 - ESP32 devices on the same network
 - Basic knowledge of terminal/command line
 
+## Important: Database Schema Switching
+
+RayZ uses **two separate Prisma schemas** to support both cloud and local modes:
+
+- **Cloud Mode** (`schema.postgres.prisma`): Uses PostgreSQL provider for Neon Database
+- **Local Mode** (`schema.sqlite.prisma`): Uses SQLite provider for local file storage
+
+The active schema is automatically switched when you run initialization commands. The Prisma client is regenerated to match the selected database provider.
+
+**Note**: Always run the appropriate `db:switch:*` command before switching between modes to ensure the Prisma client matches your database.
+
 ## Quick Start
 
 ### 1. Set Up Local Database
@@ -16,10 +27,15 @@ This guide explains how to run RayZ in **local mode** without requiring a cloud 
 # Navigate to database package
 cd web/packages/database
 
-# Copy environment template
+# Create local environment file
 cp .env.local.example .env.local
 
+# Edit .env.local and set:
+# DATABASE_MODE=local
+# DATABASE_URL=file:./rayz-local.db
+
 # Initialize SQLite database with default data
+# This automatically switches to SQLite schema and regenerates client
 pnpm db:init:local
 ```
 
@@ -98,6 +114,34 @@ The `.env.local` file contains all local mode configuration:
 # Database
 DATABASE_MODE=local
 DATABASE_URL=file:./rayz-local.db
+
+# Next.js
+NEXT_PUBLIC_MODE=local
+NEXT_PUBLIC_LOCAL_WS_URL=ws://localhost:8080
+
+# Auth (simplified for local mode)
+AUTH_SECRET=<generate_random_secret>
+AUTH_URL=http://localhost:3000
+```
+
+### Switching Between Modes
+
+Use these commands to switch between cloud and local database schemas:
+
+```bash
+# Switch to local mode (SQLite)
+pnpm db:switch:local
+
+# Switch to cloud mode (PostgreSQL)
+pnpm db:switch:cloud
+
+# The db:init:local command automatically switches to local mode
+pnpm db:init:local
+```
+
+**Important**: Always run the appropriate switch command before changing DATABASE_URL in your `.env` file to ensure the Prisma client matches your database provider.
+
+---
 
 # Next.js
 NEXT_PUBLIC_MODE=local

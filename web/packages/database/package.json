@@ -10,7 +10,9 @@
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
     "db:studio": "prisma studio",
-    "db:init:local": "prisma db push && node scripts/init-local.js",
+    "db:switch:local": "node scripts/switch-schema.js local && prisma generate",
+    "db:switch:cloud": "node scripts/switch-schema.js cloud && prisma generate",
+    "db:init:local": "node scripts/switch-schema.js local && prisma generate && prisma db push && node scripts/init-local.js",
     "lint": "eslint ."
   },
   "dependencies": {
