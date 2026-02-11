@@ -4,7 +4,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
 }
 
 // ================= USER & AUTH =================
@@ -17,14 +17,13 @@ model User {
   image         String?
   password      String?
   role          String     @default("user")
-  
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @updatedAt
-
   profile       Profile?
   accounts      Account[]
-  projects      Project[]
-  gameModes     GameMode[] // Custom game modes created by this user
+  sessions      Session[]
+  gameSessions  GameSession[]
+  matchParticipations MatchParticipation[]
 }
 
 model Profile {
@@ -40,231 +39,208 @@ model Profile {
 }
 
 model Account {
-  id                 String   @id @default(uuid())
-  userId             String
-  type               String
-  provider           String
-  providerAccountId  String
-  refresh_token      String?
-  access_token       String?
-  expires_at         Int?
-  token_type         String?
-  scope              String?
-  id_token           String?
-  session_state      String?
-  
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id                String  @id @default(uuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([provider, providerAccountId])
 }
 
-// ================= DEVICE MANAGEMENT =================
-
-model Device {
-  id        String   @id @default(uuid())
-  name      String?
-  ipAddress String   // Used for WebSocket connection
-  status    String   @default("offline")
-  
-  // Display order in UI
-  order     Int      @default(0)
-  
-  profileId String
-  profile   Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
-  
-  // The Project this device is currently active in
-  projectId String?
-  project   Project? @relation(fields: [projectId], references: [id])
-
-  // The specific Player identity assigned to this device
-  assignedPlayerId String?
-  assignedPlayer   Player?  @relation("PlayerDevices", fields: [assignedPlayerId], references: [id], onDelete: SetNull)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+model Session {
+  id           String   @id @default(uuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
-// ================= GAMEPLAY LOGIC =================
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ================= DEVICES =================
+
+model Device {
+  id              String      @id @default(uuid())
+  deviceId        Int         @unique
+  name            String
+  role            String
+  ipAddress       String?
+  lastSeen        DateTime    @default(now())
+  status          String      @default("offline")
+  firmwareVersion String?
+  batteryLevel    Int?
+  signalStrength  Int?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  profileId       String
+  profile         Profile     @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  weaponId        Int?
+  gameSessions    GameSession[]
+}
+
+// ================= PROJECTS & GAME MODES =================
 
 model Project {
-  id          String   @id @default(uuid())
+  id          String      @id @default(uuid())
   name        String
   description String?
-  status      String   @default("draft") // draft, active, archived
-  
-  userId      String
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  // The ruleset used for this session
-  gameModeId  String
-  gameMode    GameMode @relation(fields: [gameModeId], references: [id])
-  
-  // Active Entities
-  devices     Device[]
-  players     Player[]
-  teams       Team[]
-  matches     Match[]
-  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  gameSessions GameSession[]
 }
 
 model GameMode {
-  id          String    @id @default(uuid())
-  name        String    @unique
-  description String?
-  
-  isSystem    Boolean   @default(false)
-  
-  // --- Protocol v2.2 Configuration Attributes ---
-  
-  // Win Conditions
-  winType         String  @default("score") // "time" | "score" | "last_man_standing"
-  durationMinutes Int     @default(10)      // Used when winType = "time"
-  targetScore     Int     @default(100)     // Used when winType = "score"
-  
-  // Legacy field for backward compatibility
-  durationSeconds Int     @default(600)     // Deprecated: use durationMinutes
-  
-  // Health (used only when winType = "last_man_standing")
-  maxHearts       Int     @default(5)       // -1 = Infinite
-  spawnHearts     Int     @default(3)
-  respawnTimeSec  Int     @default(10)
-  friendlyFire    Boolean @default(false)
-  damageIn        Int     @default(1)       // Damage taken per hit
-  damageOut       Int     @default(1)       // Damage sent per shot
-  
-  // Ammo
-  enableAmmo      Boolean @default(true)
-  maxAmmo         Int     @default(30)      // -1 = Infinite
-  reloadTimeMs    Int     @default(2500)
-  
-  // Relations
-  userId      String?
-  user        User?     @relation(fields: [userId], references: [id])
-  
-  projects    Project[]
-  matches     Match[]
-  
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  id              String      @id @default(uuid())
+  name            String      @unique
+  description     String?
+  isSystemDefault Boolean     @default(false)
+  config          String      // JSON stringified config
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  gameSessions    GameSession[]
 }
 
-model Team {
-  id        String   @id @default(uuid())
-  name      String
-  color     String   // Hex Code e.g. "#FF0000"
-  
-  // PROTOCOL ID: The integer (1-255) sent to ESP32
-  number    Int
-  
-  // Display order in UI
-  order     Int      @default(0)
+// ================= GAME SESSIONS =================
 
-  projectId String
-  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  
-  players   Player[]
-  
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // Logic: A project cannot have two teams with ID "1" (Red Team).
-  // This effectively "combines" ProjectID and TeamNumber for uniqueness.
-  @@unique([projectId, number])
+model GameSession {
+  id              String              @id @default(uuid())
+  projectId       String
+  project         Project             @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  gameModeId      String
+  gameMode        GameMode            @relation(fields: [gameModeId], references: [id])
+  deviceId        String
+  device          Device              @relation(fields: [deviceId], references: [id])
+  userId          String
+  user            User                @relation(fields: [userId], references: [id])
+  startTime       DateTime            @default(now())
+  endTime         DateTime?
+  status          String              @default("pending")
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  matchParticipations MatchParticipation[]
 }
 
-model Player {
-  id        String   @id @default(uuid())
-  name      String
-
-  // PROTOCOL ID: The integer (0-255) sent to ESP32
-  // This is NOT the database ID, but the Laser Tag network ID.
-  number    Int
-  
-  // Display order in UI
-  order     Int      @default(0)
-
-
-  projectId String
-  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  
-  teamId    String?
-  team      Team?    @relation(fields: [teamId], references: [id], onDelete: SetNull)
-
-  devices   Device[] @relation("PlayerDevices")
-  matchStats MatchPlayer[]
-  
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // Logic: A project cannot have two players with ID "5".
-  @@unique([projectId, number])
-}
-
-// ================= MATCH HISTORY =================
+// ================= MATCHES & STATISTICS =================
 
 model Match {
-  id          String   @id @default(uuid())
-  
-  projectId   String
-  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  
-  gameModeId  String
-  gameMode    GameMode @relation(fields: [gameModeId], references: [id])
-  
-  status      String   @default("in_progress") // in_progress, completed, aborted
-  
-  // Timestamps
-  startedAt   DateTime @default(now())
-  endedAt     DateTime?
-  
-  // Win Information
-  winType     String?  // "time" | "score" | "elimination" | "draw"
-  winnerId    String?  // Team ID or Player ID (polymorphic)
-  winnerType  String?  // "team" | "player"
-  
-  // Game Statistics
-  totalKills  Int      @default(0)
-  totalShots  Int      @default(0)
-  totalHits   Int      @default(0)
-  
-  // Relations
-  players     MatchPlayer[]
-  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
-  @@index([projectId])
-  @@index([startedAt])
+  id              String              @id @default(uuid())
+  projectId       String
+  gameModeId      String
+  sessionId       String?
+  startTime       DateTime            @default(now())
+  endTime         DateTime?
+  status          String              @default("active")
+  winner          String?
+  winnerTeam      String?
+  totalPlayers    Int                 @default(0)
+  totalHits       Int                 @default(0)
+  totalShots      Int                 @default(0)
+  duration        Int?
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  matchParticipations MatchParticipation[]
+  matchEvents     MatchEvent[]
 }
 
-model MatchPlayer {
+model MatchParticipation {
+  id          String      @id @default(uuid())
+  matchId     String
+  match       Match       @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  playerId    String
+  user        User        @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  sessionId   String?
+  gameSession GameSession? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  deviceRole  String
+  teamId      String?
+  kills       Int         @default(0)
+  deaths      Int         @default(0)
+  hits        Int         @default(0)
+  shots       Int         @default(0)
+  accuracy    Float       @default(0)
+  score       Int         @default(0)
+  joinedAt    DateTime    @default(now())
+  leftAt      DateTime?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+}
+
+model MatchEvent {
   id          String   @id @default(uuid())
-  
   matchId     String
   match       Match    @relation(fields: [matchId], references: [id], onDelete: Cascade)
-  
-  playerId    String
-  player      Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
-  
-  // Player Statistics
-  kills       Int      @default(0)
-  deaths      Int      @default(0)
-  hits        Int      @default(0)  // Successful shots that hit
-  shots       Int      @default(0)  // Total shots fired
-  score       Int      @default(0)  // Calculated score
-  finalHearts Int      @default(0)  // Hearts remaining at end
-  
-  // Status
-  eliminated  Boolean  @default(false)  // For LMS mode
-  
+  eventType   String
+  timestamp   DateTime @default(now())
+  shooterId   String?
+  targetId    String?
+  teamId      String?
+  data        String?  // JSON stringified additional data
+  createdAt   DateTime @default(now())
+}
+
+// ================= PLAYER STATS =================
+
+model PlayerStats {
+  id              String   @id @default(uuid())
+  playerId        String   @unique
+  totalMatches    Int      @default(0)
+  totalKills      Int      @default(0)
+  totalDeaths     Int      @default(0)
+  totalHits       Int      @default(0)
+  totalShots      Int      @default(0)
+  accuracy        Float    @default(0)
+  totalScore      Int      @default(0)
+  highestKillStreak Int    @default(0)
+  favoriteWeapon  String?
+  totalPlayTime   Int      @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+// ================= ACHIEVEMENTS & LEADERBOARDS =================
+
+model Achievement {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  icon        String?
+  criteria    String   // JSON stringified criteria
+  points      Int      @default(0)
+  category    String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-  
-  @@unique([matchId, playerId])
-  @@index([matchId])
+}
+
+model PlayerAchievement {
+  id            String   @id @default(uuid())
+  playerId      String
+  achievementId String
+  unlockedAt    DateTime @default(now())
+  progress      Int      @default(0)
+}
+
+model LeaderboardEntry {
+  id          String   @id @default(uuid())
+  playerId    String
+  category    String
+  value       Float
+  rank        Int?
+  season      String?
+  timestamp   DateTime @default(now())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
