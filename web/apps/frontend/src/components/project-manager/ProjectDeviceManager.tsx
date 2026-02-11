@@ -17,6 +17,7 @@ import { useDeviceConfig } from '@/hooks/useDeviceConfig'
 
 import { IpAddressInput } from '../IpAddressInput'
 import { DeviceConnectionCard } from './DeviceConnectionCard'
+import { DiscoveryPanel } from '@/features/devices/DiscoveryPanel'
 import { Device, Player, Project, Team } from './types'
 
 interface ProjectDeviceManagerInnerProps {
@@ -86,6 +87,10 @@ function ProjectDeviceManagerInner({ project, availableDevices, disabled = false
           Device management is disabled while the game is running.
         </div>
       )}
+      
+      {/* Device Discovery Panel */}
+      <DiscoveryPanel projectId={project.id} />
+      
       {/* Add Device Section */}
       <div className="flex flex-col gap-2">
         <div className="flex flex-col sm:flex-row gap-2">
