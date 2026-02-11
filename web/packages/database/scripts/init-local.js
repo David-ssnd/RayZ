@@ -42,7 +42,7 @@ async function main() {
       email: 'admin@localhost',
       name: 'Admin',
       role: 'admin',
-      password: '$2a$10$5gQ5y5CiKvX5Zr5Y5Z5Z5euqJ5XwJ5XwJ5XwJ5XwJ5XwJ5XwJ5XwJm', // "admin" hashed
+      password: '$2b$10$bbxhx3r45TL08/SbofA0DOeH1ohUaYXeKqgzsj2XpDg3GkLAqCJsi', // "admin" bcrypt hash
     },
   });
   console.log(`   ✅ Created user: ${adminUser.email}\n`);
