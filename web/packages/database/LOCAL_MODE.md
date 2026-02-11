@@ -17,7 +17,7 @@ RayZ uses **two separate Prisma schemas** to support both cloud and local modes:
 
 The active schema is automatically switched when you run initialization commands. The Prisma client is regenerated to match the selected database provider.
 
-**Note**: Always run the appropriate `db:switch:*` command before switching between modes to ensure the Prisma client matches your database.
+**⚠️ Critical**: The `.env.local` file in `packages/database/` should **only exist when you're actively using local mode**. For cloud mode, delete this file to use the main `.env` file instead. Otherwise, you'll get a schema mismatch error.
 
 ## Quick Start
 
@@ -27,12 +27,13 @@ The active schema is automatically switched when you run initialization commands
 # Navigate to database package
 cd web/packages/database
 
-# Create local environment file
+# Create local environment file (only for local mode)
 cp .env.local.example .env.local
 
 # Edit .env.local and set:
 # DATABASE_MODE=local
 # DATABASE_URL=file:./rayz-local.db
+# AUTH_SECRET=<generate with: openssl rand -base64 32>
 
 # Initialize SQLite database with default data
 # This automatically switches to SQLite schema and regenerates client
@@ -132,14 +133,35 @@ Use these commands to switch between cloud and local database schemas:
 # Switch to local mode (SQLite)
 pnpm db:switch:local
 
-# Switch to cloud mode (PostgreSQL)
+# Switch to cloud mode (PostgreSQL)  
 pnpm db:switch:cloud
 
 # The db:init:local command automatically switches to local mode
 pnpm db:init:local
 ```
 
-**Important**: Always run the appropriate switch command before changing DATABASE_URL in your `.env` file to ensure the Prisma client matches your database provider.
+**Important**: When switching modes:
+1. Run the appropriate `db:switch:*` command
+2. Ensure your `.env` or `.env.local` file has the matching `DATABASE_URL`
+3. **For cloud mode**: Delete `packages/database/.env.local` if it exists
+4. **For local mode**: Create `packages/database/.env.local` with local settings
+
+### Common Issues
+
+**Error: "unknown variant `postgres`, expected `sqlite`"** or vice versa
+- **Cause**: The Prisma client was generated for one database type but `.env` points to another
+- **Fix**: 
+  ```bash
+  # If using cloud mode (PostgreSQL):
+  cd packages/database
+  rm .env.local  # Remove local config
+  pnpm db:switch:cloud
+  
+  # If using local mode (SQLite):
+  cd packages/database
+  cp .env.local.example .env.local  # Create local config
+  pnpm db:switch:local
+  ```
 
 ---
 
