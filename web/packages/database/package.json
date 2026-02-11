@@ -6,9 +6,9 @@
   "main": "./src/index.ts",
   "types": "./src/index.ts",
   "scripts": {
-    "build": "prisma generate",
-    "db:generate": "prisma generate",
-    "db:push": "prisma db push",
+    "build": "node scripts/auto-detect-mode.js && prisma generate",
+    "db:generate": "node scripts/auto-detect-mode.js && prisma generate",
+    "db:push": "node scripts/auto-detect-mode.js && prisma db push",
     "db:studio": "prisma studio",
     "db:switch:local": "node scripts/switch-schema.js local && prisma generate",
     "db:switch:cloud": "node scripts/switch-schema.js cloud && prisma generate",
