@@ -6,6 +6,7 @@
 
 #include "espnow_comm.h"
 #include "game_state.h"
+#include "display_manager.h"
 #include "tasks.h"
 #include "wifi_manager.h"
 #include "ws_server.h"
@@ -59,6 +60,14 @@ void espnow_task(void* pvParameters)
                 game_state_record_hit();
                 game_state_record_kill();
                 ws_server_broadcast_game_state();
+
+                // Show kill confirmation on display
+                dm_event_t dm_evt = {};
+                dm_evt.type = DM_EVT_KILL;
+                dm_evt.kill.player_id = env.msg.player_id;
+                dm_evt.kill.device_id = env.msg.device_id;
+                display_manager_post(&dm_evt);
+
                 ESP_LOGI(TAG,
                          "Hit confirmed by peer (%02X:%02X:%02X:%02X:%02X:%02X) data=%u",
                          env.src_mac[0], env.src_mac[1], env.src_mac[2],

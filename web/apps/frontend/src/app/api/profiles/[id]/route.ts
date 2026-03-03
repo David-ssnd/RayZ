@@ -1,10 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
 
+import { auth } from '@/auth'
 import { prisma } from '@/lib/server/prisma'
 
 // GET /api/profiles/[id]
 export async function GET(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
+    const session = await auth()
+    if (!session?.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
     const { params } = context
     const { id } = await params
 
@@ -35,6 +41,11 @@ export async function GET(request: NextRequest, context: { params: Promise<{ id:
 // PUT /api/profiles/[id]
 export async function PUT(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
+    const session = await auth()
+    if (!session?.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
     const { params } = context
     const { id } = await params
 
@@ -42,10 +53,15 @@ export async function PUT(request: NextRequest, context: { params: Promise<{ id:
 
     const existingProfile = await prisma.profile.findUnique({
       where: { id },
+      select: { userId: true },
     })
 
     if (!existingProfile) {
       return NextResponse.json({ error: 'Profile not found' }, { status: 404 })
+    }
+
+    if (existingProfile.userId !== session.user.id) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
     const profile = await prisma.profile.update({
@@ -75,15 +91,25 @@ export async function PUT(request: NextRequest, context: { params: Promise<{ id:
 // DELETE /api/profiles/[id]
 export async function DELETE(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
+    const session = await auth()
+    if (!session?.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
     const { params } = context
     const { id } = await params
 
     const existingProfile = await prisma.profile.findUnique({
       where: { id },
+      select: { userId: true },
     })
 
     if (!existingProfile) {
       return NextResponse.json({ error: 'Profile not found' }, { status: 404 })
+    }
+
+    if (existingProfile.userId !== session.user.id) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
     await prisma.profile.delete({

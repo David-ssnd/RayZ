@@ -38,5 +38,6 @@ class Photodiode
     bool isBufferFull();
     bool isSampleBufferFull();
     float getSignalStrength();
+    float getBufferRange();
     int getBitHead();
 };

@@ -17,16 +17,19 @@ export interface DiscoveredDevice {
 }
 
 export type DeviceDiscoveryCallback = (device: DiscoveredDevice) => void
+export type DeviceLostCallback = (device: DiscoveredDevice) => void
 
 export class DeviceDiscovery {
   private bonjour: ReturnType<typeof Bonjour>
   private browser: Browser | null = null
   private onDeviceFound: DeviceDiscoveryCallback
+  private onDeviceLost: DeviceLostCallback | undefined
   private discoveredDevices: Map<string, DiscoveredDevice> = new Map()
 
-  constructor(onDeviceFound: DeviceDiscoveryCallback) {
+  constructor(onDeviceFound: DeviceDiscoveryCallback, onDeviceLost?: DeviceLostCallback) {
     this.bonjour = new Bonjour()
     this.onDeviceFound = onDeviceFound
+    this.onDeviceLost = onDeviceLost
   }
 
   /**
@@ -120,8 +123,10 @@ export class DeviceDiscovery {
   private handleServiceDown(service: Service) {
     const ip = this.selectBestAddress(service.addresses || [])
     if (ip && this.discoveredDevices.has(ip)) {
+      const device = this.discoveredDevices.get(ip)!
       console.log(`[Discovery] Device ${ip} disappeared`)
       this.discoveredDevices.delete(ip)
+      this.onDeviceLost?.(device)
     }
   }
 

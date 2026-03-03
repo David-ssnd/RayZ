@@ -26,19 +26,40 @@ static esp_err_t root_get_handler(httpd_req_t* req)
                            "form{background:#fff;padding:20px;border-radius:10px;width:100%;max-width:320px;"
                            "box-shadow:0 10px 30px rgba(0,0,0,.08)}"
                            "h2{text-align:center;margin:0 0 12px}"
-                           "input,button{width:100%;padding:10px;margin:6px 0;border-radius:8px;font-size:14px}"
-                           "input{border:1px solid #e5e7eb}"
-                           "button{border:0;background:#111;color:#fff;font-weight:600}"
+                           "input,button,select{width:100%;padding:10px;margin:6px 0;border-radius:8px;font-size:14px}"
+                           "input,select{border:1px solid #e5e7eb}"
+                           "button{border:0;background:#111;color:#fff;font-weight:600;cursor:pointer}"
+                           ".scan-btn{background:#666;margin-bottom:2px}"
+                           ".ssid-row{display:flex;gap:6px}"
+                           ".ssid-row input{flex:1}"
+                           ".ssid-row button{width:auto;padding:10px 16px}"
+                           "#networks{display:none}"
                            "</style>"
                            "</head>"
                            "<body>"
                            "<form method=\"POST\" action=\"/config\">"
                            "<h2>RayZ Provisioning</h2>"
+                           "<button type=\"button\" class=\"scan-btn\" onclick=\"scan()\">Scan WiFi Networks</button>"
+                           "<select id=\"networks\" onchange=\"document.querySelector('[name=ssid]').value=this.value\"></select>"
+                           "<div class=\"ssid-row\">"
                            "<input name=\"ssid\" placeholder=\"SSID\" maxlength=\"32\" required>"
+                           "</div>"
                            "<input name=\"pass\" type=\"password\" placeholder=\"Password\" maxlength=\"64\">"
                            "<input name=\"name\" placeholder=\"Device Name\" maxlength=\"32\" required>"
                            "<button>Save &amp; Connect</button>"
                            "</form>"
+                           "<script>"
+                           "function scan(){"
+                           "var b=document.querySelector('.scan-btn');b.textContent='Scanning...';"
+                           "fetch('/scan').then(r=>r.json()).then(d=>{"
+                           "var s=document.getElementById('networks');s.innerHTML='';"
+                           "d.forEach(n=>{"
+                           "var o=document.createElement('option');"
+                           "o.value=n.ssid;o.textContent=n.ssid+' ('+n.rssi+'dBm)';"
+                           "s.appendChild(o)});"
+                           "s.style.display='block';b.textContent='Scan WiFi Networks';"
+                           "}).catch(()=>{b.textContent='Scan failed, retry';})}"
+                           "</script>"
                            "</body>"
                            "</html>";
 
@@ -50,6 +71,15 @@ static esp_err_t root_get_handler(httpd_req_t* req)
         const char* page = "<html><body><h2>RayZ Online</h2><p>Device connected.</p></body></html>";
         httpd_resp_send(req, page, HTTPD_RESP_USE_STRLEN);
     }
+    return ESP_OK;
+}
+
+// Captive-portal: redirect any unknown path to the provisioning root
+static esp_err_t captive_redirect_handler(httpd_req_t* req)
+{
+    httpd_resp_set_status(req, "302 Found");
+    httpd_resp_set_hdr(req, "Location", "http://192.168.4.1/");
+    httpd_resp_send(req, NULL, 0);
     return ESP_OK;
 }
 
@@ -140,11 +170,69 @@ static esp_err_t clean_post_handler(httpd_req_t* req)
     return ESP_OK;
 }
 
+static esp_err_t scan_get_handler(httpd_req_t* req)
+{
+    // Perform a blocking WiFi scan
+    wifi_scan_config_t scan_cfg = {};
+    scan_cfg.show_hidden = false;
+    esp_err_t err = esp_wifi_scan_start(&scan_cfg, true);
+    if (err != ESP_OK)
+    {
+        httpd_resp_set_type(req, "application/json");
+        httpd_resp_send(req, "[]", HTTPD_RESP_USE_STRLEN);
+        return ESP_OK;
+    }
+
+    uint16_t ap_count = 0;
+    esp_wifi_scan_get_ap_num(&ap_count);
+    if (ap_count > 20) ap_count = 20;
+
+    wifi_ap_record_t* ap_list = (wifi_ap_record_t*)malloc(ap_count * sizeof(wifi_ap_record_t));
+    if (!ap_list)
+    {
+        httpd_resp_set_type(req, "application/json");
+        httpd_resp_send(req, "[]", HTTPD_RESP_USE_STRLEN);
+        return ESP_OK;
+    }
+
+    esp_wifi_scan_get_ap_records(&ap_count, ap_list);
+
+    // Build JSON array
+    char* json = (char*)malloc(ap_count * 64 + 16);
+    if (!json)
+    {
+        free(ap_list);
+        httpd_resp_set_type(req, "application/json");
+        httpd_resp_send(req, "[]", HTTPD_RESP_USE_STRLEN);
+        return ESP_OK;
+    }
+
+    int pos = 0;
+    pos += snprintf(json + pos, ap_count * 64 + 16 - pos, "[");
+    for (int i = 0; i < ap_count; i++)
+    {
+        if (i > 0) pos += snprintf(json + pos, ap_count * 64 + 16 - pos, ",");
+        pos += snprintf(json + pos, ap_count * 64 + 16 - pos,
+                        "{\"ssid\":\"%s\",\"rssi\":%d}",
+                        (char*)ap_list[i].ssid, ap_list[i].rssi);
+    }
+    pos += snprintf(json + pos, ap_count * 64 + 16 - pos, "]");
+
+    httpd_resp_set_type(req, "application/json");
+    httpd_resp_send(req, json, HTTPD_RESP_USE_STRLEN);
+
+    free(json);
+    free(ap_list);
+    return ESP_OK;
+}
+
 void wifi_start_http_server(bool provisioning_mode)
 {
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
     config.server_port = 80;
     config.stack_size = 8192;
+    if (provisioning_mode)
+        config.uri_match_fn = httpd_uri_match_wildcard;
     esp_err_t ret = httpd_start(&g_httpd, &config);
     if (ret == ESP_OK)
     {
@@ -166,6 +254,25 @@ void wifi_start_http_server(bool provisioning_mode)
                                    .handle_ws_control_frames = false,
                                    .supported_subprotocol = NULL};
             httpd_register_uri_handler(g_httpd, &cfg_uri);
+
+            httpd_uri_t scan_uri = {.uri = "/scan",
+                                    .method = HTTP_GET,
+                                    .handler = scan_get_handler,
+                                    .user_ctx = NULL,
+                                    .is_websocket = false,
+                                    .handle_ws_control_frames = false,
+                                    .supported_subprotocol = NULL};
+            httpd_register_uri_handler(g_httpd, &scan_uri);
+
+            // Catch-all: redirect any other GET to the provisioning page
+            httpd_uri_t catch_all = {.uri = "/*",
+                                     .method = HTTP_GET,
+                                     .handler = captive_redirect_handler,
+                                     .user_ctx = NULL,
+                                     .is_websocket = false,
+                                     .handle_ws_control_frames = false,
+                                     .supported_subprotocol = NULL};
+            httpd_register_uri_handler(g_httpd, &catch_all);
         }
         else
         {

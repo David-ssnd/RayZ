@@ -6,6 +6,8 @@ import { getMessages, getTranslations } from 'next-intl/server'
 
 import { Navigation } from '@/components/Navigation'
 import { ThemeProvider } from '@/components/ThemeProvider'
+import { Providers } from '../providers'
+import '../globals.css'
 
 export function generateStaticParams() {
   return routing.locales.map((locale) => ({ locale }))
@@ -43,7 +45,7 @@ export default async function LocaleLayout({
   const { locale } = await params
 
   // Ensure that the incoming `locale` is valid
-  if (!routing.locales.includes(locale as any)) {
+  if (!(routing.locales as readonly string[]).includes(locale)) {
     notFound()
   }
 
@@ -54,21 +56,23 @@ export default async function LocaleLayout({
   return (
     <html lang={locale} suppressHydrationWarning>
       <body>
-        <NextIntlClientProvider messages={messages}>
-          <ThemeProvider
-            attribute="class"
-            defaultTheme="system"
-            enableSystem
-            disableTransitionOnChange
-          >
-            <main className="flex h-screen flex-col px-4 py-4">
-              <div className="w-full max-w-6xl mx-auto flex-none">
-                <Navigation />
-              </div>
-              <div className="w-full flex-1 flex flex-col mt-6 sm:mt-8 min-h-0">{children}</div>
-            </main>
-          </ThemeProvider>
-        </NextIntlClientProvider>
+        <Providers>
+          <NextIntlClientProvider messages={messages}>
+            <ThemeProvider
+              attribute="class"
+              defaultTheme="system"
+              enableSystem
+              disableTransitionOnChange
+            >
+              <main className="flex h-screen flex-col px-4 py-4">
+                <div className="w-full max-w-6xl mx-auto flex-none">
+                  <Navigation />
+                </div>
+                <div className="w-full flex-1 flex flex-col mt-6 sm:mt-8 min-h-0">{children}</div>
+              </main>
+            </ThemeProvider>
+          </NextIntlClientProvider>
+        </Providers>
       </body>
     </html>
   )

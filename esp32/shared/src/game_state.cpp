@@ -16,6 +16,10 @@ static GameStateData s_state;
 static SemaphoreHandle_t s_mutex = NULL;
 static bool s_initialized = false;
 
+// Player name lookup table
+static PlayerEntry s_players[MAX_PLAYER_ENTRIES];
+static int s_player_count = 0;
+
 #define NVS_GAME_NS "game"
 #define NVS_KEY_DEVICE_ID "device_id_u8"
 #define NVS_KEY_PLAYER_ID "player_id_u8"
@@ -692,4 +696,57 @@ bool game_state_can_take_damage(void)
     
     // In other modes, can always take damage
     return true;
+}
+
+// ============================================================================
+// Player name lookup table
+// ============================================================================
+
+void game_state_clear_player_names(void)
+{
+    LOCK();
+    s_player_count = 0;
+    memset(s_players, 0, sizeof(s_players));
+    UNLOCK();
+}
+
+void game_state_set_player_name(uint8_t player_id, const char* name)
+{
+    if (!name) return;
+    LOCK();
+    // Update existing entry if found
+    for (int i = 0; i < s_player_count; i++)
+    {
+        if (s_players[i].player_id == player_id)
+        {
+            strncpy(s_players[i].name, name, PLAYER_NAME_LEN - 1);
+            s_players[i].name[PLAYER_NAME_LEN - 1] = '\0';
+            UNLOCK();
+            return;
+        }
+    }
+    // Add new entry if space available
+    if (s_player_count < MAX_PLAYER_ENTRIES)
+    {
+        s_players[s_player_count].player_id = player_id;
+        strncpy(s_players[s_player_count].name, name, PLAYER_NAME_LEN - 1);
+        s_players[s_player_count].name[PLAYER_NAME_LEN - 1] = '\0';
+        s_player_count++;
+    }
+    UNLOCK();
+}
+
+const char* game_state_get_player_name(uint8_t player_id)
+{
+    LOCK();
+    for (int i = 0; i < s_player_count; i++)
+    {
+        if (s_players[i].player_id == player_id)
+        {
+            UNLOCK();
+            return s_players[i].name;
+        }
+    }
+    UNLOCK();
+    return NULL;
 }

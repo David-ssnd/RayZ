@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { ArrowDown, ArrowUp, Copy, Terminal, Trash2, WrapText } from 'lucide-react'
+import { ArrowDown, ArrowDownToLine, ArrowUp, Check, Copy, Terminal, Trash2, WrapText } from 'lucide-react'
 
 import { useDeviceConnections } from '@/lib/websocket'
 import { Badge } from '@/components/ui/badge'
@@ -14,16 +14,18 @@ export function DeviceConsole() {
   const { messageLog, clearLog } = useDeviceConnections()
   const scrollRef = useRef<HTMLDivElement>(null)
   const [wrapText, setWrapText] = useState(false)
+  const [autoScroll, setAutoScroll] = useState(true)
+  const [copied, setCopied] = useState(false)
 
   // Auto-scroll to bottom on new messages
   useEffect(() => {
-    if (scrollRef.current) {
+    if (autoScroll && scrollRef.current) {
       const scrollElement = scrollRef.current.querySelector('[data-radix-scroll-area-viewport]')
       if (scrollElement) {
         scrollElement.scrollTop = scrollElement.scrollHeight
       }
     }
-  }, [messageLog])
+  }, [messageLog, autoScroll])
 
   const handleCopyAll = () => {
     const logText = messageLog
@@ -43,7 +45,8 @@ export function DeviceConsole() {
       .join('\n')
 
     navigator.clipboard.writeText(logText).then(() => {
-      // Could add a toast notification here
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
     })
   }
 
@@ -71,6 +74,15 @@ export function DeviceConsole() {
             variant="ghost"
             size="sm"
             className="h-5 w-5 p-0 hover:bg-zinc-800"
+            onClick={() => setAutoScroll(!autoScroll)}
+            title={autoScroll ? 'Disable autoscroll' : 'Enable autoscroll'}
+          >
+            <ArrowDownToLine className={cn('w-3 h-3', autoScroll && 'text-cyan-400')} />
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-5 w-5 p-0 hover:bg-zinc-800"
             onClick={() => setWrapText(!wrapText)}
             title={wrapText ? 'Disable text wrap' : 'Enable text wrap'}
           >
@@ -83,7 +95,11 @@ export function DeviceConsole() {
             onClick={handleCopyAll}
             title="Copy all logs"
           >
-            <Copy className="w-3 h-3" />
+            {copied ? (
+              <Check className="w-3 h-3 text-green-400" />
+            ) : (
+              <Copy className="w-3 h-3" />
+            )}
           </Button>
           <Button
             variant="ghost"

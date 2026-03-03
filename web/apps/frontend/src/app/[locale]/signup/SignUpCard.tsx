@@ -54,7 +54,7 @@ export default function SignUpCard({ locale }: SignUpCardProps) {
       })) as Awaited<ReturnType<typeof signIn>>
 
       if (result?.error) {
-        setError(t('success.accountCreated'))
+        setError(t('errors.signInFailed'))
         return
       }
 
@@ -155,11 +155,11 @@ export default function SignUpCard({ locale }: SignUpCardProps) {
                   required
                 />
               </div>
-              <Button className="w-full" disabled title={t('SignIn.magicLinkComingSoon')}>
-                {t('SignIn.sendMagicLink')}
+              <Button className="w-full" disabled title={t('magicLinkComingSoon')}>
+                {t('sendMagicLink')}
               </Button>
               <p className="text-center text-xs text-muted-foreground">
-                {t('SignIn.magicLinkComingSoon')}
+                {t('magicLinkComingSoon')}
               </p>
             </form>
           ) : (

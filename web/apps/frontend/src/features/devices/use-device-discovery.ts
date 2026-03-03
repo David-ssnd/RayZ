@@ -1,11 +1,6 @@
-/**
- * Device Discovery Hook
- * 
- * Subscribes to device discovery events from the WS Bridge
- * and manages the list of discovered devices.
- */
+'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 
 export interface DiscoveredDevice {
   ip: string
@@ -14,108 +9,115 @@ export interface DiscoveredDevice {
   deviceId?: number
   playerId?: number
   version?: string
+  connected: boolean
   discoveredAt: Date
-  signalStrength?: number
 }
 
 export function useDeviceDiscovery() {
-  const [discovering, setDiscovering] = useState(false)
   const [devices, setDevices] = useState<DiscoveredDevice[]>([])
+  const [connected, setConnected] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const wsRef = useRef<WebSocket | null>(null)
+  const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const reconnectDelay = useRef(1000)
 
-  // Connect to WS Bridge and listen for discovery events
-  useEffect(() => {
-    if (!discovering) return
-
-    let ws: WebSocket | null = null
+  const connect = useCallback(() => {
+    if (wsRef.current?.readyState === WebSocket.OPEN || wsRef.current?.readyState === WebSocket.CONNECTING) return
 
     try {
-      // Connect to WS Bridge
       const wsUrl = process.env.NEXT_PUBLIC_LOCAL_WS_URL || 'ws://localhost:8080'
-      ws = new WebSocket(wsUrl)
+      const ws = new WebSocket(wsUrl)
+      wsRef.current = ws
 
       ws.onopen = () => {
-        console.log('[Discovery] Connected to WS Bridge')
+        setConnected(true)
         setError(null)
-        
-        // Request discovery scan
-        ws?.send(JSON.stringify({
-          type: 'scan_network',
-        }))
+        reconnectDelay.current = 1000
       }
 
       ws.onmessage = (event) => {
         try {
-          const message = JSON.parse(event.data)
-          
-          if (message.type === 'device_discovered') {
-            const device: DiscoveredDevice = {
-              ...message.device,
-              discoveredAt: new Date(),
-            }
-            
-            // Add or update device in list
-            setDevices((prev) => {
-              const existing = prev.find((d) => d.ip === device.ip)
-              if (existing) {
-                // Update existing device
-                return prev.map((d) =>
-                  d.ip === device.ip ? { ...d, ...device } : d
-                )
-              } else {
-                // Add new device
-                return [...prev, device]
-              }
-            })
-          } else if (message.type === 'device_lost') {
-            // Remove device from list
-            setDevices((prev) =>
-              prev.filter((d) => d.ip !== message.device.ip)
+          const msg = JSON.parse(event.data)
+
+          if (msg.type === 'device_list') {
+            setDevices(
+              (msg.devices || []).map((d: any) => ({
+                ip: d.ip,
+                hostname: d.hostname || d.ip,
+                role: d.role || 'unknown',
+                deviceId: d.deviceId,
+                playerId: d.playerId,
+                version: d.version,
+                connected: d.connected ?? false,
+                discoveredAt: new Date(),
+              }))
             )
+          } else if (msg.type === 'device_discovered') {
+            const d = msg.device
+            setDevices((prev) => {
+              const existing = prev.find((x) => x.ip === d.ip)
+              if (existing) {
+                return prev.map((x) =>
+                  x.ip === d.ip
+                    ? { ...x, ...d, connected: x.connected, discoveredAt: x.discoveredAt }
+                    : x
+                )
+              }
+              return [
+                ...prev,
+                {
+                  ip: d.ip,
+                  hostname: d.hostname || d.ip,
+                  role: d.role || 'unknown',
+                  deviceId: d.deviceId,
+                  playerId: d.playerId,
+                  version: d.version,
+                  connected: false,
+                  discoveredAt: new Date(),
+                },
+              ]
+            })
+          } else if (msg.type === 'device_connected') {
+            setDevices((prev) =>
+              prev.map((d) => (d.ip === msg.ip ? { ...d, connected: true } : d))
+            )
+          } else if (msg.type === 'device_disconnected') {
+            setDevices((prev) =>
+              prev.map((d) => (d.ip === msg.ip ? { ...d, connected: false } : d))
+            )
+          } else if (msg.type === 'device_lost') {
+            setDevices((prev) => prev.filter((d) => d.ip !== msg.device?.ip))
           }
-        } catch (err) {
-          console.error('[Discovery] Failed to parse message:', err)
+        } catch {
+          // ignore parse errors
         }
       }
 
-      ws.onerror = (event) => {
-        console.error('[Discovery] WebSocket error:', event)
-        setError('Failed to connect to WS Bridge. Is it running?')
+      ws.onerror = () => {
+        setError('Cannot connect to WS Bridge')
       }
 
       ws.onclose = () => {
-        console.log('[Discovery] Disconnected from WS Bridge')
+        setConnected(false)
+        wsRef.current = null
+        // Auto-reconnect with backoff
+        reconnectTimer.current = setTimeout(() => {
+          reconnectDelay.current = Math.min(reconnectDelay.current * 2, 10000)
+          connect()
+        }, reconnectDelay.current)
       }
-    } catch (err) {
-      console.error('[Discovery] Failed to initialize:', err)
-      setError(err instanceof Error ? err.message : 'Unknown error')
+    } catch {
+      setError('Failed to initialize WebSocket')
     }
+  }, [])
 
+  useEffect(() => {
+    connect()
     return () => {
-      ws?.close()
+      reconnectTimer.current && clearTimeout(reconnectTimer.current)
+      wsRef.current?.close()
     }
-  }, [discovering])
+  }, [connect])
 
-  const startDiscovery = useCallback(() => {
-    setDiscovering(true)
-    setDevices([])
-    setError(null)
-  }, [])
-
-  const stopDiscovery = useCallback(() => {
-    setDiscovering(false)
-  }, [])
-
-  const clearDevices = useCallback(() => {
-    setDevices([])
-  }, [])
-
-  return {
-    discovering,
-    devices,
-    error,
-    startDiscovery,
-    stopDiscovery,
-    clearDevices,
-  }
+  return { devices, connected, error }
 }

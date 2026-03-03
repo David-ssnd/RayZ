@@ -25,6 +25,12 @@ interface DeviceConnection {
   ws: WebSocket | null
   connected: boolean
   reconnecting: boolean
+  // Discovery metadata from mDNS
+  hostname?: string
+  role?: 'weapon' | 'target' | 'unknown'
+  deviceId?: number
+  playerId?: number
+  version?: string
 }
 
 interface BrowserMessage {
@@ -66,25 +72,42 @@ class WsBridge {
    * Start mDNS discovery for ESP32 devices
    */
   private startDiscovery() {
-    this.discovery = new DeviceDiscovery((device: DiscoveredDevice) => {
-      console.log(
-        `[WsBridge] Auto-discovered device: ${device.ip} (${device.role}) - Device: ${device.deviceId}, Player: ${device.playerId}`
-      )
-      this.addDevice(device.ip)
-      
-      // Notify browsers about discovered device
-      this.broadcastToBrowsers({
-        type: 'device_discovered',
-        device: {
-          ip: device.ip,
+    this.discovery = new DeviceDiscovery(
+      // onFound
+      (device: DiscoveredDevice) => {
+        console.log(
+          `[WsBridge] Auto-discovered device: ${device.ip} (${device.role}) - Device: ${device.deviceId}, Player: ${device.playerId}`
+        )
+        this.addDevice(device.ip, {
           hostname: device.hostname,
           role: device.role,
           deviceId: device.deviceId,
           playerId: device.playerId,
           version: device.version,
-        },
-      })
-    })
+        })
+
+        // Notify browsers about discovered device
+        this.broadcastToBrowsers({
+          type: 'device_discovered',
+          device: {
+            ip: device.ip,
+            hostname: device.hostname,
+            role: device.role,
+            deviceId: device.deviceId,
+            playerId: device.playerId,
+            version: device.version,
+          },
+        })
+      },
+      // onLost
+      (device: DiscoveredDevice) => {
+        console.log(`[WsBridge] Device lost: ${device.ip}`)
+        this.broadcastToBrowsers({
+          type: 'device_lost',
+          device: { ip: device.ip, hostname: device.hostname, role: device.role },
+        })
+      }
+    )
     this.discovery.start()
   }
 
@@ -156,8 +179,13 @@ class WsBridge {
   /**
    * Add a device to manage
    */
-  addDevice(ip: string) {
+  addDevice(ip: string, metadata?: { hostname?: string; role?: 'weapon' | 'target' | 'unknown'; deviceId?: number; playerId?: number; version?: string }) {
     if (this.devices.has(ip)) {
+      // Update metadata if provided for existing device
+      if (metadata) {
+        const existing = this.devices.get(ip)!
+        Object.assign(existing, metadata)
+      }
       return
     }
 
@@ -166,6 +194,7 @@ class WsBridge {
       ws: null,
       connected: false,
       reconnecting: false,
+      ...metadata,
     }
 
     this.devices.set(ip, device)
@@ -331,6 +360,11 @@ class WsBridge {
     const devices = Array.from(this.devices.entries()).map(([ip, device]) => ({
       ip,
       connected: device.connected,
+      hostname: device.hostname,
+      role: device.role,
+      deviceId: device.deviceId,
+      playerId: device.playerId,
+      version: device.version,
     }))
 
     ws.send(

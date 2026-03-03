@@ -1,330 +1,171 @@
-# Display System Improvements - Implementation Summary
+# Display System — Complete Redesign
 
 ## Overview
-The ESP32 display system has been significantly enhanced to provide better UI/UX, visual hierarchy, and utilize more LVGL features while preventing text collision and improving maintainability.
 
-## What Was Improved
+Complete rewrite of the ESP32 display UI for the RayZ laser tag project. Replaced a broken dual-rendering system (legacy 3-row text + incomplete component library) with pixel-perfect, widget-based layouts optimised for the 128×32 monochrome OLED.
 
-### 1. LVGL Configuration Enhancement (`lv_conf.h`)
+## Hardware
 
-**Before:**
-- Only 1 font enabled (Montserrat 10pt)
-- Minimal widgets enabled
-- 16KB memory budget
-- Basic features only
+| Spec | Value |
+|------|-------|
+| Controller | SSD1306 |
+| Resolution | 128 × 32 pixels |
+| Colour depth | 1-bit monochrome (white on black) |
+| Interface | I2C @ 0x3C, 400 kHz |
+| Target pins | SDA 8/21, SCL 9/22 (S3/DevKit) |
+| Weapon pins | SDA 8, SCL 9 |
+| Toolkit | LVGL 8.3 with custom `set_px_cb` bit-packing + `rounder_cb` (8-px page alignment) |
 
-**After:**
-- **5 fonts enabled** for visual hierarchy:
-  - 8pt: Small/secondary info
-  - 10pt: Body text (default)
-  - 12pt: Sub-headings
-  - 16pt: Titles
-  - 24pt: Large displays (boot screen, countdown)
-- **11 additional widgets** enabled:
-  - `lv_arc`: Circular progress indicators
-  - `lv_canvas`: Custom drawing
-  - `lv_led`: LED indicators
-  - `lv_meter`: Gauge displays
-  - `lv_spinner`: Loading animations
-  - `lv_chart`: Data visualization
-  - `lv_animimg`: Animated icons
-  - `lv_line`: Separators
-  - Plus btn, img, label (already enabled)
-- **24KB memory budget** (50% increase)
-- **Animations enabled** with optimized 20ms refresh
-- **Additional features**:
-  - OPA_SCALE for transparency
-  - GROUP support for future input devices
-  - USER_DATA for custom metadata
+## Architecture
 
-### 2. New UI Component System (`display_ui.h/cpp`)
-
-Created a comprehensive component library with reusable UI elements:
-
-#### **Status Bar Component**
-- 8px height at top of screen
-- Shows WiFi icon, WebSocket status, signal strength (RSSI)
-- Uses symbols from LVGL (LV_SYMBOL_WIFI, LV_SYMBOL_WARNING)
-- Auto-updates based on connection state
-- No text collision with main content
-
-```c
-ui_status_bar_t* bar = ui_status_bar_create(screen);
-ui_status_bar_update(bar, wifi_connected, ws_connected, rssi);
+```
+display_manager.cpp        ← unified state machine (target + weapon)
+  ├─ auto-detects device type (s_src.ammo != NULL → weapon)
+  ├─ event queue (FreeRTOS, 8 deep)
+  ├─ timed state expiry + polled transitions
+  └─ calls display_ui widget functions
+       ├─ ui_target_game_*   (target dashboard)
+       ├─ ui_weapon_idle_*   (weapon dashboard)
+       ├─ ui_respawn_*       (countdown + bar)
+       ├─ ui_connecting_*    (WiFi screen)
+       ├─ ui_boot_*          (splash)
+       ├─ ui_error_*         (error code)
+       └─ ui_alert_*         (full-screen inverted overlay)
 ```
 
-#### **Content Area Component**
-- Container with flex layout (no hard-coded Y positions)
-- Three sections: title, content, footer
-- Responsive spacing with padding/margins
-- Prevents text overlap through proper layout management
+All widgets are created **once** at init (hidden). Show/hide on state transitions — zero dynamic allocation after boot.
 
-```c
-ui_content_area_t* area = ui_content_area_create(screen);
-ui_content_area_set_title(area, "Health", &lv_font_montserrat_12);
-ui_content_area_set_content(area, "Score: 100\nDeaths: 2");
+## State Machine
+
+```
+BOOT (800 ms)
+  │
+  ├─ WiFi already connected → IDLE
+  └─ else → CONNECTING
+              │
+              ├─ WiFi/WS connected → IDLE
+              └─ stays until connected
+
+IDLE
+  ├─ DM_EVT_HIT           → ALERT_HIT (800 ms, blinks)
+  ├─ DM_EVT_KILLED         → ALERT_KILLED (2 s)
+  ├─ DM_EVT_KILL           → ALERT_KILL (1.5 s)
+  ├─ DM_EVT_RESPAWN_START  → RESPAWNING (target only)
+  ├─ DM_EVT_WIFI_DISCONNECTED → ALERT_DISCONNECTED (until reconnect)
+  ├─ DM_EVT_MSG            → ALERT_MSG (800 ms)
+  └─ DM_EVT_ERROR_SET      → ERROR (persistent)
+
+RESPAWNING → polled: is_respawning() false → ALERT_READY (500 ms) → IDLE
+
+All timed alerts → return to IDLE (or ERROR if that was the return state)
 ```
 
-#### **Progress Indicator Component**
-- Supports both bar and arc styles
-- Animated value changes
-- Label shows progress text
-- Properly positioned at bottom
+## Screen Layouts
 
-```c
-ui_progress_t* prog = ui_progress_create(screen, false); // bar style
-ui_progress_set_value(prog, 75, "7.5s");
+### Target — Game Idle
+```
+S:15 D:3           ✓WiFi    ← 8pt: score/deaths + connectivity icons
+[████████████░░░]  3/5      ← center: 90×6 health bar + label
+P:1 D:42           -65      ← 8pt: player/device IDs + RSSI
 ```
 
-#### **Overlay System**
-- Full-screen overlays for popups/notifications
-- Semi-transparent background (70% opacity)
-- Fade in/out animations (200ms)
-- Auto-dismiss with timer support
-- Uses LV_LAYER_TOP to prevent collision
-
-```c
-ui_overlay_t* overlay = ui_overlay_create(screen);
-ui_overlay_show(overlay, "HIT! -1♥", 1000); // Auto-hide after 1s
+### Weapon — Idle
+```
+✓WiFi  P:1 D:42   -65      ← 8pt: connectivity + IDs + RSSI
+          12                 ← 16pt: large ammo count (hero element)
+         AMMO                ← 8pt: label
 ```
 
-#### **Style System**
-- Pre-defined styles for consistency:
-  - Title style: 16pt, centered
-  - Body style: 10pt, left-aligned
-  - Small style: 8pt for secondary info
-  - Highlight style: Inverted colors, padding
-  - Warning style: 12pt, centered
-  - Container style: Black background, no border
-
-### 3. Improved Display Manager (`display_manager.cpp`)
-
-**Architecture Changes:**
-- Integrated new UI component system
-- Backward compatibility maintained (legacy elements still work)
-- Graceful fallback if components fail to create
-
-**New Render Functions:**
-
-#### `render_boot_new()`
-- Large 24pt "RayZ" title
-- Centered "Starting..." message
-- Clean, professional look
-
-#### `render_connecting_new()`
-- Status bar shows WiFi attempting to connect
-- 12pt "Connecting..." title
-- WiFi symbol + SSID
-- RSSI displayed
-
-#### `render_game_idle_new()`
-- **Status bar**: WiFi/WS indicators, RSSI
-- **Title**: Heart symbol × remaining/max (e.g., "♥ x3/5")
-- **Content**: Score and deaths with labels
-- **Footer**: Player and Device IDs (small text)
-- **Proper hierarchy**: Critical info (hearts) largest, IDs smallest
-
-#### `render_respawning_new()`
-- Large countdown in center (overlay)
-- Progress bar at bottom with animated fill
-- Shows remaining time in seconds
-- Progress inverted (fills as time runs out)
-
-**Event Handler Improvements:**
-- Uses new overlay system with symbols (♥, ✓, ⚠)
-- Better text: "ELIMINATED" instead of "KILLED"
-- Animations on overlays
-- Auto-dismiss timers built-in
-
-**Render Loop Enhancements:**
-- Checks if new components available before using
-- Falls back to legacy rendering if components missing
-- Proper show/hide of overlays
-- Blinking effect for hit notification
-
-## Text Collision Solutions
-
-### Problem
-Hard-coded Y positions (0, 11, 22) caused:
-- Overlays rendering on top of base text
-- No clear separation between states
-- Text could overflow into each other
-
-### Solutions Implemented
-
-1. **Container-Based Layout**
-   - Status bar: 0-8px
-   - Content area: 8-32px
-   - Progress/footer: 28-32px
-   - Clear boundaries prevent overlap
-
-2. **Flex Layout**
-   - Content area uses `LV_FLEX_FLOW_COLUMN`
-   - Elements auto-position relative to each other
-   - Padding/margins add spacing
-
-3. **Layer Management**
-   - Overlays on separate layer
-   - Background can be hidden/shown independently
-   - Z-order properly managed
-
-4. **Visibility Flags**
-   - Legacy elements hidden when not in use
-   - New components only shown when active
-   - Proper hide/show on state transitions
-
-## Visual Hierarchy Improvements
-
-### Before
+### Respawning (target only)
 ```
-WiFi: Connected    (10pt, white)
-SSID: MyNetwork    (10pt, white)
-IP: 192.168.1.100  (10pt, white)
-```
-Everything looked the same.
-
-### After
-```
-♥ x3/5             (12pt symbol + text, top section)
-Score: 100         (10pt, middle section)
-Deaths: 2          (10pt, middle section)
-P:1 D:42           (8pt, bottom section)
-```
-Clear importance: Health > Stats > IDs
-
-## LVGL Features Now Utilized
-
-| Feature | Before | After | Purpose |
-|---------|--------|-------|---------|
-| **Fonts** | 1 size | 5 sizes (8,10,12,16,24) | Visual hierarchy |
-| **Widgets** | label, bar | +arc, canvas, led, meter, spinner, chart, animimg, line | Rich UI |
-| **Layouts** | Hard-coded XY | Flex layout | Responsive positioning |
-| **Animations** | None | Fade, value, blink | Smooth transitions |
-| **Symbols** | Text only | WiFi, heart, check, warning | Visual icons |
-| **Layers** | Single | Overlay layer | No collision |
-| **Styles** | Inline | Pre-defined style system | Consistency |
-| **Containers** | Direct children | Nested containers | Organization |
-| **Opacity** | Solid only | 70% transparent bg | Modern overlays |
-| **Timers** | Manual | LV_TIMER auto-dismiss | Clean API |
-
-## Memory Usage
-
-- **Before**: ~10KB (basic text + 1 bar)
-- **After**: ~18-20KB (components + animations)
-- **Budget**: 24KB allocated
-- **Safety margin**: 4-6KB free
-
-ESP32 has ~4MB PSRAM, so this is negligible.
-
-## Performance
-
-- **Refresh rate**: 20ms (50 FPS) - same as before
-- **State transitions**: <200ms with animations
-- **Animations**: 30+ FPS smooth
-- **Memory allocation**: One-time at init
-
-## Backward Compatibility
-
-The implementation maintains full backward compatibility:
-- Legacy `set_rows()` still works
-- Old render functions still exist
-- Gradual migration path: new features used if available, falls back otherwise
-
-Example:
-```cpp
-if (s_status_bar && s_content_area)
-    render_game_idle_new();  // Use new renderer
-else
-    render_game_idle();       // Fallback to legacy
+      RESPAWNING             ← 12pt centered
+        7.5s                 ← 10pt countdown
+[██████████████░░░░░]        ← 100×6 progress bar
 ```
 
-## Future Expansion Ideas
+### Alert (full-screen inverted)
+White background, black text. Examples:
 
-### Easy Additions (5 features ready to use)
-1. **Spinner**: Replace "Connecting..." with animated spinner
-2. **Chart**: Show hit history or score over time
-3. **Meter**: Gauge-style ammo or health display
-4. **LED Indicators**: Status LEDs for connections
-5. **Custom Icons**: Add weapon/target symbols
+| Alert | Line 1 | Line 2 | Duration | Blinks? |
+|-------|--------|--------|----------|---------|
+| HIT | ⚡ HIT! | -1 | 800 ms | Yes |
+| KILLED | ✕ ELIMINATED | by P:2 D:17 | 2 s | No |
+| KILL | ✓ KILL! | P:2 D:17 | 1.5 s | No |
+| READY | ✓ READY! | — | 500 ms | No |
+| NO WiFi | ⚠ NO WiFi | Reconnecting... | Until reconnect | Yes |
+| MSG | (custom) | — | 800 ms | No |
 
-### Medium Additions (LVGL supports)
-1. **Screen Transitions**: Slide/fade between states
-2. **Touch Input**: If touch display added later
-3. **Groups**: Keyboard/encoder navigation
-4. **Themes**: Switch between display styles
-5. **64-pixel Display**: Minimal code changes needed
-
-### Advanced (Require more work)
-1. **Multi-page Debug**: Scrollable debug info
-2. **Configuration Menu**: On-device settings
-3. **Statistics Screen**: Detailed game stats
-4. **Animation Library**: Pre-made effect sequences
-5. **Dynamic Layouts**: Auto-adjust to display size
-
-## Usage Examples
-
-### Show a notification
-```cpp
-dm_event_t evt = {.type = DM_EVT_MSG};
-strncpy(evt.msg.text, "Achievement!", sizeof(evt.msg.text));
-display_manager_post(&evt);
+### Boot
+```
+         RayZ                ← 16pt centered
+      Starting...            ← 10pt centered
 ```
 
-### Update game state
-```cpp
-// Display manager pulls data via callbacks
-// Just update your game state, display auto-refreshes
+### Connecting
+```
+   WiFi Connecting...        ← 10pt centered
+      MyNetwork              ← 10pt SSID
+     RSSI: -65               ← 8pt
 ```
 
-### Customize styles
-```cpp
-// In display_ui.cpp
-lv_style_set_text_font(&styles->title, &lv_font_montserrat_24);
-lv_style_set_text_color(&styles->title, lv_color_make(255, 255, 0));
+### Error
+```
+      ⚠ ERROR                ← 10pt centered
+     Code: 42                ← 10pt
+    Fix & reboot             ← 8pt
 ```
 
-## Testing Checklist
+## Fonts Enabled
 
-- [x] Compiles on weapon firmware
-- [x] Compiles on target firmware
-- [ ] Test on physical hardware with 128x32 OLED
-- [ ] Verify all states render correctly
-- [ ] Check overlay doesn't block base content
-- [ ] Test respawn progress animation
-- [ ] Verify memory usage <24KB
-- [ ] Test all event types (hit, kill, respawn, etc.)
-- [ ] Confirm no screen flicker
-- [ ] Verify RSSI updates
-- [ ] Test WiFi disconnect/reconnect
+| Size | Usage |
+|------|-------|
+| 8pt | IDs, RSSI, secondary labels |
+| 10pt | Body text (default) |
+| 12pt | Alert primary text, "RESPAWNING" |
+| 16pt | Boot title, weapon ammo hero |
+
+24pt was **removed** (too large for 32px screen).
+
+## LVGL Configuration (lv_conf.h)
+
+- **Memory**: 16 KB heap (down from 24 KB)
+- **Widgets enabled**: label, bar, img (minimum set)
+- **Widgets disabled**: arc, btn, canvas, led, line, meter, spinner, chart, animimg, list, span, imgbtn, tileview
+- **No animations** used (meaningless on 1-bit display)
+- **Monochrome styling**: white borders on bars, no grays, no opacity effects
+
+## Build Results
+
+| Target | Status | RAM | Flash |
+|--------|--------|-----|-------|
+| target | ✅ Builds | 18.0% | 68.2% |
+| weapon | ⚠ Pre-existing `mdns_service_init` linker error (not display-related) | — | — |
 
 ## Files Changed
 
-1. `esp32/shared/include/lv_conf.h` - Enhanced configuration
-2. `esp32/shared/include/display_ui.h` - New component API (new file)
-3. `esp32/shared/src/display_ui.cpp` - Component implementation (new file)
-4. `esp32/shared/src/display_manager.cpp` - Integrated new system
+| File | Change |
+|------|--------|
+| `shared/include/display_ui.h` | **Rewritten** — 7 widget structs, create/show/hide/update API |
+| `shared/src/display_ui.cpp` | **Rewritten** — pixel-perfect widget placement, monochrome-optimised |
+| `shared/src/display_manager.cpp` | **Rewritten** — unified state machine for target + weapon |
+| `shared/include/lv_conf.h` | **Modified** — disabled 12 unused widgets, removed 24pt font, 16 KB heap |
+| `shared/CMakeLists.txt` | Added `display_ui.cpp` and `dns_server.cpp` |
 
-**Total**: 2 new files, 2 modified files
-**Lines added**: ~700 lines
-**Lines changed**: ~100 lines
+## Testing Checklist
+
+- [x] Target firmware compiles
+- [x] Memory within budget (16 KB heap)
+- [ ] Test on physical 128×32 OLED
+- [ ] Verify all state transitions
+- [ ] Check alert blink timing
+- [ ] Test respawn progress bar
+- [ ] Verify WiFi disconnect/reconnect flow
+- [ ] Weapon firmware (blocked by pre-existing mdns issue)
 
 ## Known Limitations
 
-1. **Monochrome Display**: Limited to black/white, no grayscale
-2. **Small Screen**: 128x32 limits information density
-3. **No Touch**: Input limited to game events
-4. **Single Font Family**: Only Montserrat (but multiple sizes)
-5. **Static Icons**: LVGL symbols only, no custom bitmap icons yet
-
-## Next Steps
-
-See `plan.md` for full roadmap. Immediate priorities:
-- Add custom bitmap icons (heart, weapon, target)
-- Improve debug screen with pagination
-- Add error screen with icons
-- Performance profiling on hardware
-- Create user documentation
-
----
-
-**Result**: Modern, maintainable display system with proper layout management, visual hierarchy, and extensive LVGL feature utilization, while maintaining backward compatibility and staying within memory budget.
+1. Monochrome only — no grayscale, no fade effects
+2. 128×32 limits information density — use abbreviations
+3. No custom bitmap icons — LVGL symbols only
+4. `respawn_total_ms` hardcoded to 10 000 ms
+5. No touch/input — display is output-only

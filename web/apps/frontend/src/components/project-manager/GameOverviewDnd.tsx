@@ -9,18 +9,15 @@ import {
 } from '@/features/projects/actions'
 import {
   closestCenter,
-  closestCorners,
   CollisionDetection,
   DndContext,
   DragEndEvent,
   DragOverEvent,
   DragOverlay,
   DragStartEvent,
-  getFirstCollision,
   KeyboardSensor,
   PointerSensor,
   pointerWithin,
-  rectIntersection,
   UniqueIdentifier,
   useDroppable,
   useSensor,
@@ -45,6 +42,7 @@ import {
   Heart,
   Loader2,
   Monitor,
+  Plus,
   RotateCcw,
   Send,
   Shield,
@@ -61,16 +59,14 @@ import { useDeviceConnections } from '@/lib/websocket'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Separator } from '@/components/ui/separator'
 
-import { AddDeviceDialog, AddPlayerDialog, AddTeamDialog } from './AddDialogs'
+import { AddPlayerDialog, AddTeamDialog } from './AddDialogs'
 import { GameModeManager } from './GameModeManager'
 import { LiveGameStats } from './LiveGameStats'
 import type { Device, GameMode, Player, Project, Team } from './types'
 
 interface GameOverviewProps {
   project: Project
-  availableDevices?: Device[]
   availableGameModes?: GameMode[]
   isGameRunning: boolean
   setIsGameRunning: (running: boolean) => void
@@ -230,26 +226,16 @@ function SortablePlayer({
     disabled: false,
   })
 
-  // Hide the element completely when dragging, but keep a placeholder space if needed
-  // Since we are not doing optimistic updates, we want to visually hide the item in list
-  // but useSortable needs it to calculate positions.
-  // Using opacity-0 makes it invisible but it still takes space.
-  // However, we want to show the preview at the new location, so maybe we should hide it?
+  // Hide the element visually when dragging — overlay shows it
+  // Using opacity-0 makes it invisible but still takes layout space for dnd-kit.
 
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
   }
 
-  // If this item is being dragged, we want to hide it (opacity 0) or make it very faint
-  // because the overlay is what the user sees. The preview logic handles showing it in the new spot.
-
   if (isBeingDragged) {
-    // Return a hidden div that still takes layout space for dnd-kit to work,
-    // but visually we rely on the overlay.
-    // Actually, standard dnd-kit behavior moves the space with the item.
-    // But we are not reordering state.
-    // Let's just stick to default visual (faint) for the source item.
+    // Default: just make it faint, overlay handles the visual
   }
 
   return (
@@ -377,36 +363,15 @@ function SortableTeam({
   const showPreview = activePlayer && isDraggingCrossTeam && (isOverTeam || isOverPlayerInTeam)
 
   // Calculate insertion index
+  // For cross-team drags, closestCenter returns the item whose center is closest.
+  // When pointer passes item midpoint, overId switches to next item.
+  // So inserting BEFORE the hovered item gives correct visual positioning.
   let previewIndex = players.length
   if (isOverPlayerInTeam && overId) {
     const overIdStr = String(overId).replace('player-', '')
     const idx = players.findIndex((p) => String(p.id) === overIdStr)
     if (idx !== -1) previewIndex = idx
   }
-  // If hovering Team container directly, dnd-kit usually implies appending,
-  // but let's try to be smarter. If the list is empty, index 0.
-  // If strict over container, appending is safest default visually unless we track Y pos.
-  // With closestCenter, overId stays as Player ID usually until we really leave the player.
-  // So 'jumps to bottom' means dnd-kit thinks we are hitting the container.
-  // This happens if there is padding/gap between items.
-  // Let's force index search if previous overId was a player in this team? Too complex.
-  // Instead: if dragging over team container, and we have players, try to put it at the end.
-  // BUT user complained about swapping 2nd vs 3rd.
-  // That user wants: if below 2nd player, become 3rd. (Index 2).
-  // Current logic: below 2nd player -> Over 2nd Player -> Index 1 (Before).
-  // To fix this: We need to know if we are in the bottom half.
-  // Without refs/rects, we can't.
-  // HOWEVER, we can assume that if we are over the LAST item, we append?
-  // But standard Sortable behavior for last item is swap.
-  // Maybe we can change key logic: if active item is NOT in this list, we insert.
-  // Logic: if over Index I. Insert at I. The item at I shifts down.
-  // So [0, 1]. Over 0 -> [New, 0, 1]. Over 1 -> [0, New, 1].
-  // User wants [0, 1, New].
-  // They can only get this if overId becomes container or something past 1.
-  // If we want [0, 1, New], we must be able to target index 2.
-  // We can target index 2 by hovering the empty space at bottom.
-  // So ensure there is empty space at bottom.
-
   return (
     <div
       ref={setNodeRef}
@@ -503,7 +468,6 @@ type OptimisticAction =
 
 export function GameOverview({
   project,
-  availableDevices = [],
   availableGameModes = [],
   isGameRunning,
   setIsGameRunning,
@@ -586,21 +550,16 @@ export function GameOverview({
     })
   )
 
-  // Custom collision detection - more forgiving, always finds nearest valid target
+  // Collision detection - closestCenter works best for vertical sortable lists
   const customCollisionDetection: CollisionDetection = useCallback((args) => {
-    // First, try pointer intersection for precision when directly over
-    const pointerCollisions = pointerWithin(args)
-    if (pointerCollisions.length > 0) {
-      return pointerCollisions
+    // For device drags, prefer pointerWithin for precise drop zones
+    const activeType = args.active.id ? String(args.active.id).split('-')[0] : ''
+    if (activeType === 'device') {
+      const pointerCollisions = pointerWithin(args)
+      if (pointerCollisions.length > 0) return pointerCollisions
     }
 
-    // If no direct hit, find the closest corner for better edge detection
-    const closestCornerCollisions = closestCorners(args)
-    if (closestCornerCollisions.length > 0) {
-      return closestCornerCollisions
-    }
-
-    // Fallback to closest center
+    // closestCenter naturally transitions between items at their midpoint
     return closestCenter(args)
   }, [])
 
@@ -862,11 +821,6 @@ export function GameOverview({
                 >
                   <ChevronsDownUp className="w-4 h-4" />
                 </Button>
-                <Separator orientation="vertical" className="h-6 mx-1" />
-                {/* Add buttons */}
-                <AddTeamDialog projectId={optimisticProject.id} />
-                <AddPlayerDialog project={optimisticProject} />
-                <AddDeviceDialog project={optimisticProject} availableDevices={availableDevices} />
               </div>
             </div>
 
@@ -877,6 +831,15 @@ export function GameOverview({
                 <h4 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
                   <Users className="w-4 h-4" />
                   Active Teams
+                  <AddTeamDialog
+                    projectId={optimisticProject.id}
+                    trigger={
+                      <Button variant="ghost" size="sm" className="h-6 gap-1 px-2 text-xs">
+                        <Plus className="w-3 h-3" />
+                        Add Team
+                      </Button>
+                    }
+                  />
                 </h4>
                 {optimisticProject.teams?.length > 0 ? (
                   <SortableContext
@@ -916,6 +879,15 @@ export function GameOverview({
                   <h4 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
                     <Gamepad2 className="w-4 h-4" />
                     Unassigned Players
+                    <AddPlayerDialog
+                      project={optimisticProject}
+                      trigger={
+                        <Button variant="ghost" size="sm" className="h-6 gap-1 px-2 text-xs">
+                          <Plus className="w-3 h-3" />
+                          Add Player
+                        </Button>
+                      }
+                    />
                   </h4>
                   <SortableContext
                     items={playersWithoutTeam.map((p) => `player-${p.id}`)}

@@ -89,6 +89,8 @@ void wifi_manager_factory_reset()
     ESP_LOGW(TAG, "Factory reset requested");
     nvs_store_erase_namespace(NVS_NS_WIFI);
     g_peer_list[0] = '\0';
+    // Also clear ESP-IDF WiFi driver's internally stored config
+    esp_wifi_restore();
     esp_restart();
 }
 

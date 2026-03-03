@@ -171,6 +171,22 @@ float Photodiode::getSignalStrength()
     return runningMax - runningMin;
 }
 
+float Photodiode::getBufferRange()
+{
+    if (!bufferFull) return 0.0f;
+    float bmin = 9999.0f, bmax = -9999.0f;
+    if (xSemaphoreTake(bufferMutex, portMAX_DELAY) == pdTRUE)
+    {
+        for (int i = 0; i < PHOTODIODE_BUFFER_SIZE; i++)
+        {
+            if (bitBuffer[i] < bmin) bmin = bitBuffer[i];
+            if (bitBuffer[i] > bmax) bmax = bitBuffer[i];
+        }
+        xSemaphoreGive(bufferMutex);
+    }
+    return bmax - bmin;
+}
+
 int Photodiode::getBitHead()
 {
     return bitHead;

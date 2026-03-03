@@ -68,6 +68,11 @@ extern "C"
     bool game_state_can_shoot(void);         // Check if player can shoot (LMS: hearts > 0)
     bool game_state_can_take_damage(void);   // Check if player can take damage (LMS: hearts > 0)
 
+    // Player name lookup table
+    void game_state_clear_player_names(void);
+    void game_state_set_player_name(uint8_t player_id, const char* name);
+    const char* game_state_get_player_name(uint8_t player_id); // Returns NULL if unknown
+
     int game_state_config_to_json(char* buffer, size_t max_len, bool clamp_noted);
     int game_state_to_json(char* buffer, size_t max_len);
     int game_state_create_game_over_json(char* buffer, size_t max_len);

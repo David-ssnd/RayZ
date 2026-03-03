@@ -91,8 +91,34 @@ export function GameControlPanel({
   const onlineCount = connectedDevices.length
   const totalDevices = project.devices?.length || 0
 
+  const getCurrentConfig = () => {
+    if (!selectedGameMode) return null
+    
+    // Merged settings
+    const merged = { ...selectedGameMode, ...tempSettings }
+    
+    return {
+      win_type: merged.winType,
+      target_score: merged.targetScore,
+      game_duration_s: (merged.durationMinutes || 10) * 60,
+      max_hearts: merged.maxHearts,
+      spawn_hearts: merged.spawnHearts,
+      max_ammo: merged.maxAmmo,
+      respawn_time_s: merged.respawnTimeSec,
+      friendly_fire: merged.friendlyFire,
+      damage_in: merged.damageIn,
+      damage_out: merged.damageOut,
+      enable_ammo: merged.enableAmmo,
+      reload_time_ms: merged.reloadTimeMs,
+      ir_power: merged.irPower ?? 1,
+      volume: merged.volume ?? 5,
+      sound_profile: merged.soundProfile ?? 0,
+      haptic_enabled: merged.hapticEnabled ?? true,
+    }
+  }
+
   useEffect(() => {
-    // Mock player data from connected devices
+    // Initialize player stats structure
     const stats = project.players?.map(player => ({
       playerId: player.id,
       playerName: player.name,
@@ -111,29 +137,100 @@ export function GameControlPanel({
     setPlayerStats(stats)
   }, [project.players, project.teams, selectedGameMode])
 
+  // Update player stats from live device data
+  useEffect(() => {
+    if (!isGameRunning || !project.players?.length) return
+
+    const updatedStats = (project.players || []).map(player => {
+      const teamName = project.teams?.find(t => t.id === player.teamId)?.name
+      // Find devices belonging to this player (match by player number = device playerId)
+      const playerDevices = connectedDevices.filter(
+        d => d.playerId === player.number
+      )
+
+      const kills = playerDevices.reduce((sum, d) => sum + (d.kills || 0), 0)
+      const deaths = playerDevices.reduce((sum, d) => sum + (d.deaths || 0), 0)
+      const shots = playerDevices.reduce((sum, d) => sum + (d.shots || 0), 0)
+      const hearts = playerDevices.length > 0
+        ? Math.min(...playerDevices.map(d => d.hearts ?? (selectedGameMode?.spawnHearts || 3)))
+        : (selectedGameMode?.spawnHearts || 3)
+      const eliminated = hearts <= 0 && deaths > 0
+
+      return {
+        playerId: player.id,
+        playerName: player.name,
+        playerNumber: player.number,
+        teamId: player.teamId,
+        teamName,
+        score: kills,
+        kills,
+        deaths,
+        hits: 0,
+        shots,
+        hearts,
+        eliminated,
+        finalHearts: hearts,
+      }
+    })
+
+    setPlayerStats(updatedStats)
+  }, [connectedDevices, isGameRunning, project.players, project.teams, selectedGameMode])
+
   // Stats
   const totalKills = connectedDevices.reduce((sum, d) => sum + (d.kills || 0), 0)
   const totalDeaths = connectedDevices.reduce((sum, d) => sum + (d.deaths || 0), 0)
   const totalShots = connectedDevices.reduce((sum, d) => sum + (d.shots || 0), 0)
 
-  const handleStartGame = () => {
-    if (!selectedGameMode) return
+  // Game Loop: Check win conditions
+  useEffect(() => {
+    if (!isGameRunning || !gameStartedAt || isGameOver || !selectedGameMode) return
 
-    const config = {
-      win_type: selectedGameMode.winType,
-      target_score: selectedGameMode.targetScore,
-      game_duration_s: selectedGameMode.durationMinutes ? selectedGameMode.durationMinutes * 60 : 600,
-      max_hearts: selectedGameMode.maxHearts,
-      spawn_hearts: selectedGameMode.spawnHearts,
-      max_ammo: selectedGameMode.maxAmmo,
-      respawn_time_s: selectedGameMode.respawnTimeSec,
-      friendly_fire: selectedGameMode.friendlyFire,
-      damage_in: selectedGameMode.damageIn,
-      damage_out: selectedGameMode.damageOut,
-      enable_ammo: selectedGameMode.enableAmmo,
-      reload_time_ms: selectedGameMode.reloadTimeMs,
-      ...tempSettings
+    const checkWinCondition = () => {
+      const merged = { ...selectedGameMode, ...tempSettings }
+
+      // 1. Time Limit
+      if (merged.winType === 'time') {
+        const durationMs = (merged.durationMinutes || 10) * 60 * 1000
+        const elapsed = Date.now() - gameStartedAt.getTime()
+        if (elapsed >= durationMs) {
+          handleStopGame()
+          setIsGameOver(true)
+          return
+        }
+      }
+
+      // 2. Score Limit
+      if (merged.winType === 'score') {
+        const target = merged.targetScore || 100
+        // Check if any team or player has reached target
+        // For now, check players. If teams, aggregate.
+        const winner = playerStats.find(p => p.score >= target)
+        if (winner) {
+          handleStopGame()
+          setIsGameOver(true)
+          return
+        }
+      }
+
+      // 3. Last Man Standing
+      if (merged.winType === 'last_man_standing') {
+         const alivePlayers = playerStats.filter(p => !p.eliminated)
+         // Only end if we started with > 1 player
+         if (playerStats.length > 1 && alivePlayers.length <= 1) {
+             handleStopGame()
+             setIsGameOver(true)
+             return
+         }
+      }
     }
+
+    const interval = setInterval(checkWinCondition, 1000)
+    return () => clearInterval(interval)
+  }, [isGameRunning, gameStartedAt, isGameOver, selectedGameMode, playerStats, tempSettings])
+
+  const handleStartGame = () => {
+    const config = getCurrentConfig()
+    if (!config) return
 
     broadcastConfig(config)
 
@@ -164,35 +261,40 @@ export function GameControlPanel({
 
   const handleExtendTime = () => {
     if (!selectedGameMode || selectedGameMode.winType !== 'time') return
-    // Send extend time command with parameter
-    broadcastCommand('extend_time', { extend_minutes: extendMinutes })
+    
+    const currentDuration = tempSettings.durationMinutes ?? selectedGameMode.durationMinutes ?? 10
+    const newDuration = currentDuration + extendMinutes
+    
+    setTempSettings(prev => ({ ...prev, durationMinutes: newDuration }))
+    
+    const config = getCurrentConfig()
+    if (config) {
+        config.game_duration_s = newDuration * 60
+        broadcastConfig(config)
+    }
+    
     setShowExtendTime(false)
   }
 
   const handleUpdateTarget = () => {
     if (!selectedGameMode || selectedGameMode.winType !== 'score') return
-    // Send update target command with parameter
-    broadcastCommand('update_target', { new_target: newTargetScore })
+    
+    setTempSettings(prev => ({ ...prev, targetScore: newTargetScore }))
+    
+    // Target score is only local check, but send config anyway if we want to sync other things
+    // or if we add target_score to protocol later.
+    const config = getCurrentConfig()
+    if (config) {
+        config.target_score = newTargetScore
+        broadcastConfig(config)
+    }
+    
     setShowUpdateTarget(false)
   }
 
   const handleSyncRules = () => {
-     if (!selectedGameMode) return
-     const config = {
-      win_type: selectedGameMode.winType,
-      target_score: selectedGameMode.targetScore,
-      game_duration_s: selectedGameMode.durationMinutes ? selectedGameMode.durationMinutes * 60 : 600,
-      max_hearts: selectedGameMode.maxHearts,
-      spawn_hearts: selectedGameMode.spawnHearts,
-      max_ammo: selectedGameMode.maxAmmo,
-      respawn_time_s: selectedGameMode.respawnTimeSec,
-      friendly_fire: selectedGameMode.friendlyFire,
-      damage_in: selectedGameMode.damageIn,
-      damage_out: selectedGameMode.damageOut,
-      enable_ammo: selectedGameMode.enableAmmo,
-      reload_time_ms: selectedGameMode.reloadTimeMs,
-    }
-    broadcastConfig(config)
+     const config = getCurrentConfig()
+     if (config) broadcastConfig(config)
   }
 
   const handleResetStats = () => {

@@ -22,8 +22,12 @@ extern "C" void photodiode_task(void* pvParameters)
             if (currentBitHead != lastBitHead)
             {
                 lastBitHead = currentBitHead;
-                uint32_t message_bits = photodiode.convertToBits();
-                xQueueSend(photodiodeMessageQueue, &message_bits, 0);
+                // Only process when signal has meaningful amplitude (not noise)
+                if (photodiode.getBufferRange() >= THRESHOLD_MARGIN)
+                {
+                    uint32_t message_bits = photodiode.convertToBits();
+                    xQueueSend(photodiodeMessageQueue, &message_bits, 0);
+                }
             }
         }
 

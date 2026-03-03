@@ -102,6 +102,16 @@ extern "C"
         bool hit_sound_enabled;
     } GameConfig;
 
+    // Player name lookup table (populated from server config)
+    #define MAX_PLAYER_ENTRIES 16
+    #define PLAYER_NAME_LEN    16
+
+    typedef struct
+    {
+        uint8_t player_id;
+        char    name[PLAYER_NAME_LEN];
+    } PlayerEntry;
+
     typedef struct
     {
         uint32_t shots_fired;

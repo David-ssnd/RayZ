@@ -5,7 +5,13 @@ import { auth } from '@/auth'
 
 import { prisma } from '@/lib/server/prisma'
 
-export async function addDevice(ipAddress: string, name?: string) {
+export async function addDevice(
+  ipAddress: string,
+  deviceId: number,
+  role: string,
+  name?: string,
+  version?: string
+) {
   const session = await auth()
   if (!session?.user?.id) {
     return { error: 'Unauthorized' }
@@ -17,19 +23,28 @@ export async function addDevice(ipAddress: string, name?: string) {
     })
 
     if (!profile) {
-      // Create a profile if it doesn't exist
       profile = await prisma.profile.create({
-        data: {
-          userId: session.user.id,
-        },
+        data: { userId: session.user.id },
       })
     }
 
-    const device = await prisma.device.create({
-      data: {
+    const device = await prisma.device.upsert({
+      where: { deviceId },
+      update: {
         ipAddress,
-        name: name || `Device ${ipAddress}`,
+        role,
+        lastSeen: new Date(),
+        status: 'online',
+        firmwareVersion: version,
+      },
+      create: {
+        deviceId,
+        ipAddress,
+        name: name || `${role}-${deviceId}`,
+        role,
         profileId: profile.id,
+        status: 'online',
+        firmwareVersion: version,
       },
     })
 

@@ -19,6 +19,10 @@ type GameModeOverrides = {
   enableAmmo?: boolean
   maxAmmo?: number
   reloadTimeMs?: number
+  irPower?: number
+  volume?: number
+  soundProfile?: number
+  hapticEnabled?: boolean
 }
 
 // --- Projects ---
@@ -155,6 +159,10 @@ export async function createCustomGameMode({
         enableAmmo: overrides.enableAmmo ?? base.enableAmmo,
         maxAmmo: overrides.maxAmmo ?? base.maxAmmo,
         reloadTimeMs: overrides.reloadTimeMs ?? base.reloadTimeMs,
+        irPower: overrides.irPower ?? base.irPower,
+        volume: overrides.volume ?? base.volume,
+        soundProfile: overrides.soundProfile ?? base.soundProfile,
+        hapticEnabled: overrides.hapticEnabled ?? base.hapticEnabled,
       },
     })
 
@@ -166,6 +174,62 @@ export async function createCustomGameMode({
     }
     console.error('Error creating game mode:', error)
     return { error: 'Failed to create game mode' }
+  }
+}
+
+export async function updateGameMode(gameModeId: string, data: GameModeOverrides & { name?: string }) {
+  const session = await auth()
+  const userId = session?.user?.id
+  if (!userId) return { error: 'Unauthorized' }
+
+  try {
+    const gameMode = await prisma.gameMode.findUnique({ where: { id: gameModeId } })
+    
+    if (!gameMode) return { error: 'Game mode not found' }
+    
+    // Authorization check
+    if (gameMode.isSystem) {
+        return { error: 'Cannot edit system game modes' }
+    }
+    
+    if (gameMode.userId !== userId) {
+        // If legacy global mode (no owner, not system), we might want to block or copy.
+        if (gameMode.userId === null) {
+            return { error: 'Cannot edit legacy global modes. Please create a copy.' }
+        }
+        return { error: 'Unauthorized: You do not own this game mode' }
+    }
+
+    await prisma.gameMode.update({
+      where: { id: gameModeId },
+      data: {
+        name: data.name,
+        winType: data.winType,
+        durationMinutes: data.durationMinutes,
+        targetScore: data.targetScore,
+        durationSeconds: data.durationSeconds, 
+        maxHearts: data.maxHearts,
+        spawnHearts: data.spawnHearts,
+        respawnTimeSec: data.respawnTimeSec,
+        friendlyFire: data.friendlyFire,
+        damageIn: data.damageIn,
+        damageOut: data.damageOut,
+        enableAmmo: data.enableAmmo,
+        maxAmmo: data.maxAmmo,
+        reloadTimeMs: data.reloadTimeMs,
+        irPower: data.irPower,
+        volume: data.volume,
+        soundProfile: data.soundProfile,
+        hapticEnabled: data.hapticEnabled,
+      },
+    })
+
+    revalidatePath('/control')
+    return { success: true }
+  } catch (error: any) {
+    console.error('Error updating game mode:', error)
+    // Return the actual error message for debugging
+    return { error: `Failed to update game mode: ${error.message || error}` }
   }
 }
 

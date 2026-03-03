@@ -10,7 +10,6 @@
 #include "game_protocol.h"
 #include "game_state.h"
 #include "gpio_init.h"
-#include "mdns_service.h"
 #include "runtime_metrics.h"
 #include "task_shared.h"
 #include "tasks.h"
@@ -22,6 +21,53 @@ static const char* TAG = "Target";
 static bool is_ws_connected(void)
 {
     return ws_server_client_count() > 0;
+}
+
+// Runtime reset button monitor — posts display events with progress
+static void reset_button_task(void* pv)
+{
+    (void)pv;
+    const gpio_num_t pin = (gpio_num_t)RESET_BUTTON_PIN;
+    const uint32_t hold_ms = 3000;
+    const uint32_t poll_ms = 50;
+
+    for (;;)
+    {
+        vTaskDelay(pdMS_TO_TICKS(poll_ms));
+
+        if (gpio_get_level(pin) != 0)
+            continue;
+
+        // Button pressed — track hold duration
+        uint32_t held = 0;
+        while (gpio_get_level(pin) == 0 && held < hold_ms)
+        {
+            held += poll_ms;
+            uint8_t pct = (uint8_t)((held * 100) / hold_ms);
+
+            dm_event_t evt = {};
+            evt.type = DM_EVT_FACTORY_RESET;
+            evt.reset.progress_pct = pct;
+            display_manager_post(&evt);
+
+            vTaskDelay(pdMS_TO_TICKS(poll_ms));
+        }
+
+        if (held >= hold_ms)
+        {
+            ESP_LOGW(TAG, "Reset button held for 3s, performing factory reset");
+            wifi_manager_factory_reset();
+            // Does not return — esp_restart() called
+        }
+        else
+        {
+            // Released early — cancel progress bar
+            dm_event_t evt = {};
+            evt.type = DM_EVT_FACTORY_RESET;
+            evt.reset.progress_pct = 0;
+            display_manager_post(&evt);
+        }
+    }
 }
 
 extern "C" void app_main(void)
@@ -104,21 +150,33 @@ extern "C" void app_main(void)
 
     debug_print_nvs_contents();
 
-    // Start mDNS service for auto-discovery
-    const DeviceConfig* config = game_state_get_config();
-    if (wifi_manager_is_connected()) {
-        if (mdns_service_init("target", config->device_id, config->player_id, 80)) {
-            ESP_LOGI(TAG, "mDNS service started for auto-discovery");
-        } else {
-            ESP_LOGW(TAG, "mDNS service failed to start (continuing without discovery)");
-        }
-    }
+    // mDNS service for auto-discovery (requires mdns managed component)
+    // const DeviceConfig* config = game_state_get_config();
+    // if (wifi_manager_is_connected()) {
+    //     if (mdns_service_init("target", config->device_id, config->player_id, 80)) {
+    //         ESP_LOGI(TAG, "mDNS service started for auto-discovery");
+    //     } else {
+    //         ESP_LOGW(TAG, "mDNS service failed to start (continuing without discovery)");
+    //     }
+    // }
 
     ESP_LOGI(TAG, "Target device ready");
-    xTaskCreate(photodiode_task, "photodiode", 4096, NULL, 5, NULL);
-    xTaskCreate(processing_task, "processing", 4096, NULL, 3, NULL);
-    xTaskCreate(espnow_task, "espnow", 4096, NULL, 3, NULL);
-    xTaskCreate(ws_task, "websocket", 8192, NULL, 2, NULL);
-    xTaskCreate(game_task, "game", 4096, NULL, 2, NULL);
-    ESP_LOGI(TAG, "All tasks created");
+
+    // Runtime reset button monitor (display progress + factory reset on 3s hold)
+    xTaskCreate(reset_button_task, "reset_btn", 4096, NULL, 2, NULL);
+
+    // Only start game tasks if we're in STA mode (connected to WiFi)
+    if (wifi_manager_get_boot_mode() != 0)
+    {
+        xTaskCreate(photodiode_task, "photodiode", 4096, NULL, 5, NULL);
+        xTaskCreate(processing_task, "processing", 4096, NULL, 3, NULL);
+        xTaskCreate(espnow_task, "espnow", 4096, NULL, 3, NULL);
+        xTaskCreate(ws_task, "websocket", 8192, NULL, 2, NULL);
+        xTaskCreate(game_task, "game", 4096, NULL, 2, NULL);
+        ESP_LOGI(TAG, "All tasks created");
+    }
+    else
+    {
+        ESP_LOGI(TAG, "AP provisioning mode — game tasks skipped");
+    }
 }

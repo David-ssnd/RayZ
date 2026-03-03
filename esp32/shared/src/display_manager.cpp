@@ -7,366 +7,66 @@
 #include <stdio.h>
 #include <string.h>
 
+// ======================================================================
+// State machine
+// ======================================================================
+
 typedef enum
 {
     DM_ST_BOOT = 0,
     DM_ST_CONNECTING,
-    DM_ST_GAME_IDLE,
+    DM_ST_IDLE,
     DM_ST_RESPAWNING,
-    DM_ST_DEBUG,
-    DM_ST_OVERLAY_HIT,
-    DM_ST_OVERLAY_MSG,
-    DM_ST_POPUP_KILLED,
-    DM_ST_POPUP_KILL,
-    DM_ST_POPUP_DISCONNECTED,
-    DM_ST_ERROR
+    DM_ST_ALERT_HIT,
+    DM_ST_ALERT_KILLED,
+    DM_ST_ALERT_KILL,
+    DM_ST_ALERT_MSG,
+    DM_ST_ALERT_READY,
+    DM_ST_ALERT_DISCONNECTED,
+    DM_ST_ERROR,
+    DM_ST_FACTORY_RESET
 } dm_state_t;
 
+typedef enum
+{
+    DEV_TARGET,
+    DEV_WEAPON
+} dev_type_t;
+
+// ======================================================================
+// Static state
+// ======================================================================
+
 static QueueHandle_t s_q;
-static dm_sources_t s_src;
-static dm_state_t s_state;
-static dm_state_t s_return_state;
-static uint32_t s_state_until_ms = 0;
-static uint32_t s_last_slow_ms = 0;
-static uint32_t s_last_fast_ms = 0;
-static uint32_t s_error_code = 0;
+static dm_sources_t  s_src;
+static dm_state_t    s_state;
+static dm_state_t    s_return_state;
+static uint32_t      s_state_until_ms = 0;
+static uint32_t      s_last_slow_ms   = 0;
+static uint32_t      s_last_fast_ms   = 0;
+static uint32_t      s_error_code     = 0;
+static dev_type_t    s_dev;
+static uint8_t       s_killer_pid     = 0;   // killer player_id for respawn display
+static uint8_t       s_killer_did     = 0;   // killer device_id for respawn display
+static uint8_t       s_reset_pct      = 0;   // factory reset progress 0-100
 
-// New UI components
-static ui_status_bar_t* s_status_bar = NULL;
-static ui_content_area_t* s_content_area = NULL;
-static ui_overlay_t* s_overlay_ui = NULL;
-static ui_progress_t* s_progress_ui = NULL;
-static lv_obj_t* s_scr = NULL;
+// Widget groups — created once at init
+static ui_target_game_t s_game;
+static ui_weapon_idle_t s_weapon;
+static ui_respawn_t     s_respawn;
+static ui_connecting_t  s_connect;
+static ui_boot_t        s_boot;
+static ui_error_t       s_error;
+static ui_alert_t       s_alert;
 
-// Legacy elements (will phase out)
-static lv_obj_t* s_row1;
-static lv_obj_t* s_row2;
-static lv_obj_t* s_row3;
-static lv_obj_t* s_overlay;
-static lv_obj_t* s_progress_bar;
+// ======================================================================
+// Helpers
+// ======================================================================
 
 static uint32_t now_ms(void)
 {
-    return s_src.uptime_ms ? s_src.uptime_ms() : (uint32_t)(xTaskGetTickCount() * portTICK_PERIOD_MS);
-}
-
-static void set_rows(const char* r1, const char* r2, const char* r3)
-{
-    lv_label_set_text(s_row1, r1);
-    lv_label_set_text(s_row2, r2);
-    lv_label_set_text(s_row3, r3);
-}
-
-static void overlay_show(const char* txt)
-{
-    lv_label_set_text(s_overlay, txt);
-    lv_obj_clear_flag(s_overlay, LV_OBJ_FLAG_HIDDEN);
-}
-
-static void overlay_hide(void)
-{
-    lv_obj_add_flag(s_overlay, LV_OBJ_FLAG_HIDDEN);
-}
-
-static void ui_init(lv_disp_t* disp)
-{
-    s_scr = lv_disp_get_scr_act(disp);
-    lv_obj_set_style_bg_color(s_scr, lv_color_black(), 0);
-
-    // Initialize UI component system
-    ui_screens_init(disp);
-
-    // Create modern UI components
-    s_status_bar = ui_status_bar_create(s_scr);
-    s_content_area = ui_content_area_create(s_scr);
-    s_overlay_ui = ui_overlay_create(s_scr);
-    s_progress_ui = ui_progress_create(s_scr, false); // Use bar for now
-    
-    // Hide progress by default
-    if (s_progress_ui && s_progress_ui->container)
-    {
-        lv_obj_add_flag(s_progress_ui->container, LV_OBJ_FLAG_HIDDEN);
-    }
-
-    // Keep legacy elements for backward compatibility during transition
-    s_row1 = lv_label_create(s_scr);
-    s_row2 = lv_label_create(s_scr);
-    s_row3 = lv_label_create(s_scr);
-
-    lv_obj_align(s_row1, LV_ALIGN_TOP_LEFT, 0, 0);
-    lv_obj_align(s_row2, LV_ALIGN_TOP_LEFT, 0, 11);
-    lv_obj_align(s_row3, LV_ALIGN_TOP_LEFT, 0, 22);
-
-    lv_obj_set_style_text_color(s_row1, lv_color_white(), 0);
-    lv_obj_set_style_text_color(s_row2, lv_color_white(), 0);
-    lv_obj_set_style_text_color(s_row3, lv_color_white(), 0);
-
-    // Hide legacy elements initially - we'll use new components
-    lv_obj_add_flag(s_row1, LV_OBJ_FLAG_HIDDEN);
-    lv_obj_add_flag(s_row2, LV_OBJ_FLAG_HIDDEN);
-    lv_obj_add_flag(s_row3, LV_OBJ_FLAG_HIDDEN);
-
-    s_overlay = lv_label_create(s_scr);
-    lv_obj_set_style_text_color(s_overlay, lv_color_white(), 0);
-    lv_obj_set_style_text_font(s_overlay, &lv_font_montserrat_16, 0);
-    lv_obj_align(s_overlay, LV_ALIGN_CENTER, 0, 0);
-    lv_obj_add_flag(s_overlay, LV_OBJ_FLAG_HIDDEN);
-
-    // Progress bar for respawn countdown (legacy)
-    s_progress_bar = lv_bar_create(s_scr);
-    lv_obj_set_size(s_progress_bar, 120, 10);
-    lv_obj_align(s_progress_bar, LV_ALIGN_BOTTOM_MID, 0, -2);
-    lv_obj_set_style_bg_color(s_progress_bar, lv_color_make(50, 50, 50), LV_PART_MAIN);
-    lv_obj_set_style_bg_color(s_progress_bar, lv_color_white(), LV_PART_INDICATOR);
-    lv_bar_set_range(s_progress_bar, 0, 100);
-    lv_bar_set_value(s_progress_bar, 0, LV_ANIM_OFF);
-    lv_obj_add_flag(s_progress_bar, LV_OBJ_FLAG_HIDDEN);
-}
-
-static void render_debug(uint8_t page, bool slow)
-{
-    (void)page;
-    (void)slow;
-    char r1[32], r2[32], r3[32];
-
-    const bool wifi = s_src.wifi_connected ? s_src.wifi_connected() : false;
-    const bool ws = s_src.ws_connected ? s_src.ws_connected() : false;
-
-    // Data Sources
-    const char* ssid = s_src.wifi_ssid ? s_src.wifi_ssid() : "?";
-    const char* status = s_src.wifi_status ? s_src.wifi_status() : "?";
-    const char* ip = (s_src.wifi_ip && wifi) ? s_src.wifi_ip() : "--";
-    const char* dname = s_src.device_name ? s_src.device_name() : "Device";
-    const int pid = s_src.player_id ? s_src.player_id() : -1;
-    const int did = s_src.device_id ? s_src.device_id() : -1;
-
-    // Weapon-specific
-    const int ammo = s_src.ammo ? s_src.ammo() : -1;
-
-    // Target-specific
-    const int hits = s_src.hit_count ? s_src.hit_count() : 0;
-    const uint32_t last_hit_ago = s_src.last_hit_ms_ago ? s_src.last_hit_ms_ago() : 0;
-
-    // Prioritized Display Logic
-    if (ws)
-    {
-        // WS Connected: Show Name and IDs
-        snprintf(r1, sizeof(r1), "%s", dname);
-        snprintf(r2, sizeof(r2), "DevID:%d", did);
-
-        // Different display for weapon vs target
-        if (ammo >= 0)
-        {
-            // Weapon: show player ID and ammo
-            snprintf(r3, sizeof(r3), "PlyID:%d A:%d", pid, ammo);
-        }
-        else if (s_src.hit_count)
-        {
-            // Target: show hits and last hit time
-            if (last_hit_ago < 60000)
-                snprintf(r3, sizeof(r3), "Hits:%d (%lus)", hits, (unsigned long)(last_hit_ago / 1000));
-            else
-                snprintf(r3, sizeof(r3), "Hits:%d", hits);
-        }
-        else
-        {
-            // Fallback
-            snprintf(r3, sizeof(r3), "PlyID:%d", pid);
-        }
-    }
-    else if (wifi)
-    {
-        // WiFi Connected: Show IP and SSID
-        snprintf(r1, sizeof(r1), "%s - OK", ssid);
-        snprintf(r2, sizeof(r2), "RSSI:%d", s_src.wifi_rssi ? s_src.wifi_rssi() : 0);
-        snprintf(r3, sizeof(r3), "%s", ip);
-    }
-    else
-    {
-        // Not Connected: Show Status and SSID (AP or Connecting)
-        snprintf(r1, sizeof(r1), "%s", status);
-        snprintf(r2, sizeof(r2), "%s", ssid);
-        snprintf(r3, sizeof(r3), "RSSI:%d", s_src.wifi_rssi ? s_src.wifi_rssi() : 0);
-    }
-
-    set_rows(r1, r2, r3);
-}
-
-static void render_connecting(void)
-{
-    char r1[32], r2[32], r3[32];
-    const char* ssid = s_src.wifi_ssid ? s_src.wifi_ssid() : "?";
-    const int rssi = s_src.wifi_rssi ? s_src.wifi_rssi() : 0;
-
-    snprintf(r1, sizeof(r1), "Connecting...");
-    snprintf(r2, sizeof(r2), "%s", ssid);
-    snprintf(r3, sizeof(r3), "RSSI:%d", rssi);
-    set_rows(r1, r2, r3);
-}
-
-static void render_game_idle(void)
-{
-    char r1[32], r2[32], r3[32];
-    
-    const int hearts = s_src.hearts_remaining ? s_src.hearts_remaining() : 0;
-    const int max_hearts = s_src.max_hearts ? s_src.max_hearts() : 5;
-    const int score = s_src.score ? s_src.score() : 0;
-    const int deaths = s_src.deaths ? s_src.deaths() : 0;
-    const int pid = s_src.player_id ? s_src.player_id() : 0;
-    const int did = s_src.device_id ? s_src.device_id() : 0;
-
-    snprintf(r1, sizeof(r1), "H:%d/%d  S:%d", hearts, max_hearts, score);
-    snprintf(r2, sizeof(r2), "Deaths: %d", deaths);
-    snprintf(r3, sizeof(r3), "P:%d D:%d", pid, did);
-    
-    set_rows(r1, r2, r3);
-}
-
-static void render_respawning(void)
-{
-    char r1[32], r2[32], r3[32];
-    
-    const uint32_t remaining = s_src.respawn_time_left ? s_src.respawn_time_left() : 0;
-    const uint32_t total = s_src.respawn_time_left ? s_src.respawn_time_left() : 1;
-    const float seconds = remaining / 1000.0f;
-
-    snprintf(r1, sizeof(r1), "RESPAWNING");
-    snprintf(r2, sizeof(r2), "%.1fs", seconds);
-    r3[0] = '\0'; // Empty string
-    set_rows(r1, r2, r3);
-
-    // Show and update progress bar
-    lv_obj_clear_flag(s_progress_bar, LV_OBJ_FLAG_HIDDEN);
-    
-    // Calculate progress (inverted - starts at 100%, goes to 0%)
-    // We need total respawn time from game config
-    const uint32_t respawn_total_ms = 10000; // Default 10s, should get from config
-    int32_t progress = 0;
-    if (respawn_total_ms > 0 && remaining > 0)
-    {
-        progress = (int32_t)((respawn_total_ms - remaining) * 100 / respawn_total_ms);
-        if (progress > 100) progress = 100;
-        if (progress < 0) progress = 0;
-    }
-    else
-    {
-        progress = 100; // Full when done
-    }
-    
-    lv_bar_set_value(s_progress_bar, progress, LV_ANIM_OFF);
-}
-
-static void render_error(void)
-{
-    char r1[32], r2[32], r3[32];
-    snprintf(r1, sizeof(r1), "ERROR");
-    snprintf(r2, sizeof(r2), "C:%lu", (unsigned long)s_error_code);
-    snprintf(r3, sizeof(r3), "Fix & reboot");
-    set_rows(r1, r2, r3);
-}
-
-// ======================================================================
-// NEW IMPROVED RENDER FUNCTIONS using UI components
-// ======================================================================
-
-static void render_game_idle_new(void)
-{
-    if (!s_status_bar || !s_content_area)
-        return;
-
-    // Update status bar
-    const bool wifi = s_src.wifi_connected ? s_src.wifi_connected() : false;
-    const bool ws = s_src.ws_connected ? s_src.ws_connected() : false;
-    const int rssi = s_src.wifi_rssi ? s_src.wifi_rssi() : 0;
-    ui_status_bar_update(s_status_bar, wifi, ws, rssi);
-
-    // Update content with game stats
-    const int hearts = s_src.hearts_remaining ? s_src.hearts_remaining() : 0;
-    const int max_hearts = s_src.max_hearts ? s_src.max_hearts() : 5;
-    const int score = s_src.score ? s_src.score() : 0;
-    const int deaths = s_src.deaths ? s_src.deaths() : 0;
-
-    char title[32], content[64];
-    
-    // Title with hearts using symbols
-    snprintf(title, sizeof(title), "%s x%d/%d", LV_SYMBOL_HEART, hearts, max_hearts);
-    ui_content_area_set_title(s_content_area, title, &lv_font_montserrat_12);
-
-    // Content with score and deaths
-    snprintf(content, sizeof(content), "Score: %d\nDeaths: %d", score, deaths);
-    ui_content_area_set_content(s_content_area, content);
-
-    // Footer with IDs (small text)
-    const int pid = s_src.player_id ? s_src.player_id() : 0;
-    const int did = s_src.device_id ? s_src.device_id() : 0;
-    char footer[32];
-    snprintf(footer, sizeof(footer), "P:%d D:%d", pid, did);
-    lv_label_set_text(s_content_area->footer, footer);
-}
-
-static void render_respawning_new(void)
-{
-    if (!s_progress_ui || !s_overlay_ui)
-        return;
-
-    const uint32_t remaining = s_src.respawn_time_left ? s_src.respawn_time_left() : 0;
-    const float seconds = remaining / 1000.0f;
-
-    // Show large countdown in center
-    char countdown[16];
-    snprintf(countdown, sizeof(countdown), "%.1fs", seconds);
-    
-    // Use overlay for prominent display
-    lv_label_set_text(s_overlay, "RESPAWNING");
-    lv_obj_set_style_text_font(s_overlay, &lv_font_montserrat_12, 0);
-    lv_obj_clear_flag(s_overlay, LV_OBJ_FLAG_HIDDEN);
-    
-    // Show progress bar at bottom
-    lv_obj_clear_flag(s_progress_ui->container, LV_OBJ_FLAG_HIDDEN);
-    
-    const uint32_t respawn_total_ms = 10000; // Should get from config
-    int32_t progress = 0;
-    if (respawn_total_ms > 0 && remaining > 0)
-    {
-        progress = (int32_t)((respawn_total_ms - remaining) * 100 / respawn_total_ms);
-        if (progress > 100) progress = 100;
-        if (progress < 0) progress = 0;
-    }
-    else
-    {
-        progress = 100;
-    }
-    
-    ui_progress_set_value(s_progress_ui, progress, countdown);
-}
-
-static void render_connecting_new(void)
-{
-    if (!s_status_bar || !s_content_area)
-        return;
-
-    const char* ssid = s_src.wifi_ssid ? s_src.wifi_ssid() : "?";
-    const int rssi = s_src.wifi_rssi ? s_src.wifi_rssi() : 0;
-
-    // Update status bar
-    ui_status_bar_update(s_status_bar, false, false, rssi);
-
-    // Content
-    ui_content_area_set_title(s_content_area, "Connecting...", &lv_font_montserrat_12);
-    
-    char content[64];
-    snprintf(content, sizeof(content), "%s %s\nRSSI: %d", LV_SYMBOL_WIFI, ssid, rssi);
-    ui_content_area_set_content(s_content_area, content);
-}
-
-static void render_boot_new(void)
-{
-    if (!s_content_area)
-        return;
-
-    // Large centered title
-    ui_content_area_set_title(s_content_area, "RayZ", &lv_font_montserrat_24);
-    ui_content_area_set_content(s_content_area, "Starting...");
+    return s_src.uptime_ms ? s_src.uptime_ms()
+                           : (uint32_t)(xTaskGetTickCount() * portTICK_PERIOD_MS);
 }
 
 static void enter_state(dm_state_t st, uint32_t dur_ms)
@@ -375,331 +75,379 @@ static void enter_state(dm_state_t st, uint32_t dur_ms)
     s_state_until_ms = dur_ms ? now_ms() + dur_ms : 0;
 }
 
+static void hide_all(void)
+{
+    ui_target_game_hide(&s_game);
+    ui_weapon_idle_hide(&s_weapon);
+    ui_respawn_hide(&s_respawn);
+    ui_connecting_hide(&s_connect);
+    ui_boot_hide(&s_boot);
+    ui_error_hide(&s_error);
+    ui_alert_hide(&s_alert);
+}
+
+static void switch_to_boot(void)
+{
+    hide_all();
+    ui_boot_show(&s_boot);
+}
+
+static void switch_to_connecting(void)
+{
+    hide_all();
+    ui_connecting_show(&s_connect);
+}
+
+static void switch_to_idle(void)
+{
+    hide_all();
+    if (s_dev == DEV_WEAPON)
+        ui_weapon_idle_show(&s_weapon);
+    else
+        ui_target_game_show(&s_game);
+}
+
+static void switch_to_respawn(void)
+{
+    hide_all();
+    ui_respawn_show(&s_respawn);
+}
+
+static void switch_to_error(void)
+{
+    hide_all();
+    ui_error_update(&s_error, s_error_code);
+    ui_error_show(&s_error);
+}
+
+// ======================================================================
+// Init
+// ======================================================================
+
+static void ui_init(lv_disp_t* disp)
+{
+    lv_obj_t* scr = lv_disp_get_scr_act(disp);
+    lv_obj_set_style_bg_color(scr, lv_color_black(), 0);
+
+    // Create widget groups (all start hidden)
+    ui_target_game_create(&s_game, scr);
+    ui_weapon_idle_create(&s_weapon, scr);
+    ui_respawn_create(&s_respawn, scr);
+    ui_connecting_create(&s_connect, scr);
+    ui_boot_create(&s_boot, scr);
+    ui_error_create(&s_error, scr);
+    ui_alert_create(&s_alert, scr);  // Alert is always last (topmost z-order)
+}
+
 bool display_manager_init(lv_disp_t* disp, const dm_sources_t* src)
 {
-    if (!disp || !src)
-        return false;
+    if (!disp || !src) return false;
     s_src = *src;
     s_q = xQueueCreate(8, sizeof(dm_event_t));
-    if (!s_q)
-        return false;
+    if (!s_q) return false;
+
+    // Auto-detect device type from available callbacks
+    s_dev = s_src.ammo ? DEV_WEAPON : DEV_TARGET;
 
     ui_init(disp);
-
-    // Use new boot screen
-    render_boot_new();
-    
-    s_state = DM_ST_BOOT;
+    switch_to_boot();
     enter_state(DM_ST_BOOT, 800);
     return true;
 }
 
 bool display_manager_post(const dm_event_t* evt)
 {
-    if (!s_q || !evt)
-        return false;
+    if (!s_q || !evt) return false;
     return xQueueSend(s_q, evt, 0) == pdTRUE;
 }
+
+// ======================================================================
+// Event handler
+// ======================================================================
 
 static void handle_event(const dm_event_t* e)
 {
     switch (e->type)
     {
-        case DM_EVT_ERROR_SET:
-            s_error_code = e->err.error_code;
-            enter_state(DM_ST_ERROR, 0);
-            render_error();
-            break;
-        case DM_EVT_ERROR_CLEAR:
-            s_error_code = 0;
-            enter_state(DM_ST_GAME_IDLE, 0);
-            break;
-        case DM_EVT_HIT:
-            s_return_state = s_state;
-            enter_state(DM_ST_OVERLAY_HIT, 1000);
-            // Use new overlay system with larger font
-            if (s_overlay_ui)
-            {
-                ui_overlay_show(s_overlay_ui, "HIT! -1" LV_SYMBOL_HEART, 1000);
-            }
-            else
-            {
-                overlay_show("HIT! -1H");
-            }
-            break;
-        case DM_EVT_KILLED:
-            {
-                char txt[48];
-                snprintf(txt, sizeof(txt), "KILLED BY\nP:%u D:%u", e->killed.player_id, e->killed.device_id);
-                s_return_state = s_state;
-                enter_state(DM_ST_POPUP_KILLED, 2000);
-                if (s_overlay_ui)
-                {
-                    ui_overlay_show(s_overlay_ui, txt, 2000);
-                }
-                else
-                {
-                    overlay_show(txt);
-                }
-            }
-            break;
-        case DM_EVT_KILL:
-            {
-                char txt[48];
-                snprintf(txt, sizeof(txt), "ELIMINATED\nP:%u D:%u", e->kill.player_id, e->kill.device_id);
-                s_return_state = s_state;
-                enter_state(DM_ST_POPUP_KILL, 1500);
-                if (s_overlay_ui)
-                {
-                    ui_overlay_show(s_overlay_ui, txt, 1500);
-                }
-                else
-                {
-                    overlay_show(txt);
-                }
-            }
-            break;
-        case DM_EVT_RESPAWN_START:
+    case DM_EVT_ERROR_SET:
+        s_error_code = e->err.error_code;
+        enter_state(DM_ST_ERROR, 0);
+        switch_to_error();
+        break;
+
+    case DM_EVT_ERROR_CLEAR:
+        s_error_code = 0;
+        enter_state(DM_ST_IDLE, 0);
+        switch_to_idle();
+        break;
+
+    case DM_EVT_HIT:
+        s_return_state = s_state;
+        enter_state(DM_ST_ALERT_HIT, 800);
+        ui_alert_show(&s_alert, LV_SYMBOL_CHARGE " HIT!", "-1");
+        break;
+
+    case DM_EVT_KILLED:
+    {
+        s_killer_pid = e->killed.player_id;
+        s_killer_did = e->killed.device_id;
+        char sub[32];
+        const char* name = s_src.player_name ? s_src.player_name(e->killed.player_id) : NULL;
+        if (name)
+            snprintf(sub, sizeof(sub), "by %s", name);
+        else
+            snprintf(sub, sizeof(sub), "by P:%u D:%u",
+                     e->killed.player_id, e->killed.device_id);
+        s_return_state = s_state;
+        enter_state(DM_ST_ALERT_KILLED, 2000);
+        ui_alert_show(&s_alert, LV_SYMBOL_CLOSE " ELIMINATED", sub);
+        break;
+    }
+
+    case DM_EVT_KILL:
+    {
+        char sub[32];
+        snprintf(sub, sizeof(sub), "P:%u D:%u",
+                 e->kill.player_id, e->kill.device_id);
+        s_return_state = s_state;
+        enter_state(DM_ST_ALERT_KILL, 1500);
+        ui_alert_show(&s_alert, LV_SYMBOL_OK " KILL!", sub);
+        break;
+    }
+
+    case DM_EVT_RESPAWN_START:
+        if (s_dev == DEV_TARGET)
+        {
             enter_state(DM_ST_RESPAWNING, 0);
-            if (s_progress_ui && s_progress_ui->container)
-            {
-                lv_obj_clear_flag(s_progress_ui->container, LV_OBJ_FLAG_HIDDEN);
-            }
-            else
-            {
-                lv_obj_clear_flag(s_progress_bar, LV_OBJ_FLAG_HIDDEN);
-            }
+            switch_to_respawn();
+        }
+        break;
+
+    case DM_EVT_RESPAWN_COMPLETE:
+        s_return_state = DM_ST_IDLE;
+        enter_state(DM_ST_ALERT_READY, 500);
+        switch_to_idle();
+        ui_alert_show(&s_alert, LV_SYMBOL_OK " READY!", NULL);
+        break;
+
+    case DM_EVT_WIFI_CONNECTED:
+        if (s_state == DM_ST_CONNECTING)
+        {
+            enter_state(DM_ST_IDLE, 0);
+            switch_to_idle();
+        }
+        break;
+
+    case DM_EVT_WIFI_DISCONNECTED:
+        s_return_state = s_state;
+        enter_state(DM_ST_ALERT_DISCONNECTED, 0);
+        ui_alert_show(&s_alert, LV_SYMBOL_WARNING " NO WiFi", "Reconnecting...");
+        break;
+
+    case DM_EVT_MSG:
+        s_return_state = s_state;
+        enter_state(DM_ST_ALERT_MSG, 800);
+        ui_alert_show(&s_alert, e->msg.text, NULL);
+        break;
+
+    case DM_EVT_FACTORY_RESET:
+        s_reset_pct = e->reset.progress_pct;
+        if (s_reset_pct == 0 && s_state == DM_ST_FACTORY_RESET)
+        {
+            // Button released early — return to idle
+            enter_state(DM_ST_IDLE, 0);
             break;
-        case DM_EVT_RESPAWN_COMPLETE:
-            if (s_progress_ui && s_progress_ui->container)
-            {
-                lv_obj_add_flag(s_progress_ui->container, LV_OBJ_FLAG_HIDDEN);
-            }
-            else
-            {
-                lv_obj_add_flag(s_progress_bar, LV_OBJ_FLAG_HIDDEN);
-            }
-            s_return_state = s_state;
-            enter_state(DM_ST_OVERLAY_MSG, 500);
-            if (s_overlay_ui)
-            {
-                ui_overlay_show(s_overlay_ui, "READY! " LV_SYMBOL_OK, 500);
-            }
-            else
-            {
-                overlay_show("READY!");
-            }
-            break;
-        case DM_EVT_WIFI_CONNECTED:
-            if (s_state == DM_ST_CONNECTING)
-            {
-                enter_state(DM_ST_DEBUG, 0);
-            }
-            break;
-        case DM_EVT_WIFI_DISCONNECTED:
-            s_return_state = s_state;
-            enter_state(DM_ST_POPUP_DISCONNECTED, 0);
-            if (s_overlay_ui)
-            {
-                ui_overlay_show(s_overlay_ui, LV_SYMBOL_WARNING " NO WIFI", 0);
-            }
-            else
-            {
-                overlay_show("NO WIFI");
-            }
-            break;
-        case DM_EVT_MSG:
-            s_return_state = s_state;
-            enter_state(DM_ST_OVERLAY_MSG, 800);
-            if (s_overlay_ui)
-            {
-                ui_overlay_show(s_overlay_ui, e->msg.text, 800);
-            }
-            else
-            {
-                overlay_show(e->msg.text);
-            }
-            break;
-        default:
-            break;
+        }
+        if (s_state != DM_ST_FACTORY_RESET)
+        {
+            enter_state(DM_ST_FACTORY_RESET, 0);
+            switch_to_respawn();
+        }
+        ui_respawn_update(&s_respawn,
+            (uint32_t)(100 - s_reset_pct) * 30, // remaining (fake)
+            3000,                                 // total (3s mapped)
+            "FACTORY RESET");
+        break;
+
+    default:
+        break;
     }
 }
+
+// ======================================================================
+// Render helpers
+// ======================================================================
+
+static void render_idle(void)
+{
+    const bool wifi = s_src.wifi_connected ? s_src.wifi_connected() : false;
+    const bool ws   = s_src.ws_connected   ? s_src.ws_connected()   : false;
+    const int  rssi = s_src.wifi_rssi      ? s_src.wifi_rssi()      : 0;
+    const int  pid  = s_src.player_id      ? s_src.player_id()      : 0;
+    const int  did  = s_src.device_id      ? s_src.device_id()      : 0;
+
+    if (s_dev == DEV_WEAPON)
+    {
+        const int ammo = s_src.ammo ? s_src.ammo() : 0;
+        ui_weapon_idle_update(&s_weapon, ammo, wifi, ws, rssi, pid, did);
+    }
+    else
+    {
+        const int hearts = s_src.hearts_remaining ? s_src.hearts_remaining() : 0;
+        const int mh     = s_src.max_hearts       ? s_src.max_hearts()       : 5;
+        const char* name = s_src.device_name      ? s_src.device_name()      : "?";
+        ui_target_game_update(&s_game, hearts, mh,
+                              wifi, ws, rssi, pid, did, name);
+    }
+}
+
+static void render_respawn(void)
+{
+    const uint32_t remaining = s_src.respawn_time_left ? s_src.respawn_time_left() : 0;
+    const uint32_t total     = 10000;
+    const char* killer = s_src.player_name ? s_src.player_name(s_killer_pid) : NULL;
+    // If no name found, format as "P:<id>"
+    char id_buf[20];
+    if (!killer)
+    {
+        snprintf(id_buf, sizeof(id_buf), "P:%u D:%u", s_killer_pid, s_killer_did);
+        killer = id_buf;
+    }
+    ui_respawn_update(&s_respawn, remaining, total, killer);
+}
+
+static void render_connecting(void)
+{
+    const char* ssid   = s_src.wifi_ssid   ? s_src.wifi_ssid()   : "?";
+    const int   rssi   = s_src.wifi_rssi   ? s_src.wifi_rssi()   : 0;
+    const char* status = s_src.wifi_status  ? s_src.wifi_status() : "Connecting...";
+    ui_connecting_update(&s_connect, ssid, rssi, status);
+}
+
+// ======================================================================
+// Main display task
+// ======================================================================
 
 void display_manager_task(void* pv)
 {
     (void)pv;
     for (;;)
     {
+        // Drain event queue
         dm_event_t e;
         while (xQueueReceive(s_q, &e, 0) == pdTRUE)
-        {
             handle_event(&e);
-        }
 
         const uint32_t t = now_ms();
 
+        // Timed state expiry
         if (s_state_until_ms && t >= s_state_until_ms)
         {
-            if (s_state == DM_ST_OVERLAY_HIT || s_state == DM_ST_OVERLAY_MSG || 
-                s_state == DM_ST_POPUP_KILLED || s_state == DM_ST_POPUP_KILL)
-            {
-                overlay_hide();
-                enter_state(s_return_state == DM_ST_ERROR ? DM_ST_ERROR : DM_ST_GAME_IDLE, 0);
-            }
-            else if (s_state == DM_ST_BOOT)
-            {
-                // After boot, go to connecting or debug mode
-                const bool wifi = s_src.wifi_connected ? s_src.wifi_connected() : false;
-                enter_state(wifi ? DM_ST_DEBUG : DM_ST_CONNECTING, 0);
-            }
             s_state_until_ms = 0;
-        }
 
-        // Check respawn state
-        if (s_state == DM_ST_RESPAWNING)
-        {
-            const bool respawning = s_src.is_respawning ? s_src.is_respawning() : false;
-            if (!respawning)
+            if (s_state == DM_ST_BOOT)
             {
-                // Respawn complete
-                dm_event_t ready_evt = {};
-                ready_evt.type = DM_EVT_RESPAWN_COMPLETE;
-                xQueueSend(s_q, &ready_evt, 0);
+                const bool wifi = s_src.wifi_connected ? s_src.wifi_connected() : false;
+                if (wifi)
+                {
+                    enter_state(DM_ST_IDLE, 0);
+                    switch_to_idle();
+                }
+                else
+                {
+                    enter_state(DM_ST_CONNECTING, 0);
+                    switch_to_connecting();
+                }
+            }
+            else if (s_state >= DM_ST_ALERT_HIT && s_state <= DM_ST_ALERT_READY)
+            {
+                ui_alert_hide(&s_alert);
+                dm_state_t next = (s_return_state == DM_ST_ERROR) ? DM_ST_ERROR : DM_ST_IDLE;
+                enter_state(next, 0);
+                if (next == DM_ST_ERROR) switch_to_error(); else switch_to_idle();
             }
         }
 
-        // Check for WebSocket connection to transition to game mode
-        if (s_state == DM_ST_DEBUG || s_state == DM_ST_CONNECTING)
+        // Polled auto-transitions
+        if (s_state == DM_ST_RESPAWNING && s_dev == DEV_TARGET)
         {
-            const bool ws = s_src.ws_connected ? s_src.ws_connected() : false;
-            if (ws)
+            const bool still = s_src.is_respawning ? s_src.is_respawning() : false;
+            if (!still)
             {
-                enter_state(DM_ST_GAME_IDLE, 0);
+                dm_event_t re = {};
+                re.type = DM_EVT_RESPAWN_COMPLETE;
+                xQueueSend(s_q, &re, 0);
             }
         }
 
-        // Check WiFi connection changes
         if (s_state == DM_ST_CONNECTING)
         {
             const bool wifi = s_src.wifi_connected ? s_src.wifi_connected() : false;
-            if (wifi)
+            const bool ws   = s_src.ws_connected   ? s_src.ws_connected()   : false;
+            if (wifi || ws)
             {
-                dm_event_t wifi_evt = {};
-                wifi_evt.type = DM_EVT_WIFI_CONNECTED;
-                xQueueSend(s_q, &wifi_evt, 0);
+                enter_state(DM_ST_IDLE, 0);
+                switch_to_idle();
             }
         }
 
-        const bool slow = (t - s_last_slow_ms) >= 1000;
-        const bool fast = (t - s_last_fast_ms) >= 100;
-
-        // Use new render functions where available
-        if (s_state == DM_ST_ERROR)
+        if (s_state == DM_ST_ALERT_DISCONNECTED)
         {
-            if (slow)
-            {
-                render_error();
-                s_last_slow_ms = t;
-            }
-        }
-        else if (s_state == DM_ST_CONNECTING)
-        {
-            if (fast)
-            {
-                // Use new renderer if components available
-                if (s_status_bar && s_content_area)
-                    render_connecting_new();
-                else
-                    render_connecting();
-                s_last_fast_ms = t;
-            }
-            if (slow)
-                s_last_slow_ms = t;
-        }
-        else if (s_state == DM_ST_GAME_IDLE)
-        {
-            if (fast)
-            {
-                // Use new renderer if components available
-                if (s_status_bar && s_content_area)
-                    render_game_idle_new();
-                else
-                    render_game_idle();
-                s_last_fast_ms = t;
-            }
-            if (slow)
-                s_last_slow_ms = t;
-            // Hide progress bars in game idle
-            if (s_progress_ui && s_progress_ui->container)
-                lv_obj_add_flag(s_progress_ui->container, LV_OBJ_FLAG_HIDDEN);
-            lv_obj_add_flag(s_progress_bar, LV_OBJ_FLAG_HIDDEN);
-        }
-        else if (s_state == DM_ST_RESPAWNING)
-        {
-            if (fast)
-            {
-                // Use new renderer if components available
-                if (s_progress_ui)
-                    render_respawning_new();
-                else
-                    render_respawning();
-                s_last_fast_ms = t;
-            }
-        }
-        else if (s_state == DM_ST_DEBUG)
-        {
-            if (fast)
-            {
-                render_debug(0, slow);
-                s_last_fast_ms = t;
-            }
-            if (slow)
-                s_last_slow_ms = t;
-        }
-        else if (s_state == DM_ST_OVERLAY_HIT)
-        {
-            if (fast)
-            {
-                static bool on = false;
-                on = !on;
-                // Blinking effect for hit
-                if (on)
-                {
-                    if (s_overlay_ui)
-                        ui_overlay_show(s_overlay_ui, "HIT! -1" LV_SYMBOL_HEART, 0);
-                    else
-                        overlay_show("HIT! -1H");
-                }
-                else
-                {
-                    if (s_overlay_ui)
-                        ui_overlay_hide(s_overlay_ui);
-                    else
-                        overlay_hide();
-                }
-                s_last_fast_ms = t;
-            }
-        }
-                s_last_fast_ms = t;
-            }
-        }
-        else if (s_state == DM_ST_POPUP_DISCONNECTED)
-        {
-            if (fast)
-            {
-                static bool on = false;
-                on = !on;
-                overlay_show(on ? "NO WIFI" : "       ");
-                s_last_fast_ms = t;
-            }
-            // Check if reconnected
             const bool wifi = s_src.wifi_connected ? s_src.wifi_connected() : false;
             if (wifi)
             {
-                overlay_hide();
-                enter_state(DM_ST_GAME_IDLE, 0);
+                ui_alert_hide(&s_alert);
+                enter_state(DM_ST_IDLE, 0);
+                switch_to_idle();
             }
         }
+
+        // Periodic rendering
+        const bool slow = (t - s_last_slow_ms) >= 1000;
+        const bool fast = (t - s_last_fast_ms) >= 100;
+
+        switch (s_state)
+        {
+        case DM_ST_IDLE:
+            if (fast) { render_idle(); s_last_fast_ms = t; }
+            break;
+
+        case DM_ST_RESPAWNING:
+            if (fast) { render_respawn(); s_last_fast_ms = t; }
+            break;
+
+        case DM_ST_CONNECTING:
+            if (fast) { render_connecting(); s_last_fast_ms = t; }
+            break;
+
+        case DM_ST_ALERT_HIT:
+        case DM_ST_ALERT_DISCONNECTED:
+            // Blink alert for emphasis
+            if (fast)
+            {
+                static bool blink = false;
+                blink = !blink;
+                if (blink)
+                    ui_alert_show(&s_alert,
+                        s_state == DM_ST_ALERT_HIT
+                            ? LV_SYMBOL_CHARGE " HIT!"
+                            : LV_SYMBOL_WARNING " NO WiFi",
+                        s_state == DM_ST_ALERT_HIT ? "-1" : "Reconnecting...");
+                else
+                    ui_alert_hide(&s_alert);
+                s_last_fast_ms = t;
+            }
+            break;
+
+        case DM_ST_ERROR:
+            if (slow) { switch_to_error(); s_last_slow_ms = t; }
+            break;
+
+        default:
+            break;
+        }
+
+        if (slow) s_last_slow_ms = t;
 
         lv_timer_handler();
         vTaskDelay(pdMS_TO_TICKS(20));

@@ -1,6 +1,7 @@
 #ifndef CONFIG_H
 #define CONFIG_H
 
+#include "sdkconfig.h"
 #include "protocol_config.h"
 
 // Vibration
@@ -21,8 +22,8 @@
 #define I2C_SCL_PIN 9
 #define PHOTODIODE_PIN 1
 #define PHOTODIODE_ADC_CHANNEL ADC_CHANNEL_0
-#define VIBRATION_PIN 4
-#define RESET_BUTTON_PIN 0
+#define VIBRATION_PIN 3
+#define RESET_BUTTON_PIN 4
 #else
 // ESP32-DevKit native I2C
 #define I2C_SDA_PIN 21

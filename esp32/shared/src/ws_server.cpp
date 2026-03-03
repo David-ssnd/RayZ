@@ -228,6 +228,24 @@ static void handle_config_update(cJSON* root)
         }
     }
 
+    // Player name table: [{"id": 1, "name": "Alice"}, ...]
+    cJSON* players = cJSON_GetObjectItem(root, "players");
+    if (cJSON_IsArray(players))
+    {
+        game_state_clear_player_names();
+        cJSON* p = NULL;
+        cJSON_ArrayForEach(p, players)
+        {
+            cJSON* pid  = cJSON_GetObjectItem(p, "id");
+            cJSON* pname = cJSON_GetObjectItem(p, "name");
+            if (pid && pname && cJSON_IsString(pname))
+            {
+                game_state_set_player_name((uint8_t)pid->valueint, pname->valuestring);
+            }
+        }
+        ESP_LOGI("WS", "Player names loaded from config");
+    }
+
     // Save device ID changes
     game_state_save_ids();
 

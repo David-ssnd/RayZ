@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { usePathname } from 'next/navigation'
 import { Link } from '@/i18n/routing'
-import { Cpu, ExternalLink, LogOut, Menu, User } from 'lucide-react'
+import { ExternalLink, LogOut, Menu, User } from 'lucide-react'
 import { signOut, useSession } from 'next-auth/react'
 import { useTranslations } from 'next-intl'
 
@@ -31,6 +31,7 @@ import {
   SheetTrigger,
   VisuallyHidden,
 } from '@/components/ui/sheet'
+import { cn } from '@/lib/utils'
 import { LanguageSwitcher } from '@/components/LanguageSwitcher'
 import { ThemeToggle } from '@/components/ThemeToggle'
 
@@ -74,7 +75,7 @@ export function Navigation() {
                   <NavigationMenuItem key={item.href}>
                     <NavigationMenuLink
                       asChild
-                      className={navigationMenuTriggerStyle() + (isActive ? ' bg-accent' : '')}
+                      className={cn(navigationMenuTriggerStyle(), isActive && 'bg-accent')}
                     >
                       <Link href={item.href}>{item.label}</Link>
                     </NavigationMenuLink>
@@ -158,7 +159,7 @@ export function Navigation() {
                   <Link
                     key={item.href}
                     href={item.href}
-                    className={`text-sm font-medium hover:underline ${isActive ? 'border-l-4 border-primary pl-2' : ''}`}
+                    className={cn('text-sm font-medium hover:underline', isActive && 'border-l-4 border-primary pl-2')}
                     onClick={() => setMobileOpen(false)}
                   >
                     {item.label}

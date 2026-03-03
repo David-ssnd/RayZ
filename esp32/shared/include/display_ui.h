@@ -9,184 +9,136 @@ extern "C"
 #endif
 
     // ======================================================================
-    // UI Component System - Reusable display components
+    // Widget groups for each screen — 128x32 monochrome OLED
     // ======================================================================
 
-    // Status bar icons and indicators
-    typedef struct
-    {
-        lv_obj_t* container;
-        lv_obj_t* wifi_icon;
-        lv_obj_t* ws_icon;
-        lv_obj_t* signal_label;
-    } ui_status_bar_t;
-
-    // Main content area with flexible layout
-    typedef struct
-    {
-        lv_obj_t* container;
-        lv_obj_t* title;
-        lv_obj_t* content;
-        lv_obj_t* footer;
-    } ui_content_area_t;
-
-    // Progress indicator (bar or arc)
-    typedef struct
-    {
-        lv_obj_t* container;
-        lv_obj_t* progress_bar;
-        lv_obj_t* label;
-    } ui_progress_t;
-
-    // Overlay system for popups and notifications
-    typedef struct
-    {
-        lv_obj_t* container;
-        lv_obj_t* bg;
-        lv_obj_t* content;
-        bool is_visible;
-    } ui_overlay_t;
-
-    // ======================================================================
-    // UI Styles - Pre-defined styles for consistency
-    // ======================================================================
+    // Target game dashboard: hearts + IDs, wifi + name + RSSI
+    #define MAX_HEART_ICONS 5
 
     typedef struct
     {
-        lv_style_t title;       // Large, bold text for titles
-        lv_style_t body;        // Normal text for content
-        lv_style_t small;       // Small text for secondary info
-        lv_style_t highlight;   // Highlighted/inverted style
-        lv_style_t warning;     // Warning/error style
-        lv_style_t container;   // Container styling
-    } ui_styles_t;
+        lv_obj_t* name;                    // Device name       row1 center 10pt
+        lv_obj_t* hearts[MAX_HEART_ICONS]; // Heart indicators  row2 left   5x5px
+        lv_obj_t* conn;                    // WiFi+WS icons     row2 right  10pt
+        lv_obj_t* ids;                     // "P:1 D:42"        row3 left   10pt
+        lv_obj_t* rssi;                    // "-65"             row3 right  10pt
+    } ui_target_game_t;
 
-    // ======================================================================
-    // Screen Management
-    // ======================================================================
-
-    typedef enum
-    {
-        UI_SCREEN_BOOT,
-        UI_SCREEN_CONNECTING,
-        UI_SCREEN_GAME_IDLE,
-        UI_SCREEN_RESPAWNING,
-        UI_SCREEN_DEBUG,
-        UI_SCREEN_ERROR,
-        UI_SCREEN_COUNT
-    } ui_screen_type_t;
-
+    // Weapon idle dashboard: big ammo count hero
     typedef struct
     {
-        lv_obj_t* screen;
-        ui_screen_type_t type;
-        bool is_active;
-        void (*init_fn)(lv_obj_t* scr);
-        void (*update_fn)(lv_obj_t* scr);
-        void (*cleanup_fn)(lv_obj_t* scr);
-    } ui_screen_t;
+        lv_obj_t* conn;        // WiFi+WS icons     top-left  8pt
+        lv_obj_t* ids;         // "P:1 D:42"        top-center 8pt
+        lv_obj_t* rssi;        // "-65"              top-right 8pt
+        lv_obj_t* ammo_value;  // "12"               center 16pt
+        lv_obj_t* ammo_label;  // "AMMO"             bottom-center 8pt
+    } ui_weapon_idle_t;
+
+    // Respawn countdown (target only)
+    typedef struct
+    {
+        lv_obj_t* killer;      // "Killed by Alice"   top 10pt
+        lv_obj_t* bar;         // progress           center 100x6
+    } ui_respawn_t;
+
+    // Connecting screen
+    typedef struct
+    {
+        lv_obj_t* title;       // "Connecting..."    top 10pt
+        lv_obj_t* ssid;        // SSID name          center 10pt
+        lv_obj_t* detail;      // RSSI info          bottom 8pt
+    } ui_connecting_t;
+
+    // Boot splash
+    typedef struct
+    {
+        lv_obj_t* title;       // "RayZ"             center 16pt
+        lv_obj_t* subtitle;    // "Starting..."      bottom 10pt
+    } ui_boot_t;
+
+    // Error display
+    typedef struct
+    {
+        lv_obj_t* title;       // "⚠ ERROR"         top 10pt
+        lv_obj_t* code;        // "Code: 42"         center 10pt
+        lv_obj_t* hint;        // "Fix & reboot"     bottom 8pt
+    } ui_error_t;
+
+    // Full-screen alert overlay (inverted: white bg, black text)
+    typedef struct
+    {
+        lv_obj_t* bg;          // White background
+        lv_obj_t* line1;       // Primary text       12pt black
+        lv_obj_t* line2;       // Secondary text     10pt black
+        bool visible;
+    } ui_alert_t;
 
     // ======================================================================
-    // Component Creation Functions
+    // Creation — call once at init, widgets hidden by default
     // ======================================================================
 
-    /**
-     * Create status bar at top of screen
-     * Shows WiFi, WebSocket status, signal strength
-     */
-    ui_status_bar_t* ui_status_bar_create(lv_obj_t* parent);
-    void ui_status_bar_update(ui_status_bar_t* bar, bool wifi, bool ws, int rssi);
-    void ui_status_bar_delete(ui_status_bar_t* bar);
-
-    /**
-     * Create content area with title/content/footer
-     */
-    ui_content_area_t* ui_content_area_create(lv_obj_t* parent);
-    void ui_content_area_set_title(ui_content_area_t* area, const char* title, const lv_font_t* font);
-    void ui_content_area_set_content(ui_content_area_t* area, const char* content);
-    void ui_content_area_delete(ui_content_area_t* area);
-
-    /**
-     * Create progress indicator (bar or arc)
-     */
-    ui_progress_t* ui_progress_create(lv_obj_t* parent, bool use_arc);
-    void ui_progress_set_value(ui_progress_t* prog, int32_t value, const char* label);
-    void ui_progress_delete(ui_progress_t* prog);
-
-    /**
-     * Create overlay for popups/notifications
-     */
-    ui_overlay_t* ui_overlay_create(lv_obj_t* parent);
-    void ui_overlay_show(ui_overlay_t* overlay, const char* text, uint32_t duration_ms);
-    void ui_overlay_hide(ui_overlay_t* overlay);
-    void ui_overlay_delete(ui_overlay_t* overlay);
+    void ui_target_game_create(ui_target_game_t* w, lv_obj_t* scr);
+    void ui_weapon_idle_create(ui_weapon_idle_t* w, lv_obj_t* scr);
+    void ui_respawn_create(ui_respawn_t* w, lv_obj_t* scr);
+    void ui_connecting_create(ui_connecting_t* w, lv_obj_t* scr);
+    void ui_boot_create(ui_boot_t* w, lv_obj_t* scr);
+    void ui_error_create(ui_error_t* w, lv_obj_t* scr);
+    void ui_alert_create(ui_alert_t* w, lv_obj_t* scr);
 
     // ======================================================================
-    // Style System
+    // Show / Hide — toggle widget group visibility
     // ======================================================================
 
-    /**
-     * Initialize global UI styles
-     */
-    void ui_styles_init(ui_styles_t* styles);
+    void ui_target_game_show(ui_target_game_t* w);
+    void ui_target_game_hide(ui_target_game_t* w);
 
-    /**
-     * Apply style to object
-     */
-    void ui_apply_style(lv_obj_t* obj, lv_style_t* style);
+    void ui_weapon_idle_show(ui_weapon_idle_t* w);
+    void ui_weapon_idle_hide(ui_weapon_idle_t* w);
 
-    // ======================================================================
-    // Screen Management Functions
-    // ======================================================================
+    void ui_respawn_show(ui_respawn_t* w);
+    void ui_respawn_hide(ui_respawn_t* w);
 
-    /**
-     * Initialize screen system
-     */
-    void ui_screens_init(lv_disp_t* disp);
+    void ui_connecting_show(ui_connecting_t* w);
+    void ui_connecting_hide(ui_connecting_t* w);
 
-    /**
-     * Switch to a different screen with optional animation
-     */
-    void ui_screen_switch(ui_screen_type_t screen, lv_scr_load_anim_t anim, uint32_t time);
+    void ui_boot_show(ui_boot_t* w);
+    void ui_boot_hide(ui_boot_t* w);
 
-    /**
-     * Get current active screen
-     */
-    ui_screen_t* ui_screen_get_current(void);
+    void ui_error_show(ui_error_t* w);
+    void ui_error_hide(ui_error_t* w);
 
-    /**
-     * Get screen by type
-     */
-    lv_obj_t* ui_screen_get(ui_screen_type_t type);
+    void ui_alert_show(ui_alert_t* w, const char* l1, const char* l2);
+    void ui_alert_hide(ui_alert_t* w);
 
     // ======================================================================
-    // Utility Functions
+    // Update — call in render loop, only updates label text / bar value
     // ======================================================================
 
-    /**
-     * Create WiFi icon (symbol or custom)
-     */
-    lv_obj_t* ui_create_wifi_icon(lv_obj_t* parent, bool connected);
+    void ui_target_game_update(ui_target_game_t* w,
+                               int hearts, int max_hearts,
+                               bool wifi, bool ws, int rssi,
+                               int player_id, int device_id,
+                               const char* device_name);
 
-    /**
-     * Create WebSocket icon
-     */
-    lv_obj_t* ui_create_ws_icon(lv_obj_t* parent, bool connected);
+    void ui_weapon_idle_update(ui_weapon_idle_t* w,
+                               int ammo,
+                               bool wifi, bool ws, int rssi,
+                               int player_id, int device_id);
 
-    /**
-     * Create heart icon for health
-     */
-    lv_obj_t* ui_create_heart_icon(lv_obj_t* parent);
+    void ui_respawn_update(ui_respawn_t* w,
+                           uint32_t remaining_ms, uint32_t total_ms,
+                           const char* killer_name);
 
-    /**
-     * Format time (ms) to readable string
-     */
+    void ui_connecting_update(ui_connecting_t* w,
+                              const char* ssid, int rssi, const char* status);
+
+    void ui_error_update(ui_error_t* w, uint32_t code);
+
+    // ======================================================================
+    // Utility
+    // ======================================================================
+
     void ui_format_time(uint32_t ms, char* buf, size_t len);
-
-    /**
-     * Animate value change (smooth counting)
-     */
-    void ui_animate_value(lv_obj_t* label, int32_t from, int32_t to, uint32_t duration);
 
 #ifdef __cplusplus
 }

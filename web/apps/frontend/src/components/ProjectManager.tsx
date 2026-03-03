@@ -8,6 +8,7 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
+  Check,
   FolderX,
   Gamepad2,
   LayoutDashboard,
@@ -23,8 +24,25 @@ import { useTranslations } from 'next-intl'
 import { PanelImperativeHandle } from 'react-resizable-panels'
 
 import { useDeviceConnections } from '@/lib/websocket'
+import { CommModeIndicator } from '@/lib/comm'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import {
   Empty,
   EmptyContent,
@@ -36,7 +54,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { ModeAwareConnectionProvider, ModeStatusBar } from '@/components/ModeAwareProvider'
+import { ModeAwareConnectionProvider } from '@/components/ModeAwareProvider'
 
 import { DeviceConsole } from './project-manager/DeviceConsole'
 import { GameControlPanel } from './project-manager/GameControlPanel'
@@ -59,7 +77,7 @@ export function ProjectManager({ projects, availableDevices, gameModes }: Projec
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(projects[0]?.id || null)
   const [isPending, startTransition] = useTransition()
   const [newProjectName, setNewProjectName] = useState('')
-  const [menuOpen, setMenuOpen] = useState(false)
+  const [createDialogOpen, setCreateDialogOpen] = useState(false)
 
   const [localProjects, setLocalProjects] = useState<Project[]>(projects)
   const [localGameModes, setLocalGameModes] = useState<GameMode[]>(gameModes)
@@ -83,7 +101,7 @@ export function ProjectManager({ projects, availableDevices, gameModes }: Projec
         const created = { ...(res.project as any), devices: [], players: [], teams: [] } as Project
         setLocalProjects((prev) => [...prev, created])
         setSelectedProjectId(created.id)
-        setMenuOpen(false)
+        setCreateDialogOpen(false)
       }
     })
   }
@@ -150,59 +168,83 @@ export function ProjectManager({ projects, availableDevices, gameModes }: Projec
         >
           {/* Project Header Bar */}
           <div className="flex-none px-4 py-1 border-b">
-            <ModeStatusBar className="mb-1" />
-            <div className="flex items-center justify-between relative">
-              <div className="relative">
-                <Button
-                  variant="ghost"
-                  className="px-0 py-0 text-left text-base sm:text-lg font-semibold flex items-center gap-2 h-8"
-                  onClick={() => setMenuOpen((v) => !v)}
-                >
-                  <span>{selectedProject?.name || t('projectManager.selectProject')}</span>
-                  <ChevronDown className="w-4 h-4" />
-                </Button>
+            <div className="flex items-center justify-between">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    className="px-0 py-0 text-left text-base sm:text-lg font-semibold flex items-center gap-2 h-8"
+                  >
+                    <span>{selectedProject?.name || t('projectManager.selectProject')}</span>
+                    <ChevronDown className="w-4 h-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-64">
+                  <DropdownMenuLabel>{t('projectManager.selectProject')}</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  {localProjects.map((project) => (
+                    <DropdownMenuItem
+                      key={project.id}
+                      onClick={() => setSelectedProjectId(project.id)}
+                    >
+                      <Check
+                        className={`w-4 h-4 mr-2 ${selectedProjectId === project.id ? 'opacity-100' : 'opacity-0'}`}
+                      />
+                      {project.name}
+                    </DropdownMenuItem>
+                  ))}
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => setCreateDialogOpen(true)}>
+                    <Plus className="w-4 h-4 mr-2" />
+                    {t('projectManager.addNew')}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
 
-                {menuOpen && (
-                  <div className="absolute left-0 top-full mt-2 bg-popover border rounded shadow-lg z-50 w-64">
-                    <div className="flex flex-col p-2 max-h-64 overflow-auto">
-                      {localProjects.map((project) => (
-                        <Button
-                          key={project.id}
-                          variant={selectedProjectId === project.id ? 'default' : 'ghost'}
-                          className="justify-start w-full"
-                          onClick={() => {
-                            setSelectedProjectId(project.id)
-                            setMenuOpen(false)
-                          }}
-                        >
-                          {project.name}
-                        </Button>
-                      ))}
-                    </div>
-                    <div className="flex gap-2 p-2 border-t">
+              <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>{t('projectManager.addNew')}</DialogTitle>
+                    <DialogDescription>{t('projectManager.createFirst')}</DialogDescription>
+                  </DialogHeader>
+                  <div className="grid gap-4 py-4">
+                    <div className="grid gap-2">
+                      <label className="text-sm font-medium">
+                        {t('projectManager.enterProjectName')}
+                      </label>
                       <Input
-                        placeholder={t('projectManager.addNew')}
+                        placeholder={t('projectManager.enterProjectName')}
                         value={newProjectName}
                         onChange={(e) => setNewProjectName(e.target.value)}
-                        className="flex-1"
+                        onKeyDown={(e) => e.key === 'Enter' && handleCreateProject()}
+                        autoFocus
                       />
-                      <Button
-                        size="icon"
-                        onClick={handleCreateProject}
-                        disabled={isPending || !newProjectName}
-                      >
-                        <Plus className="w-4 h-4" />
-                      </Button>
                     </div>
                   </div>
-                )}
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => setCreateDialogOpen(false)}>
+                      Cancel
+                    </Button>
+                    <Button
+                      onClick={handleCreateProject}
+                      disabled={isPending || !newProjectName}
+                    >
+                      <Plus className="w-4 h-4 mr-2" />
+                      Create
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+
+              <div className="flex items-center gap-2">
+                <CommModeIndicator className="text-xs text-muted-foreground" />
+                <Button variant="link" size="sm" asChild>
+                  <a href="/ws-demo">
+                    Test WS
+                    <Plug />
+                  </a>
+                </Button>
               </div>
-              <Button variant="link" size="sm" asChild>
-                <a href="/ws-demo">
-                  Test WS
-                  <Plug />
-                </a>
-              </Button>
             </div>
           </div>
 
@@ -321,7 +363,7 @@ function ProjectLayout({
               </div>
             </div>
           ) : (
-            <div className="h-full overflow-y-auto p-4 min-w-0 relative">
+            <div className="h-full overflow-hidden min-w-0 relative">
               <div className="absolute top-2 right-2 z-10">
                 <Button
                   variant="ghost"
@@ -333,7 +375,8 @@ function ProjectLayout({
                   <ChevronLeft className="w-3 h-3" />
                 </Button>
               </div>
-              <GameControlPanel
+              <div className="h-full overflow-y-auto p-4 pt-10">
+                <GameControlPanel
                 project={project}
                 availableGameModes={localGameModes}
                 isGameRunning={isGameRunning}
@@ -347,6 +390,7 @@ function ProjectLayout({
                 playerStats={playerStats}
                 setPlayerStats={setPlayerStats}
               />
+              </div>
             </div>
           )}
         </div>
@@ -355,7 +399,7 @@ function ProjectLayout({
       <ResizableHandle withHandle />
 
       {/* Middle Panel: Tabs */}
-      <ResizablePanel defaultSize="50" minSize="40">
+      <ResizablePanel defaultSize="50" minSize="50">
         <div className="h-full overflow-y-auto p-4 min-w-0">
           <Tabs defaultValue="overview" className="h-full flex flex-col">
             <TabsList className="w-full justify-start flex-none overflow-x-auto">
@@ -400,7 +444,6 @@ function ProjectLayout({
             <TabsContent value="overview" className="mt-4 flex-1 overflow-y-auto">
               <GameOverview
                 project={project}
-                availableDevices={availableDevices}
                 availableGameModes={localGameModes}
                 isGameRunning={isGameRunning}
                 setIsGameRunning={setIsGameRunning}
@@ -490,7 +533,7 @@ function ProjectLayout({
               </div>
             </div>
           ) : (
-            <div className="h-full overflow-hidden p-4 min-w-0 flex flex-col">
+            <div className="h-full overflow-hidden min-w-0 relative flex flex-col">
               <div className="absolute top-2 left-2 z-10">
                 <Button
                   variant="ghost"
@@ -502,7 +545,7 @@ function ProjectLayout({
                   <ChevronRight className="w-3 h-3" />
                 </Button>
               </div>
-              <div className="flex-1 min-h-0 pt-4">
+              <div className="flex-1 min-h-0 p-4 pt-10">
                 <DeviceConsole />
               </div>
             </div>

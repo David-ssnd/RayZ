@@ -2,9 +2,11 @@
 #include <freertos/task.h>
 #include <esp_log.h>
 #include <esp_timer.h>
+#include <esp_wifi.h>
 #include "game_protocol.h"
 #include "game_state.h"
 #include "tasks.h"
+#include "wifi_manager.h"
 #include "ws_server.h"
 
 static const char* TAG = "GameTask";
@@ -94,8 +96,27 @@ extern "C" void game_task(void* pvParameters)
         uint32_t now = xTaskGetTickCount() / configTICK_RATE_HZ;
         if (now - last_log >= 30)
         {
-            ESP_LOGI(TAG, "Stats | Deaths: %lu | Hits Received: %u | Hearts: %u", (unsigned long)state->deaths,
-                     s_hit_count, (unsigned)state->hearts_remaining);
+            wifi_mode_t wmode = WIFI_MODE_NULL;
+            esp_wifi_get_mode(&wmode);
+
+            // In AP mode, also log the AP SSID for verification
+            if (wmode == WIFI_MODE_AP || wmode == WIFI_MODE_APSTA)
+            {
+                wifi_config_t ap_conf = {};
+                esp_wifi_get_config(WIFI_IF_AP, &ap_conf);
+                int8_t tx_pwr = 0;
+                esp_wifi_get_max_tx_power(&tx_pwr);
+                ESP_LOGI(TAG, "AP: SSID='%s' ch=%d auth=%d hidden=%d txpwr=%d(%.0fdBm) mode=%d",
+                         (char*)ap_conf.ap.ssid, ap_conf.ap.channel,
+                         ap_conf.ap.authmode, ap_conf.ap.ssid_hidden,
+                         tx_pwr, tx_pwr * 0.25f, (int)wmode);
+            }
+            else
+            {
+                ESP_LOGI(TAG, "Stats | Deaths: %lu | Hits Received: %u | Hearts: %u | WiFi mode: %d | Boot: %s",
+                         (unsigned long)state->deaths, s_hit_count, (unsigned)state->hearts_remaining,
+                         (int)wmode, wifi_manager_get_status_string());
+            }
             last_log = now;
         }
 

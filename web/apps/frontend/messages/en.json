@@ -261,6 +261,8 @@
     "password": "Password",
     "name": "Name",
     "email": "Email",
+    "sendMagicLink": "Send magic link",
+    "magicLinkComingSoon": "Magic link sign-up will be available soon",
     "creatingAccount": "Creating account...",
     "createAccount": "Create account",
     "errors": {
@@ -270,7 +272,8 @@
       "emailInvalid": "Invalid email address",
       "passwordRequired": "Password is required",
       "passwordMinLength": "Password must be at least 8 characters",
-      "emailExists": "An account with this email already exists"
+      "emailExists": "An account with this email already exists",
+      "signInFailed": "Account created but sign-in failed. Please sign in manually."
     },
     "success": {
       "accountCreated": "Account created successfully! Redirecting to sign in..."

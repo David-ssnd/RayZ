@@ -1,14 +1,13 @@
 'use client'
 
 import { useEffect, useMemo, useState, useTransition } from 'react'
-import { createCustomGameMode } from '@/features/projects/actions'
+import { createCustomGameMode, updateGameMode } from '@/features/projects/actions'
 import {
   AlertCircle,
   Copy,
   LayoutGrid,
   MoreVertical,
   Plus,
-  Search,
   Settings2,
   Trash2,
   Wand2,
@@ -54,6 +53,10 @@ type GameModeConfig = {
   enableAmmo: boolean
   maxAmmo: number
   reloadTimeMs: number
+  irPower: number
+  volume: number
+  soundProfile: number
+  hapticEnabled: boolean
   winType: 'time' | 'score' | 'last_man_standing'
 }
 
@@ -70,6 +73,10 @@ const buildConfigFromBase = (base?: GameMode): GameModeConfig => ({
   enableAmmo: base?.enableAmmo ?? true,
   maxAmmo: base?.maxAmmo ?? 30,
   reloadTimeMs: base?.reloadTimeMs ?? 2500,
+  irPower: base?.irPower ?? 1,
+  volume: base?.volume ?? 5,
+  soundProfile: base?.soundProfile ?? 0,
+  hapticEnabled: base?.hapticEnabled ?? true,
   winType: (base?.winType as 'time' | 'score' | 'last_man_standing') ?? 'score',
 })
 
@@ -137,17 +144,42 @@ export function GameModeManager({ gameModes, onCreated, disabled = false }: Game
     })
   }
 
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'success' | 'error'>('idle')
+  const [saveMessage, setSaveMessage] = useState<string | null>(null)
+
+  const handleSave = () => {
+    if (!selectedMode || selectedMode.isSystem) return
+    
+    setSaveStatus('saving')
+    setSaveMessage(null)
+
+    startTransition(async () => {
+      const result = await updateGameMode(selectedMode.id, config)
+      if (result.success) {
+        setSaveStatus('success')
+        setTimeout(() => setSaveStatus('idle'), 2000)
+      } else {
+        setSaveStatus('error')
+        setSaveMessage(result.error || 'Failed to save changes')
+      }
+    })
+  }
+
   const handleNumberChange = (key: keyof GameModeConfig) => (value: string) => {
     // Only allow editing if not system mode (though UI should disable it too)
     if (selectedMode?.isSystem) return
     const numeric = Number(value)
-    setConfig((prev) => ({ ...prev, [key]: Number.isNaN(numeric) ? 0 : numeric }))
-  }
-
-  // TODO: Implement Update Action
-  const handleSave = () => {
-    // Implement update logic here
-    console.log('Saving changes...', config)
+    
+    setConfig((prev) => {
+      const updates: Partial<GameModeConfig> = { [key]: Number.isNaN(numeric) ? 0 : numeric }
+      
+      // Auto-sync seconds if minutes change
+      if (key === 'durationMinutes') {
+        updates.durationSeconds = (Number.isNaN(numeric) ? 0 : numeric) * 60
+      }
+      
+      return { ...prev, ...updates }
+    })
   }
 
   return (
@@ -158,9 +190,9 @@ export function GameModeManager({ gameModes, onCreated, disabled = false }: Game
         </div>
       )}
       {/* LEFT COLUMN: List */}
-      <div className="border rounded-lg overflow-hidden h-[600px] flex flex-col">
+      <div className="border rounded-lg overflow-hidden flex flex-col max-h-[600px]">
         <div className="p-3 border-b">
-          <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center justify-between">
             <span className="text-sm font-medium">Game Modes</span>
             <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
               <DialogTrigger asChild>
@@ -233,10 +265,6 @@ export function GameModeManager({ gameModes, onCreated, disabled = false }: Game
               </DialogContent>
             </Dialog>
           </div>
-          <div className="relative">
-            <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
-            <Input placeholder="Search..." className="pl-8 h-9 text-sm" />
-          </div>
         </div>
 
         <ScrollArea className="flex-1">
@@ -295,7 +323,7 @@ export function GameModeManager({ gameModes, onCreated, disabled = false }: Game
       </div>
 
       {/* RIGHT COLUMN: Settings Editor */}
-      <div className="border rounded-lg overflow-hidden h-[600px] flex flex-col">
+      <div className="border rounded-lg overflow-hidden flex flex-col">
         {selectedMode ? (
           <>
             <div className="p-4 border-b">
@@ -316,9 +344,18 @@ export function GameModeManager({ gameModes, onCreated, disabled = false }: Game
                   )}
                 </div>
                 {!selectedMode.isSystem && (
-                  <Button onClick={handleSave} disabled={isPending}>
-                    Save Changes
-                  </Button>
+                  <div className="flex flex-col items-end gap-1">
+                    <Button 
+                      onClick={handleSave} 
+                      disabled={isPending || saveStatus === 'saving'}
+                      variant={saveStatus === 'error' ? 'destructive' : 'default'}
+                    >
+                      {saveStatus === 'saving' ? 'Saving...' : 
+                       saveStatus === 'success' ? 'Saved!' : 
+                       saveStatus === 'error' ? 'Retry' : 'Save Changes'}
+                    </Button>
+                    {saveMessage && <span className="text-xs text-destructive">{saveMessage}</span>}
+                  </div>
                 )}
               </div>
             </div>
@@ -462,6 +499,67 @@ export function GameModeManager({ gameModes, onCreated, disabled = false }: Game
                         value={config.reloadTimeMs}
                         onChange={(e) => handleNumberChange('reloadTimeMs')(e.target.value)}
                       />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Audio & Haptics Category */}
+                <div>
+                  <h4 className="text-sm font-medium mb-3">Audio & Haptics</h4>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="flex items-center justify-between p-2.5 border rounded-lg">
+                      <div className="space-y-0.5">
+                        <Label>Haptics</Label>
+                        <p className="text-xs text-muted-foreground">Vibrate on events</p>
+                      </div>
+                      <Switch
+                        checked={config.hapticEnabled}
+                        onCheckedChange={(c) => setConfig((prev) => ({ ...prev, hapticEnabled: c }))}
+                      />
+                    </div>
+
+                    <div className="grid gap-1.5">
+                      <Label>IR Power (0-1)</Label>
+                      <Select
+                        value={String(config.irPower)}
+                        onValueChange={(value) => handleNumberChange('irPower')(value)}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="0">Indoor (Low)</SelectItem>
+                          <SelectItem value="1">Outdoor (High)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="grid gap-1.5">
+                      <Label>Volume (0-10)</Label>
+                      <Input
+                        type="number"
+                        min={0}
+                        max={10}
+                        value={config.volume}
+                        onChange={(e) => handleNumberChange('volume')(e.target.value)}
+                      />
+                    </div>
+
+                     <div className="grid gap-1.5">
+                      <Label>Sound Profile</Label>
+                      <Select
+                        value={String(config.soundProfile)}
+                        onValueChange={(value) => handleNumberChange('soundProfile')(value)}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="0">Standard</SelectItem>
+                          <SelectItem value="1">Sci-Fi</SelectItem>
+                          <SelectItem value="2">Stealth</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
                   </div>
                 </div>

@@ -22,7 +22,8 @@ extern "C"
         DM_EVT_WIFI_CONNECTED,
         DM_EVT_WIFI_DISCONNECTED,
         DM_EVT_HEALTH_UPDATE,
-        DM_EVT_SCORE_UPDATE
+        DM_EVT_SCORE_UPDATE,
+        DM_EVT_FACTORY_RESET
     } dm_event_type_t;
 
     typedef struct
@@ -62,6 +63,10 @@ extern "C"
                 uint32_t score;
                 uint32_t deaths;
             } score;
+            struct
+            {
+                uint8_t progress_pct; // 0-100
+            } reset;
         };
     } dm_event_t;
 
@@ -99,6 +104,9 @@ extern "C"
         int (*deaths)(void);
         uint32_t (*respawn_time_left)(void);
         bool (*is_respawning)(void);
+
+        // Player name lookup (returns NULL if unknown)
+        const char* (*player_name)(uint8_t player_id);
     } dm_sources_t;
 
     bool display_manager_init(lv_disp_t* disp, const dm_sources_t* src);

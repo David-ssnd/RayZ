@@ -27,12 +27,24 @@ const prisma = new PrismaClient({
 async function main() {
   console.log('🚀 Initializing local database...\n');
 
-  // Check if already initialized
-  const existingUsers = await prisma.user.count();
-  if (existingUsers > 0) {
-    console.log('⚠️  Database already contains data.');
-    console.log('   To reset, delete the database file and run this script again.\n');
-    return;
+  // Clean up existing data
+  console.log('🧹 Cleaning up existing data...');
+  try {
+    await prisma.matchParticipation.deleteMany();
+    await prisma.matchEvent.deleteMany();
+    await prisma.match.deleteMany();
+    await prisma.gameSession.deleteMany();
+    await prisma.device.deleteMany();
+    await prisma.player.deleteMany();
+    await prisma.team.deleteMany();
+    await prisma.project.deleteMany();
+    await prisma.gameMode.deleteMany();
+    await prisma.account.deleteMany();
+    await prisma.session.deleteMany();
+    await prisma.profile.deleteMany();
+    await prisma.user.deleteMany();
+  } catch (e) {
+    console.log('⚠️  Error cleaning data (might be empty tables):', e.message);
   }
 
   // Create default admin user
@@ -42,7 +54,7 @@ async function main() {
       email: 'admin@localhost',
       name: 'Admin',
       role: 'admin',
-      password: '$2b$10$bbxhx3r45TL08/SbofA0DOeH1ohUaYXeKqgzsj2XpDg3GkLAqCJsi', // "admin" bcrypt hash
+      password: 'f2e9651ed38269f9f9f56b4a14f701dc:4d33b0049a930e7917e63761f4c08b126b0605d423b1f33573804e60dc71d0ce56651039122130681f49570735eb7dea3853fc6e5c6fbc1f5011017fd63f5239', // "admin" scrypt hash
     },
   });
   console.log(`   ✅ Created user: ${adminUser.email}\n`);
@@ -55,20 +67,18 @@ async function main() {
       name: 'Deathmatch',
       description: 'Classic free-for-all. First to reach target score wins.',
       isSystem: true,
-      config: JSON.stringify({
-        winType: 'score',
-        targetScore: 100,
-        durationMinutes: 10,
-        maxHearts: 5,
-        spawnHearts: 3,
-        respawnTimeSec: 5,
-        friendlyFire: false,
-        damageIn: 1,
-        damageOut: 1,
-        enableAmmo: true,
-        maxAmmo: 30,
-        reloadTimeMs: 2500,
-      }),
+      winType: 'score',
+      targetScore: 100,
+      durationMinutes: 10,
+      maxHearts: 5,
+      spawnHearts: 3,
+      respawnTimeSec: 5,
+      friendlyFire: false,
+      damageIn: 1,
+      damageOut: 1,
+      enableAmmo: true,
+      maxAmmo: 30,
+      reloadTimeMs: 2500,
     },
   });
   console.log(`   ✅ ${deathmatch.name}`);
@@ -78,20 +88,18 @@ async function main() {
       name: 'Team Deathmatch',
       description: 'Team-based combat. First team to reach target score wins.',
       isSystem: true,
-      config: JSON.stringify({
-        winType: 'score',
-        targetScore: 200,
-        durationMinutes: 15,
-        maxHearts: 5,
-        spawnHearts: 3,
-        respawnTimeSec: 5,
-        friendlyFire: false,
-        damageIn: 1,
-        damageOut: 1,
-        enableAmmo: true,
-        maxAmmo: 30,
-        reloadTimeMs: 2500,
-      }),
+      winType: 'score',
+      targetScore: 200,
+      durationMinutes: 15,
+      maxHearts: 5,
+      spawnHearts: 3,
+      respawnTimeSec: 5,
+      friendlyFire: false,
+      damageIn: 1,
+      damageOut: 1,
+      enableAmmo: true,
+      maxAmmo: 30,
+      reloadTimeMs: 2500,
     },
   });
   console.log(`   ✅ ${teamDeathmatch.name}`);
@@ -101,20 +109,18 @@ async function main() {
       name: 'Last Man Standing',
       description: 'Elimination mode. Last player alive wins.',
       isSystem: true,
-      config: JSON.stringify({
-        winType: 'last_man_standing',
-        targetScore: 0,
-        durationMinutes: 20,
-        maxHearts: 5,
-        spawnHearts: 5,
-        respawnTimeSec: 0,
-        friendlyFire: false,
-        damageIn: 1,
-        damageOut: 1,
-        enableAmmo: true,
-        maxAmmo: 30,
-        reloadTimeMs: 2500,
-      }),
+      winType: 'last_man_standing',
+      targetScore: 0,
+      durationMinutes: 20,
+      maxHearts: 5,
+      spawnHearts: 5,
+      respawnTimeSec: 0,
+      friendlyFire: false,
+      damageIn: 1,
+      damageOut: 1,
+      enableAmmo: true,
+      maxAmmo: 30,
+      reloadTimeMs: 2500,
     },
   });
   console.log(`   ✅ ${lastManStanding.name}\n`);

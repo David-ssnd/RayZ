@@ -1,10 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
 
+import { auth } from '@/auth'
 import { prisma } from '@/lib/server/prisma'
 
 // GET /api/profiles - List all profiles
 export async function GET() {
   try {
+    const session = await auth()
+    if (!session?.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
     const profiles = await prisma.profile.findMany({
       include: {
         user: {
@@ -30,6 +36,11 @@ export async function GET() {
 // POST /api/profiles - Create a new profile
 export async function POST(request: NextRequest) {
   try {
+    const session = await auth()
+    if (!session?.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
     const body = await request.json()
     const { userId, bio, avatarUrl } = body
 

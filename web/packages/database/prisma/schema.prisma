@@ -173,7 +173,35 @@ model GameMode {
   name            String      @unique
   description     String?
   isSystem        Boolean     @default(false)
-  config          String      // JSON stringified config
+
+  // --- Protocol v2.2 Configuration Attributes ---
+  
+  // Win Conditions
+  winType         String  @default("score") // "time" | "score" | "last_man_standing"
+  durationMinutes Int     @default(10)      // Used when winType = "time"
+  targetScore     Int     @default(100)     // Used when winType = "score"
+  
+  // Legacy field for backward compatibility
+  durationSeconds Int     @default(600)     // Deprecated: use durationMinutes
+  
+  // Health (used only when winType = "last_man_standing")
+  maxHearts       Int     @default(5)       // -1 = Infinite
+  spawnHearts     Int     @default(3)
+  respawnTimeSec  Int     @default(10)
+  friendlyFire    Boolean @default(false)
+  damageIn        Int     @default(1)       // Damage taken per hit
+  damageOut       Int     @default(1)       // Damage sent per shot
+  
+  // Ammo
+  enableAmmo      Boolean @default(true)
+  maxAmmo         Int     @default(30)      // -1 = Infinite
+  reloadTimeMs    Int     @default(2500)
+  
+  // Audio & Haptics
+  irPower         Int     @default(1)       // 0=Low, 1=High
+  volume          Int     @default(5)       // 0-10
+  soundProfile    Int     @default(0)       // 0=Standard, 1=SciFi, etc.
+  hapticEnabled   Boolean @default(true)
   
   // Relations
   userId          String?

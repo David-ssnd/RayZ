@@ -261,6 +261,8 @@
     "password": "Heslo",
     "name": "Meno",
     "email": "E-mail",
+    "sendMagicLink": "Odoslať magický odkaz",
+    "magicLinkComingSoon": "Prihlásenie cez magický odkaz bude čoskoro dostupné",
     "creatingAccount": "Vytváram účet...",
     "createAccount": "Vytvoriť účet",
     "errors": {
@@ -270,7 +272,8 @@
       "emailInvalid": "Neplatná e-mailová adresa",
       "passwordRequired": "Heslo je povinné",
       "passwordMinLength": "Heslo musí mať aspoň 8 znakov",
-      "emailExists": "Účet s týmto e-mailom už existuje"
+      "emailExists": "Účet s týmto e-mailom už existuje",
+      "signInFailed": "Účet bol vytvorený, ale prihlásenie zlyhalo. Prihláste sa manuálne."
     },
     "success": {
       "accountCreated": "Účet bol úspešne vytvorený! Presmerovávam na prihlásenie..."

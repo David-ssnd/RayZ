@@ -1,400 +1,173 @@
-# Display UI Component Quick Reference
+# Display UI API Reference
 
-## Creating Components
+Quick reference for the widget-based display system on the 128×32 SSD1306 OLED.
 
-### Status Bar
-```cpp
-// In your screen init
-ui_status_bar_t* bar = ui_status_bar_create(parent_screen);
+## Widget Groups
 
-// In your update loop
-bool wifi = wifi_is_connected();
-bool ws = websocket_is_connected();
-int rssi = wifi_get_rssi();
-ui_status_bar_update(bar, wifi, ws, rssi);
+Each screen state has a dedicated widget group (struct). All widgets are created once at init, then shown/hidden per state.
 
-// Cleanup (optional, usually on app exit)
-ui_status_bar_delete(bar);
+### `ui_target_game_t` — Target Dashboard
+
+```c
+ui_target_game_t w;
+ui_target_game_create(&w, scr);   // Create (hidden)
+ui_target_game_show(&w);          // Show all widgets
+ui_target_game_hide(&w);          // Hide all widgets
+ui_target_game_update(&w,
+    hearts, max_hearts,           // Health 3/5
+    score, deaths,                // S:15 D:3
+    wifi, ws, rssi,               // Connectivity
+    player_id, device_id);        // P:1 D:42
 ```
 
-### Content Area
-```cpp
-// Create
-ui_content_area_t* content = ui_content_area_create(parent_screen);
+### `ui_weapon_idle_t` — Weapon Dashboard
 
-// Set large title
-ui_content_area_set_title(content, "Player Stats", &lv_font_montserrat_16);
-
-// Set body content (supports \n for multiple lines)
-ui_content_area_set_content(content, "Score: 1250\nLevel: 5");
-
-// Update footer (small text at bottom)
-lv_label_set_text(content->footer, "ID: 42");
-
-// Cleanup
-ui_content_area_delete(content);
+```c
+ui_weapon_idle_t w;
+ui_weapon_idle_create(&w, scr);
+ui_weapon_idle_show(&w);
+ui_weapon_idle_hide(&w);
+ui_weapon_idle_update(&w,
+    ammo,                         // Big number centre
+    wifi, ws, rssi,
+    player_id, device_id);
 ```
 
-### Progress Indicator
-```cpp
-// Create bar style
-ui_progress_t* prog = ui_progress_create(parent_screen, false);
+### `ui_respawn_t` — Respawn Countdown
 
-// Create arc/circular style
-ui_progress_t* prog = ui_progress_create(parent_screen, true);
-
-// Update value (0-100) with label
-ui_progress_set_value(prog, 75, "7.5s");
-
-// Hide/show
-lv_obj_add_flag(prog->container, LV_OBJ_FLAG_HIDDEN);
-lv_obj_clear_flag(prog->container, LV_OBJ_FLAG_HIDDEN);
-
-// Cleanup
-ui_progress_delete(prog);
+```c
+ui_respawn_t w;
+ui_respawn_create(&w, scr);
+ui_respawn_show(&w);
+ui_respawn_hide(&w);
+ui_respawn_update(&w,
+    remaining_ms,                 // e.g. 7500
+    total_ms);                    // e.g. 10000
 ```
 
-### Overlay System
-```cpp
-// Create overlay
-ui_overlay_t* overlay = ui_overlay_create(parent_screen);
+### `ui_connecting_t` — WiFi Connecting
 
-// Show with auto-dismiss (time in ms, 0 = manual dismiss)
-ui_overlay_show(overlay, "Achievement Unlocked!", 2000);
-
-// Show with LVGL symbols
-ui_overlay_show(overlay, LV_SYMBOL_OK " Success!", 1500);
-ui_overlay_show(overlay, LV_SYMBOL_WARNING " Low Health!", 3000);
-
-// Manual hide
-ui_overlay_hide(overlay);
-
-// Check if visible
-if (overlay->is_visible) {
-    // Do something
-}
-
-// Cleanup
-ui_overlay_delete(overlay);
+```c
+ui_connecting_t w;
+ui_connecting_create(&w, scr);
+ui_connecting_show(&w);
+ui_connecting_hide(&w);
+ui_connecting_update(&w,
+    ssid,                         // "MyNetwork"
+    rssi,                         // -65
+    status);                      // "Connecting..." or NULL
 ```
 
-## Using Styles
+### `ui_boot_t` — Boot Splash
 
-### Apply Pre-defined Styles
-```cpp
-// Initialize styles (call once at startup)
-ui_styles_t styles;
-ui_styles_init(&styles);
-
-// Apply to any object
-lv_obj_t* label = lv_label_create(parent);
-ui_apply_style(label, &styles.title);    // Large, centered
-ui_apply_style(label, &styles.body);     // Normal
-ui_apply_style(label, &styles.small);    // Small
-ui_apply_style(label, &styles.highlight);// Inverted
-ui_apply_style(label, &styles.warning);  // Large, centered
+```c
+ui_boot_t w;
+ui_boot_create(&w, scr);         // Sets "RayZ" + "Starting..."
+ui_boot_show(&w);
+ui_boot_hide(&w);
 ```
 
-### Font Hierarchy
-```cpp
-// Available fonts:
-&lv_font_montserrat_8   // Secondary info, IDs
-&lv_font_montserrat_10  // Body text (default)
-&lv_font_montserrat_12  // Sub-headings
-&lv_font_montserrat_16  // Titles
-&lv_font_montserrat_24  // Large displays, boot screen
+### `ui_error_t` — Error Screen
 
-// Set font on label
-lv_obj_set_style_text_font(label, &lv_font_montserrat_16, 0);
+```c
+ui_error_t w;
+ui_error_create(&w, scr);
+ui_error_show(&w);
+ui_error_hide(&w);
+ui_error_update(&w, error_code); // e.g. 42
 ```
 
-## LVGL Symbols
+### `ui_alert_t` — Full-Screen Inverted Overlay
 
-### Available Symbols
-```cpp
-LV_SYMBOL_WIFI          // WiFi icon
-LV_SYMBOL_OK            // Checkmark ✓
-LV_SYMBOL_CLOSE         // X
-LV_SYMBOL_WARNING       // ⚠
-LV_SYMBOL_HEART         // ♥
-LV_SYMBOL_BATTERY_FULL  // Battery
-LV_SYMBOL_BATTERY_EMPTY // Low battery
-LV_SYMBOL_USB           // USB
-LV_SYMBOL_BLUETOOTH     // Bluetooth
-LV_SYMBOL_GPS           // GPS
-LV_SYMBOL_REFRESH       // Refresh arrow
-LV_SYMBOL_HOME          // Home
-LV_SYMBOL_DOWNLOAD      // Download arrow
-LV_SYMBOL_UPLOAD        // Upload arrow
-LV_SYMBOL_SETTINGS      // Gear/settings
-// ... and many more
+```c
+ui_alert_t w;
+ui_alert_create(&w, scr);
+ui_alert_show(&w,
+    "⚡ HIT!",                   // Line 1 (12pt black on white)
+    "-1");                        // Line 2 (10pt) or NULL
+ui_alert_hide(&w);
+// Check visibility: w.visible
 ```
 
-### Usage
-```cpp
-// In text
-lv_label_set_text(label, LV_SYMBOL_WIFI " Connected");
-lv_label_set_text(label, "Health: " LV_SYMBOL_HEART " x3");
+## Utility
 
-// Combining multiple symbols
-char txt[64];
-snprintf(txt, sizeof(txt), "%s %s P:%d", 
-         LV_SYMBOL_WIFI, LV_SYMBOL_OK, player_id);
-lv_label_set_text(label, txt);
+```c
+char buf[16];
+ui_format_time(7500, buf, sizeof(buf));   // → "7.5s"
+ui_format_time(500, buf, sizeof(buf));    // → "500ms"
+ui_format_time(75000, buf, sizeof(buf));  // → "1m15s"
 ```
 
-## Utility Functions
+## LVGL Symbols Used
 
-### Create Icons
-```cpp
-// WiFi icon
-lv_obj_t* wifi = ui_create_wifi_icon(parent, true);  // Connected
-lv_obj_t* wifi = ui_create_wifi_icon(parent, false); // Disconnected
-
-// WebSocket icon
-lv_obj_t* ws = ui_create_ws_icon(parent, true);
-
-// Heart icon
-lv_obj_t* heart = ui_create_heart_icon(parent);
+```c
+LV_SYMBOL_WIFI       // WiFi connected
+LV_SYMBOL_WARNING    // ⚠ WiFi disconnected / error
+LV_SYMBOL_OK         // ✓ WS connected / ready / kill
+LV_SYMBOL_CLOSE      // ✕ WS disconnected / eliminated
+LV_SYMBOL_CHARGE     // ⚡ Hit
 ```
 
-### Format Time
-```cpp
-char buf[32];
-ui_format_time(5000, buf, sizeof(buf));   // "5.0s"
-ui_format_time(500, buf, sizeof(buf));    // "500ms"
-ui_format_time(75000, buf, sizeof(buf));  // "1m15s"
+## Fonts Available
+
+```c
+&lv_font_montserrat_8    // IDs, RSSI, labels
+&lv_font_montserrat_10   // Body text (default)
+&lv_font_montserrat_12   // Alert primary, respawn title
+&lv_font_montserrat_16   // Boot title, weapon ammo hero
 ```
 
-### Animate Value
-```cpp
-lv_obj_t* counter = lv_label_create(parent);
-lv_label_set_text(counter, "0");
+## Display Manager Events
 
-// Smoothly count from 0 to 100 over 1 second
-ui_animate_value(counter, 0, 100, 1000);
+Post events to the display manager:
+
+```c
+dm_event_t evt = {};
+evt.type = DM_EVT_HIT;
+display_manager_post(&evt);
+
+evt.type = DM_EVT_KILLED;
+evt.killed.player_id = 2;
+evt.killed.device_id = 17;
+display_manager_post(&evt);
+
+evt.type = DM_EVT_MSG;
+strncpy(evt.msg.text, "Custom!", sizeof(evt.msg.text));
+display_manager_post(&evt);
 ```
 
-## Layout Tips
+Available event types: `DM_EVT_HIT`, `DM_EVT_KILLED`, `DM_EVT_KILL`, `DM_EVT_RESPAWN_START`, `DM_EVT_RESPAWN_COMPLETE`, `DM_EVT_WIFI_CONNECTED`, `DM_EVT_WIFI_DISCONNECTED`, `DM_EVT_MSG`, `DM_EVT_ERROR_SET`, `DM_EVT_ERROR_CLEAR`.
 
-### Alignment
-```cpp
-// Align to edges
-lv_obj_align(obj, LV_ALIGN_TOP_LEFT, x_offset, y_offset);
-lv_obj_align(obj, LV_ALIGN_TOP_MID, x_offset, y_offset);
-lv_obj_align(obj, LV_ALIGN_TOP_RIGHT, x_offset, y_offset);
-lv_obj_align(obj, LV_ALIGN_CENTER, x_offset, y_offset);
-lv_obj_align(obj, LV_ALIGN_BOTTOM_LEFT, x_offset, y_offset);
-lv_obj_align(obj, LV_ALIGN_BOTTOM_MID, x_offset, y_offset);
-lv_obj_align(obj, LV_ALIGN_BOTTOM_RIGHT, x_offset, y_offset);
+## Data Sources
 
-// Align relative to another object
-lv_obj_align_to(child, parent, LV_ALIGN_OUT_BOTTOM_MID, 0, 5);
+The display manager pulls data via callbacks registered at init:
+
+```c
+dm_sources_t src = {};
+src.hearts_remaining = my_hearts_fn;  // Target
+src.max_hearts       = my_max_fn;
+src.score            = my_score_fn;
+src.deaths           = my_deaths_fn;
+src.ammo             = my_ammo_fn;    // Weapon (also used for device detection)
+src.wifi_connected   = my_wifi_fn;
+src.ws_connected     = my_ws_fn;
+src.wifi_rssi        = my_rssi_fn;
+src.player_id        = my_pid_fn;
+src.device_id        = my_did_fn;
+src.is_respawning    = my_respawn_fn;
+src.respawn_time_left = my_respawn_time_fn;
+src.wifi_ssid        = my_ssid_fn;
+src.wifi_status      = my_status_fn;
+src.uptime_ms        = my_uptime_fn;
+display_manager_init(disp, &src);
 ```
 
-### Flex Layout
-```cpp
-// Make container use flex
-lv_obj_set_flex_flow(container, LV_FLEX_FLOW_COLUMN);  // Vertical
-lv_obj_set_flex_flow(container, LV_FLEX_FLOW_ROW);     // Horizontal
+Device type is auto-detected: `src.ammo != NULL` → weapon, else → target.
 
-// Alignment within flex
-lv_obj_set_flex_align(container, 
-    LV_FLEX_ALIGN_START,   // Main axis (top/left)
-    LV_FLEX_ALIGN_CENTER,  // Cross axis (centered)
-    LV_FLEX_ALIGN_CENTER); // Tracks
-```
+## Tips
 
-### Sizing
-```cpp
-// Fixed size
-lv_obj_set_size(obj, width, height);
-lv_obj_set_width(obj, width);
-lv_obj_set_height(obj, height);
-
-// Content size (auto-fit to children)
-lv_obj_set_size(obj, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
-
-// Full parent size
-lv_obj_set_size(obj, lv_pct(100), lv_pct(100));
-```
-
-## Screen Management (Placeholder)
-
-```cpp
-// Initialize screen system
-ui_screens_init(display);
-
-// Switch screens (when fully implemented)
-ui_screen_switch(UI_SCREEN_BOOT, LV_SCR_LOAD_ANIM_FADE_IN, 300);
-ui_screen_switch(UI_SCREEN_GAME_IDLE, LV_SCR_LOAD_ANIM_NONE, 0);
-
-// Get screen object
-lv_obj_t* screen = ui_screen_get(UI_SCREEN_DEBUG);
-```
-
-## Common Patterns
-
-### Status Display
-```cpp
-// Create status bar
-ui_status_bar_t* bar = ui_status_bar_create(screen);
-
-// Update every second
-if (elapsed_time % 1000 == 0) {
-    ui_status_bar_update(bar, wifi, ws, rssi);
-}
-```
-
-### Countdown Timer
-```cpp
-// Create progress with arc
-ui_progress_t* timer = ui_progress_create(screen, true);
-
-// Update every 100ms
-uint32_t remaining_ms = get_time_remaining();
-int progress = (total_time - remaining_ms) * 100 / total_time;
-char label[16];
-snprintf(label, sizeof(label), "%.1fs", remaining_ms / 1000.0f);
-ui_progress_set_value(timer, progress, label);
-```
-
-### Notification Toast
-```cpp
-// One-liner notification
-ui_overlay_show(overlay, "Item Collected!", 1500);
-
-// With icon
-ui_overlay_show(overlay, LV_SYMBOL_OK " Win!", 2000);
-
-// Error message
-ui_overlay_show(overlay, LV_SYMBOL_WARNING " Error!", 3000);
-```
-
-### Stats Display
-```cpp
-ui_content_area_t* stats = ui_content_area_create(screen);
-
-// Title with icon
-char title[32];
-snprintf(title, sizeof(title), "%s Health", LV_SYMBOL_HEART);
-ui_content_area_set_title(stats, title, &lv_font_montserrat_12);
-
-// Multi-line content
-char content[128];
-snprintf(content, sizeof(content), 
-         "Score: %d\nKills: %d\nDeaths: %d", 
-         score, kills, deaths);
-ui_content_area_set_content(stats, content);
-
-// Small footer
-lv_label_set_text(stats->footer, "Press B to continue");
-```
-
-## Memory Management
-
-### Best Practices
-```cpp
-// ✓ Create components once at init
-ui_status_bar_t* bar = ui_status_bar_create(screen);
-
-// ✓ Update frequently (no allocation)
-ui_status_bar_update(bar, wifi, ws, rssi);
-
-// ✗ Don't create/delete every frame
-// This causes memory fragmentation!
-for (int i = 0; i < 100; i++) {
-    ui_progress_t* p = ui_progress_create(screen, false);
-    ui_progress_delete(p);  // BAD!
-}
-
-// ✓ Cleanup on state change or app exit
-ui_status_bar_delete(bar);
-```
-
-### Check Memory Usage
-```cpp
-// Enable memory monitor in lv_conf.h
-#define LV_USE_MEM_MONITOR 1
-
-// In code
-lv_mem_monitor_t mon;
-lv_mem_monitor(&mon);
-printf("Used: %d / %d bytes\n", mon.used_cnt, mon.total_size);
-```
-
-## Debugging
-
-### Visual Debug
-```cpp
-// Enable in lv_conf.h
-#define LV_USE_REFR_DEBUG 1  // Shows refresh areas
-#define LV_USE_PERF_MONITOR 1 // Shows FPS
-
-// In code
-lv_obj_t* screen = lv_scr_act();
-lv_obj_add_flag(screen, LV_OBJ_FLAG_SEND_DRAW_TASK_EVENTS);
-```
-
-### Print Object Tree
-```cpp
-void print_obj_tree(lv_obj_t* obj, int indent) {
-    for (int i = 0; i < indent; i++) printf("  ");
-    printf("- %s\n", lv_obj_get_class(obj)->name);
-    
-    uint32_t i;
-    for(i = 0; i < lv_obj_get_child_cnt(obj); i++) {
-        print_obj_tree(lv_obj_get_child(obj, i), indent + 1);
-    }
-}
-
-// Usage
-print_obj_tree(lv_scr_act(), 0);
-```
-
-## Performance Tips
-
-1. **Update only what changed** - Don't set text if it's the same
-2. **Use appropriate refresh rates** - 100ms for slow data, 20ms for animations
-3. **Hide unused objects** - Use `LV_OBJ_FLAG_HIDDEN` instead of deleting
-4. **Batch updates** - Update multiple labels, then call `lv_refr_now()`
-5. **Avoid printf in hot paths** - Pre-format strings when possible
-
-## Common Issues
-
-### Text Not Showing
-```cpp
-// Check: Is font enabled in lv_conf.h?
-#define LV_FONT_MONTSERRAT_16 1
-
-// Check: Is object visible?
-lv_obj_clear_flag(label, LV_OBJ_FLAG_HIDDEN);
-
-// Check: Is text set?
-const char* txt = lv_label_get_text(label);
-printf("Text: %s\n", txt);
-```
-
-### Text Overlapping
-```cpp
-// Use containers with flex layout
-lv_obj_set_flex_flow(container, LV_FLEX_FLOW_COLUMN);
-
-// Or use proper spacing
-lv_obj_set_style_pad_all(container, 5, 0);
-
-// Or align relative to other objects
-lv_obj_align_to(obj2, obj1, LV_ALIGN_OUT_BOTTOM_MID, 0, 5);
-```
-
-### Memory Leak
-```cpp
-// Always pair create with delete
-ui_status_bar_t* bar = ui_status_bar_create(screen);
-// ... use bar ...
-ui_status_bar_delete(bar);
-
-// Check for orphaned LVGL objects
-lv_mem_monitor_t mon;
-lv_mem_monitor(&mon);
-```
+- All widgets use direct `lv_obj_align()` positioning — no flex layouts
+- Bars use white border + white indicator on black background (monochrome)
+- Alert overlay is always the last child of the screen (topmost z-order)
+- Render rates: 100 ms for data polling, 20 ms LVGL tick
+- State transitions hide all widgets first, then show the active group

@@ -2,486 +2,404 @@
 #include <stdio.h>
 #include <string.h>
 
-// Global styles instance
-static ui_styles_t g_styles;
-static bool g_styles_initialized = false;
-
-// Screen management
-static ui_screen_t g_screens[UI_SCREEN_COUNT];
-static ui_screen_type_t g_current_screen = UI_SCREEN_BOOT;
-static lv_disp_t* g_disp = NULL;
-
 // ======================================================================
-// Style System Implementation
+// Helpers
 // ======================================================================
 
-void ui_styles_init(ui_styles_t* styles)
+static void hide(lv_obj_t* o)
 {
-    if (g_styles_initialized)
-        return;
-
-    // Title style - Large, centered
-    lv_style_init(&styles->title);
-    lv_style_set_text_font(&styles->title, &lv_font_montserrat_16);
-    lv_style_set_text_color(&styles->title, lv_color_white());
-    lv_style_set_text_align(&styles->title, LV_TEXT_ALIGN_CENTER);
-
-    // Body style - Normal text
-    lv_style_init(&styles->body);
-    lv_style_set_text_font(&styles->body, &lv_font_montserrat_10);
-    lv_style_set_text_color(&styles->body, lv_color_white());
-    lv_style_set_text_align(&styles->body, LV_TEXT_ALIGN_LEFT);
-
-    // Small style - Secondary info
-    lv_style_init(&styles->small);
-    lv_style_set_text_font(&styles->small, &lv_font_montserrat_8);
-    lv_style_set_text_color(&styles->small, lv_color_white());
-    lv_style_set_text_align(&styles->small, LV_TEXT_ALIGN_LEFT);
-
-    // Highlight style - Inverted
-    lv_style_init(&styles->highlight);
-    lv_style_set_text_font(&styles->highlight, &lv_font_montserrat_12);
-    lv_style_set_text_color(&styles->highlight, lv_color_black());
-    lv_style_set_bg_color(&styles->highlight, lv_color_white());
-    lv_style_set_bg_opa(&styles->highlight, LV_OPA_COVER);
-    lv_style_set_pad_all(&styles->highlight, 2);
-
-    // Warning style - Blinking large text
-    lv_style_init(&styles->warning);
-    lv_style_set_text_font(&styles->warning, &lv_font_montserrat_12);
-    lv_style_set_text_color(&styles->warning, lv_color_white());
-    lv_style_set_text_align(&styles->warning, LV_TEXT_ALIGN_CENTER);
-
-    // Container style
-    lv_style_init(&styles->container);
-    lv_style_set_bg_color(&styles->container, lv_color_black());
-    lv_style_set_bg_opa(&styles->container, LV_OPA_COVER);
-    lv_style_set_border_width(&styles->container, 0);
-    lv_style_set_pad_all(&styles->container, 0);
-
-    g_styles_initialized = true;
+    if (o) lv_obj_add_flag(o, LV_OBJ_FLAG_HIDDEN);
 }
 
-void ui_apply_style(lv_obj_t* obj, lv_style_t* style)
+static void show(lv_obj_t* o)
 {
-    if (obj && style)
+    if (o) lv_obj_clear_flag(o, LV_OBJ_FLAG_HIDDEN);
+}
+
+static lv_obj_t* make_label(lv_obj_t* par, const lv_font_t* f,
+                            lv_align_t align, lv_coord_t x, lv_coord_t y)
+{
+    lv_obj_t* l = lv_label_create(par);
+    lv_obj_set_style_text_font(l, f, 0);
+    lv_obj_set_style_text_color(l, lv_color_white(), 0);
+    lv_obj_align(l, align, x, y);
+    lv_label_set_text(l, "");
+    lv_obj_add_flag(l, LV_OBJ_FLAG_HIDDEN);
+    return l;
+}
+
+static lv_obj_t* make_bar(lv_obj_t* par, lv_coord_t w, lv_coord_t h,
+                          lv_align_t align, lv_coord_t x, lv_coord_t y)
+{
+    lv_obj_t* b = lv_bar_create(par);
+    lv_obj_set_size(b, w, h);
+    lv_obj_align(b, align, x, y);
+    lv_bar_set_range(b, 0, 100);
+    lv_bar_set_value(b, 0, LV_ANIM_OFF);
+    // Monochrome: white border, black bg, white fill
+    lv_obj_set_style_border_color(b, lv_color_white(), 0);
+    lv_obj_set_style_border_width(b, 1, 0);
+    lv_obj_set_style_bg_color(b, lv_color_black(), LV_PART_MAIN);
+    lv_obj_set_style_bg_opa(b, LV_OPA_COVER, LV_PART_MAIN);
+    lv_obj_set_style_bg_color(b, lv_color_white(), LV_PART_INDICATOR);
+    lv_obj_set_style_bg_opa(b, LV_OPA_COVER, LV_PART_INDICATOR);
+    lv_obj_set_style_radius(b, 1, 0);
+    lv_obj_set_style_radius(b, 0, LV_PART_INDICATOR);
+    lv_obj_add_flag(b, LV_OBJ_FLAG_HIDDEN);
+    return b;
+}
+
+// ======================================================================
+// Target Game Dashboard
+// Layout: 128x32 (3 rows of 10pt, ~10px each, 1px gap)
+//   y=0  (10pt) : DeviceName
+//   y=11 (10pt) : ■■■□□           WiFi
+//   y=22 (10pt) : P:1 D:42         -65
+// ======================================================================
+
+void ui_target_game_create(ui_target_game_t* w, lv_obj_t* scr)
+{
+    w->name = make_label(scr, &lv_font_montserrat_10, LV_ALIGN_TOP_MID, 0, 0);
+    w->conn = make_label(scr, &lv_font_montserrat_10, LV_ALIGN_TOP_RIGHT, -1, 11);
+
+    // 5 heart indicator boxes (5x5 px, 2px gap) on row 2
+    for (int i = 0; i < MAX_HEART_ICONS; i++)
     {
-        lv_obj_add_style(obj, style, 0);
+        lv_obj_t* h = lv_obj_create(scr);
+        lv_obj_set_size(h, 5, 5);
+        lv_obj_align(h, LV_ALIGN_TOP_LEFT, 1 + i * 7, 14);
+        lv_obj_clear_flag(h, LV_OBJ_FLAG_SCROLLABLE);
+        lv_obj_set_style_pad_all(h, 0, 0);
+        lv_obj_set_style_radius(h, 0, 0);
+        lv_obj_set_style_border_color(h, lv_color_white(), 0);
+        lv_obj_set_style_border_width(h, 1, 0);
+        lv_obj_set_style_bg_color(h, lv_color_white(), 0);
+        lv_obj_set_style_bg_opa(h, LV_OPA_COVER, 0);
+        lv_obj_add_flag(h, LV_OBJ_FLAG_HIDDEN);
+        w->hearts[i] = h;
     }
+
+    w->ids  = make_label(scr, &lv_font_montserrat_10, LV_ALIGN_TOP_LEFT,  1, 22);
+    w->rssi = make_label(scr, &lv_font_montserrat_10, LV_ALIGN_TOP_RIGHT,-1, 22);
 }
 
-// ======================================================================
-// Status Bar Implementation
-// ======================================================================
-
-ui_status_bar_t* ui_status_bar_create(lv_obj_t* parent)
+void ui_target_game_show(ui_target_game_t* w)
 {
-    if (!g_styles_initialized)
-        ui_styles_init(&g_styles);
-
-    ui_status_bar_t* bar = (ui_status_bar_t*)lv_mem_alloc(sizeof(ui_status_bar_t));
-    if (!bar)
-        return NULL;
-
-    // Container - top 8px of screen
-    bar->container = lv_obj_create(parent);
-    lv_obj_set_size(bar->container, 128, 8);
-    lv_obj_align(bar->container, LV_ALIGN_TOP_MID, 0, 0);
-    lv_obj_set_style_bg_color(bar->container, lv_color_black(), 0);
-    lv_obj_set_style_border_width(bar->container, 0, 0);
-    lv_obj_set_style_pad_all(bar->container, 0, 0);
-
-    // WiFi icon (left)
-    bar->wifi_icon = lv_label_create(bar->container);
-    lv_label_set_text(bar->wifi_icon, LV_SYMBOL_WIFI);
-    lv_obj_add_style(bar->wifi_icon, &g_styles.small, 0);
-    lv_obj_align(bar->wifi_icon, LV_ALIGN_LEFT_MID, 0, 0);
-
-    // WS icon (left-center)
-    bar->ws_icon = lv_label_create(bar->container);
-    lv_label_set_text(bar->ws_icon, "WS");
-    lv_obj_add_style(bar->ws_icon, &g_styles.small, 0);
-    lv_obj_align(bar->ws_icon, LV_ALIGN_LEFT_MID, 20, 0);
-
-    // Signal strength (right)
-    bar->signal_label = lv_label_create(bar->container);
-    lv_label_set_text(bar->signal_label, "--");
-    lv_obj_add_style(bar->signal_label, &g_styles.small, 0);
-    lv_obj_align(bar->signal_label, LV_ALIGN_RIGHT_MID, 0, 0);
-
-    return bar;
+    show(w->name); show(w->conn); show(w->rssi);
+    // hearts visibility managed by update()
+    show(w->ids);
 }
 
-void ui_status_bar_update(ui_status_bar_t* bar, bool wifi, bool ws, int rssi)
+void ui_target_game_hide(ui_target_game_t* w)
 {
-    if (!bar)
-        return;
+    hide(w->name); hide(w->conn); hide(w->rssi);
+    for (int i = 0; i < MAX_HEART_ICONS; i++) hide(w->hearts[i]);
+    hide(w->ids);
+}
 
-    // Update WiFi icon
-    lv_label_set_text(bar->wifi_icon, wifi ? LV_SYMBOL_WIFI : LV_SYMBOL_WARNING);
+void ui_target_game_update(ui_target_game_t* w,
+                           int hearts, int max_hearts,
+                           bool wifi, bool ws, int rssi,
+                           int player_id, int device_id,
+                           const char* device_name)
+{
+    char buf[32];
 
-    // Update WS icon
-    lv_obj_set_style_text_color(bar->ws_icon, ws ? lv_color_white() : lv_color_make(100, 100, 100), 0);
+    // Row 1: Device name
+    lv_label_set_text(w->name, device_name ? device_name : "?");
 
-    // Update signal strength
-    if (wifi)
+    // Row 2: Hearts + WiFi/WS icons
+    snprintf(buf, sizeof(buf), "%s%s",
+             wifi ? LV_SYMBOL_WIFI : LV_SYMBOL_WARNING,
+             ws   ? LV_SYMBOL_OK   : LV_SYMBOL_CLOSE);
+    lv_label_set_text(w->conn, buf);
+
+    int mh = max_hearts > MAX_HEART_ICONS ? MAX_HEART_ICONS : max_hearts;
+    for (int i = 0; i < MAX_HEART_ICONS; i++)
     {
-        char buf[8];
-        snprintf(buf, sizeof(buf), "%d", rssi);
-        lv_label_set_text(bar->signal_label, buf);
+        if (i < mh)
+        {
+            lv_obj_clear_flag(w->hearts[i], LV_OBJ_FLAG_HIDDEN);
+            if (i < hearts)
+                lv_obj_set_style_bg_opa(w->hearts[i], LV_OPA_COVER, 0);
+            else
+                lv_obj_set_style_bg_opa(w->hearts[i], LV_OPA_TRANSP, 0);
+        }
+        else
+            lv_obj_add_flag(w->hearts[i], LV_OBJ_FLAG_HIDDEN);
+    }
+
+    // Row 3: P:D IDs + RSSI
+    snprintf(buf, sizeof(buf), "P:%d D:%d", player_id, device_id);
+    lv_label_set_text(w->ids, buf);
+
+    snprintf(buf, sizeof(buf), "%d", rssi);
+    lv_label_set_text(w->rssi, buf);
+}
+
+// ======================================================================
+// Weapon Idle Dashboard
+// Layout: 128x32
+//   y=0  (8pt)  : WiFi WS  P:1 D:42  -65
+//   y=8  (16pt) :         12           (big ammo count)
+//   y=25 (8pt)  :        AMMO
+// ======================================================================
+
+void ui_weapon_idle_create(ui_weapon_idle_t* w, lv_obj_t* scr)
+{
+    w->conn       = make_label(scr, &lv_font_montserrat_10, LV_ALIGN_TOP_LEFT,   1, 0);
+    w->ids        = make_label(scr, &lv_font_montserrat_10, LV_ALIGN_TOP_MID,    0, 0);
+    w->rssi       = make_label(scr, &lv_font_montserrat_10, LV_ALIGN_TOP_RIGHT, -1, 0);
+    w->ammo_value = make_label(scr, &lv_font_montserrat_16, LV_ALIGN_CENTER,     0, -2);
+    w->ammo_label = make_label(scr, &lv_font_montserrat_10, LV_ALIGN_BOTTOM_MID, 0, -1);
+}
+
+void ui_weapon_idle_show(ui_weapon_idle_t* w)
+{
+    show(w->conn); show(w->ids); show(w->rssi);
+    show(w->ammo_value); show(w->ammo_label);
+}
+
+void ui_weapon_idle_hide(ui_weapon_idle_t* w)
+{
+    hide(w->conn); hide(w->ids); hide(w->rssi);
+    hide(w->ammo_value); hide(w->ammo_label);
+}
+
+void ui_weapon_idle_update(ui_weapon_idle_t* w,
+                           int ammo,
+                           bool wifi, bool ws, int rssi,
+                           int player_id, int device_id)
+{
+    char buf[32];
+
+    snprintf(buf, sizeof(buf), "%s%s",
+             wifi ? LV_SYMBOL_WIFI : LV_SYMBOL_WARNING,
+             ws   ? LV_SYMBOL_OK   : LV_SYMBOL_CLOSE);
+    lv_label_set_text(w->conn, buf);
+
+    snprintf(buf, sizeof(buf), "P:%d D:%d", player_id, device_id);
+    lv_label_set_text(w->ids, buf);
+
+    snprintf(buf, sizeof(buf), "%d", rssi);
+    lv_label_set_text(w->rssi, buf);
+
+    snprintf(buf, sizeof(buf), "%d", ammo);
+    lv_label_set_text(w->ammo_value, buf);
+
+    lv_label_set_text(w->ammo_label, "AMMO");
+}
+
+// ======================================================================
+// Respawn Countdown
+// Layout: 128x32
+//   y=4  (10pt) : Killed by Alice
+//   y=20 (6px)  : [progress bar]
+// ======================================================================
+
+void ui_respawn_create(ui_respawn_t* w, lv_obj_t* scr)
+{
+    w->killer    = make_label(scr, &lv_font_montserrat_10, LV_ALIGN_TOP_MID,    0, 4);
+    w->bar       = make_bar(scr, 100, 6, LV_ALIGN_CENTER, 0, 6);
+}
+
+void ui_respawn_show(ui_respawn_t* w)
+{
+    show(w->killer); show(w->bar);
+}
+
+void ui_respawn_hide(ui_respawn_t* w)
+{
+    hide(w->killer); hide(w->bar);
+}
+
+void ui_respawn_update(ui_respawn_t* w,
+                       uint32_t remaining_ms, uint32_t total_ms,
+                       const char* killer_name)
+{
+    if (killer_name && strlen(killer_name) > 0)
+    {
+        char buf[32];
+        snprintf(buf, sizeof(buf), "Killed by %s", killer_name);
+        lv_label_set_text(w->killer, buf);
     }
     else
-    {
-        lv_label_set_text(bar->signal_label, "--");
-    }
-}
+        lv_label_set_text(w->killer, "RESPAWNING");
 
-void ui_status_bar_delete(ui_status_bar_t* bar)
-{
-    if (bar)
-    {
-        lv_obj_del(bar->container);
-        lv_mem_free(bar);
-    }
+    int32_t pct = 0;
+    if (total_ms > 0 && remaining_ms <= total_ms)
+        pct = (int32_t)((total_ms - remaining_ms) * 100 / total_ms);
+    if (pct > 100) pct = 100;
+    lv_bar_set_value(w->bar, pct, LV_ANIM_OFF);
 }
 
 // ======================================================================
-// Content Area Implementation
+// Connecting Screen
+// Layout: 128x32
+//   y=2  (10pt) : Connecting...
+//   y=13 (10pt) : MyNetwork
+//   y=24 (8pt)  : RSSI: -65
 // ======================================================================
 
-ui_content_area_t* ui_content_area_create(lv_obj_t* parent)
+void ui_connecting_create(ui_connecting_t* w, lv_obj_t* scr)
 {
-    if (!g_styles_initialized)
-        ui_styles_init(&g_styles);
-
-    ui_content_area_t* area = (ui_content_area_t*)lv_mem_alloc(sizeof(ui_content_area_t));
-    if (!area)
-        return NULL;
-
-    // Container - main area (below status bar)
-    area->container = lv_obj_create(parent);
-    lv_obj_set_size(area->container, 128, 24);
-    lv_obj_align(area->container, LV_ALIGN_TOP_MID, 0, 8);
-    lv_obj_set_style_bg_color(area->container, lv_color_black(), 0);
-    lv_obj_set_style_border_width(area->container, 0, 0);
-    lv_obj_set_style_pad_all(area->container, 2, 0);
-    lv_obj_set_flex_flow(area->container, LV_FLEX_FLOW_COLUMN);
-    lv_obj_set_flex_align(area->container, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START);
-
-    // Title (optional)
-    area->title = lv_label_create(area->container);
-    lv_obj_add_style(area->title, &g_styles.body, 0);
-    lv_label_set_text(area->title, "");
-
-    // Content
-    area->content = lv_label_create(area->container);
-    lv_obj_add_style(area->content, &g_styles.body, 0);
-    lv_label_set_text(area->content, "");
-
-    // Footer (optional)
-    area->footer = lv_label_create(area->container);
-    lv_obj_add_style(area->footer, &g_styles.small, 0);
-    lv_label_set_text(area->footer, "");
-
-    return area;
+    w->title  = make_label(scr, &lv_font_montserrat_10, LV_ALIGN_TOP_MID,    0, 2);
+    w->ssid   = make_label(scr, &lv_font_montserrat_10, LV_ALIGN_CENTER,     0, 0);
+    w->detail = make_label(scr, &lv_font_montserrat_10, LV_ALIGN_BOTTOM_MID, 0, -1);
+    lv_label_set_text(w->title, LV_SYMBOL_WIFI " Connecting...");
 }
 
-void ui_content_area_set_title(ui_content_area_t* area, const char* title, const lv_font_t* font)
+void ui_connecting_show(ui_connecting_t* w)
 {
-    if (!area || !title)
-        return;
-
-    lv_label_set_text(area->title, title);
-    if (font)
-    {
-        lv_obj_set_style_text_font(area->title, font, 0);
-    }
+    show(w->title); show(w->ssid); show(w->detail);
 }
 
-void ui_content_area_set_content(ui_content_area_t* area, const char* content)
+void ui_connecting_hide(ui_connecting_t* w)
 {
-    if (!area || !content)
-        return;
-
-    lv_label_set_text(area->content, content);
+    hide(w->title); hide(w->ssid); hide(w->detail);
 }
 
-void ui_content_area_delete(ui_content_area_t* area)
+void ui_connecting_update(ui_connecting_t* w,
+                          const char* ssid, int rssi, const char* status)
 {
-    if (area)
-    {
-        lv_obj_del(area->container);
-        lv_mem_free(area);
-    }
-}
-
-// ======================================================================
-// Progress Indicator Implementation
-// ======================================================================
-
-ui_progress_t* ui_progress_create(lv_obj_t* parent, bool use_arc)
-{
-    ui_progress_t* prog = (ui_progress_t*)lv_mem_alloc(sizeof(ui_progress_t));
-    if (!prog)
-        return NULL;
-
-    prog->container = lv_obj_create(parent);
-    lv_obj_set_size(prog->container, 128, 16);
-    lv_obj_align(prog->container, LV_ALIGN_BOTTOM_MID, 0, 0);
-    lv_obj_set_style_bg_color(prog->container, lv_color_black(), 0);
-    lv_obj_set_style_border_width(prog->container, 0, 0);
-    lv_obj_set_style_pad_all(prog->container, 2, 0);
-
-    if (use_arc)
-    {
-        // Arc progress (circular)
-        prog->progress_bar = lv_arc_create(prog->container);
-        lv_obj_set_size(prog->progress_bar, 14, 14);
-        lv_obj_align(prog->progress_bar, LV_ALIGN_LEFT_MID, 0, 0);
-        lv_arc_set_range(prog->progress_bar, 0, 100);
-        lv_arc_set_value(prog->progress_bar, 0);
-        lv_obj_set_style_arc_width(prog->progress_bar, 2, LV_PART_MAIN);
-        lv_obj_set_style_arc_width(prog->progress_bar, 2, LV_PART_INDICATOR);
-    }
+    if (status && strlen(status) > 0)
+        lv_label_set_text(w->title, status);
     else
-    {
-        // Bar progress (horizontal)
-        prog->progress_bar = lv_bar_create(prog->container);
-        lv_obj_set_size(prog->progress_bar, 60, 8);
-        lv_obj_align(prog->progress_bar, LV_ALIGN_LEFT_MID, 0, 0);
-        lv_bar_set_range(prog->progress_bar, 0, 100);
-        lv_bar_set_value(prog->progress_bar, 0, LV_ANIM_OFF);
-        lv_obj_set_style_bg_color(prog->progress_bar, lv_color_make(50, 50, 50), LV_PART_MAIN);
-        lv_obj_set_style_bg_color(prog->progress_bar, lv_color_white(), LV_PART_INDICATOR);
-    }
+        lv_label_set_text(w->title, LV_SYMBOL_WIFI " Connecting...");
 
-    // Label
-    prog->label = lv_label_create(prog->container);
-    lv_obj_add_style(prog->label, &g_styles.small, 0);
-    lv_obj_align(prog->label, LV_ALIGN_RIGHT_MID, 0, 0);
-    lv_label_set_text(prog->label, "");
+    lv_label_set_text(w->ssid, ssid ? ssid : "?");
 
-    return prog;
-}
-
-void ui_progress_set_value(ui_progress_t* prog, int32_t value, const char* label)
-{
-    if (!prog)
-        return;
-
-    if (lv_obj_check_type(prog->progress_bar, &lv_arc_class))
-    {
-        lv_arc_set_value(prog->progress_bar, value);
-    }
-    else if (lv_obj_check_type(prog->progress_bar, &lv_bar_class))
-    {
-        lv_bar_set_value(prog->progress_bar, value, LV_ANIM_ON);
-    }
-
-    if (label)
-    {
-        lv_label_set_text(prog->label, label);
-    }
-}
-
-void ui_progress_delete(ui_progress_t* prog)
-{
-    if (prog)
-    {
-        lv_obj_del(prog->container);
-        lv_mem_free(prog);
-    }
+    char buf[24];
+    snprintf(buf, sizeof(buf), "RSSI: %d", rssi);
+    lv_label_set_text(w->detail, buf);
 }
 
 // ======================================================================
-// Overlay Implementation
+// Boot Splash
+// Layout: 128x32
+//   y=4  (16pt) : RayZ
+//   y=22 (10pt) : Starting...
 // ======================================================================
 
-static void overlay_hide_timer_cb(lv_timer_t* timer)
+void ui_boot_create(ui_boot_t* w, lv_obj_t* scr)
 {
-    ui_overlay_t* overlay = (ui_overlay_t*)timer->user_data;
-    ui_overlay_hide(overlay);
-    lv_timer_del(timer);
+    w->title    = make_label(scr, &lv_font_montserrat_16, LV_ALIGN_CENTER,     0, -5);
+    w->subtitle = make_label(scr, &lv_font_montserrat_10, LV_ALIGN_BOTTOM_MID, 0, -1);
+    lv_label_set_text(w->title, "RayZ");
+    lv_label_set_text(w->subtitle, "Starting...");
 }
 
-ui_overlay_t* ui_overlay_create(lv_obj_t* parent)
+void ui_boot_show(ui_boot_t* w)
 {
-    if (!g_styles_initialized)
-        ui_styles_init(&g_styles);
-
-    ui_overlay_t* overlay = (ui_overlay_t*)lv_mem_alloc(sizeof(ui_overlay_t));
-    if (!overlay)
-        return NULL;
-
-    // Full-screen container
-    overlay->container = lv_obj_create(parent);
-    lv_obj_set_size(overlay->container, 128, 32);
-    lv_obj_align(overlay->container, LV_ALIGN_CENTER, 0, 0);
-    lv_obj_set_style_bg_opa(overlay->container, LV_OPA_TRANSP, 0);
-    lv_obj_set_style_border_width(overlay->container, 0, 0);
-    lv_obj_add_flag(overlay->container, LV_OBJ_FLAG_HIDDEN);
-
-    // Semi-transparent background
-    overlay->bg = lv_obj_create(overlay->container);
-    lv_obj_set_size(overlay->bg, 128, 32);
-    lv_obj_align(overlay->bg, LV_ALIGN_CENTER, 0, 0);
-    lv_obj_set_style_bg_color(overlay->bg, lv_color_black(), 0);
-    lv_obj_set_style_bg_opa(overlay->bg, LV_OPA_70, 0);
-    lv_obj_set_style_border_width(overlay->bg, 0, 0);
-
-    // Content label
-    overlay->content = lv_label_create(overlay->container);
-    lv_obj_add_style(overlay->content, &g_styles.title, 0);
-    lv_obj_align(overlay->content, LV_ALIGN_CENTER, 0, 0);
-    lv_label_set_text(overlay->content, "");
-
-    overlay->is_visible = false;
-
-    return overlay;
+    show(w->title); show(w->subtitle);
 }
 
-void ui_overlay_show(ui_overlay_t* overlay, const char* text, uint32_t duration_ms)
+void ui_boot_hide(ui_boot_t* w)
 {
-    if (!overlay)
-        return;
-
-    lv_label_set_text(overlay->content, text);
-    lv_obj_clear_flag(overlay->container, LV_OBJ_FLAG_HIDDEN);
-    overlay->is_visible = true;
-
-    // Fade in animation
-    lv_obj_fade_in(overlay->container, 200, 0);
-
-    // Auto-hide timer
-    if (duration_ms > 0)
-    {
-        lv_timer_t* timer = lv_timer_create(overlay_hide_timer_cb, duration_ms, overlay);
-        lv_timer_set_repeat_count(timer, 1);
-    }
-}
-
-void ui_overlay_hide(ui_overlay_t* overlay)
-{
-    if (!overlay || !overlay->is_visible)
-        return;
-
-    // Fade out animation
-    lv_obj_fade_out(overlay->container, 200, 0);
-
-    // Hide after animation
-    lv_obj_add_flag(overlay->container, LV_OBJ_FLAG_HIDDEN);
-    overlay->is_visible = false;
-}
-
-void ui_overlay_delete(ui_overlay_t* overlay)
-{
-    if (overlay)
-    {
-        lv_obj_del(overlay->container);
-        lv_mem_free(overlay);
-    }
+    hide(w->title); hide(w->subtitle);
 }
 
 // ======================================================================
-// Utility Functions
+// Error Display
+// Layout: 128x32
+//   y=0  (10pt) : ⚠ ERROR
+//   y=11 (10pt) : Code: 42
+//   y=23 (8pt)  : Fix & reboot
 // ======================================================================
 
-lv_obj_t* ui_create_wifi_icon(lv_obj_t* parent, bool connected)
+void ui_error_create(ui_error_t* w, lv_obj_t* scr)
 {
-    lv_obj_t* icon = lv_label_create(parent);
-    lv_label_set_text(icon, connected ? LV_SYMBOL_WIFI : LV_SYMBOL_WARNING);
-    lv_obj_add_style(icon, &g_styles.small, 0);
-    return icon;
+    w->title = make_label(scr, &lv_font_montserrat_10, LV_ALIGN_TOP_MID,    0, 0);
+    w->code  = make_label(scr, &lv_font_montserrat_10, LV_ALIGN_CENTER,     0, 0);
+    w->hint  = make_label(scr, &lv_font_montserrat_10, LV_ALIGN_BOTTOM_MID, 0, -1);
+    lv_label_set_text(w->title, LV_SYMBOL_WARNING " ERROR");
+    lv_label_set_text(w->hint, "Fix & reboot");
 }
 
-lv_obj_t* ui_create_ws_icon(lv_obj_t* parent, bool connected)
+void ui_error_show(ui_error_t* w)
 {
-    lv_obj_t* icon = lv_label_create(parent);
-    lv_label_set_text(icon, connected ? LV_SYMBOL_OK : LV_SYMBOL_CLOSE);
-    lv_obj_add_style(icon, &g_styles.small, 0);
-    return icon;
+    show(w->title); show(w->code); show(w->hint);
 }
 
-lv_obj_t* ui_create_heart_icon(lv_obj_t* parent)
+void ui_error_hide(ui_error_t* w)
 {
-    lv_obj_t* icon = lv_label_create(parent);
-    lv_label_set_text(icon, LV_SYMBOL_HEART);
-    lv_obj_add_style(icon, &g_styles.body, 0);
-    return icon;
+    hide(w->title); hide(w->code); hide(w->hint);
 }
+
+void ui_error_update(ui_error_t* w, uint32_t code)
+{
+    char buf[24];
+    snprintf(buf, sizeof(buf), "Code: %lu", (unsigned long)code);
+    lv_label_set_text(w->code, buf);
+}
+
+// ======================================================================
+// Alert Overlay — full-screen inverted (white bg, black text)
+// ======================================================================
+
+void ui_alert_create(ui_alert_t* w, lv_obj_t* scr)
+{
+    // White background covering full screen
+    w->bg = lv_obj_create(scr);
+    lv_obj_set_size(w->bg, 128, 32);
+    lv_obj_align(w->bg, LV_ALIGN_CENTER, 0, 0);
+    lv_obj_set_style_bg_color(w->bg, lv_color_white(), 0);
+    lv_obj_set_style_bg_opa(w->bg, LV_OPA_COVER, 0);
+    lv_obj_set_style_border_width(w->bg, 0, 0);
+    lv_obj_set_style_pad_all(w->bg, 0, 0);
+    lv_obj_add_flag(w->bg, LV_OBJ_FLAG_HIDDEN);
+
+    // Primary text — 12pt black, centered upper
+    w->line1 = lv_label_create(w->bg);
+    lv_obj_set_style_text_font(w->line1, &lv_font_montserrat_12, 0);
+    lv_obj_set_style_text_color(w->line1, lv_color_black(), 0);
+    lv_obj_set_style_text_align(w->line1, LV_TEXT_ALIGN_CENTER, 0);
+    lv_obj_align(w->line1, LV_ALIGN_CENTER, 0, -5);
+    lv_label_set_text(w->line1, "");
+
+    // Secondary text — 10pt black, centered lower
+    w->line2 = lv_label_create(w->bg);
+    lv_obj_set_style_text_font(w->line2, &lv_font_montserrat_10, 0);
+    lv_obj_set_style_text_color(w->line2, lv_color_black(), 0);
+    lv_obj_set_style_text_align(w->line2, LV_TEXT_ALIGN_CENTER, 0);
+    lv_obj_align(w->line2, LV_ALIGN_CENTER, 0, 8);
+    lv_label_set_text(w->line2, "");
+
+    w->visible = false;
+}
+
+void ui_alert_show(ui_alert_t* w, const char* l1, const char* l2)
+{
+    if (!w) return;
+    lv_label_set_text(w->line1, l1 ? l1 : "");
+    lv_label_set_text(w->line2, l2 ? l2 : "");
+    lv_obj_clear_flag(w->bg, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_move_foreground(w->bg);
+    w->visible = true;
+}
+
+void ui_alert_hide(ui_alert_t* w)
+{
+    if (!w) return;
+    lv_obj_add_flag(w->bg, LV_OBJ_FLAG_HIDDEN);
+    w->visible = false;
+}
+
+// ======================================================================
+// Utility
+// ======================================================================
 
 void ui_format_time(uint32_t ms, char* buf, size_t len)
 {
-    if (!buf || len == 0)
-        return;
-
+    if (!buf || len == 0) return;
     if (ms < 1000)
-    {
         snprintf(buf, len, "%lums", (unsigned long)ms);
-    }
     else if (ms < 60000)
-    {
         snprintf(buf, len, "%.1fs", ms / 1000.0f);
-    }
     else
     {
-        uint32_t mins = ms / 60000;
-        uint32_t secs = (ms % 60000) / 1000;
-        snprintf(buf, len, "%lum%lus", (unsigned long)mins, (unsigned long)secs);
+        uint32_t m = ms / 60000;
+        uint32_t s = (ms % 60000) / 1000;
+        snprintf(buf, len, "%lum%lus", (unsigned long)m, (unsigned long)s);
     }
-}
-
-static void anim_value_cb(void* var, int32_t v)
-{
-    lv_label_set_text_fmt((lv_obj_t*)var, "%ld", (long)v);
-}
-
-void ui_animate_value(lv_obj_t* label, int32_t from, int32_t to, uint32_t duration)
-{
-    if (!label)
-        return;
-
-    lv_anim_t a;
-    lv_anim_init(&a);
-    lv_anim_set_var(&a, label);
-    lv_anim_set_values(&a, from, to);
-    lv_anim_set_time(&a, duration);
-    lv_anim_set_exec_cb(&a, anim_value_cb);
-    lv_anim_start(&a);
-}
-
-// ======================================================================
-// Screen Management (Placeholder - will be expanded)
-// ======================================================================
-
-void ui_screens_init(lv_disp_t* disp)
-{
-    g_disp = disp;
-    ui_styles_init(&g_styles);
-
-    // Initialize screens array
-    memset(g_screens, 0, sizeof(g_screens));
-
-    // Will be implemented in next phase with screen-specific functions
-}
-
-void ui_screen_switch(ui_screen_type_t screen, lv_scr_load_anim_t anim, uint32_t time)
-{
-    if (screen >= UI_SCREEN_COUNT)
-        return;
-
-    g_current_screen = screen;
-    // Will be fully implemented with actual screen objects
-}
-
-ui_screen_t* ui_screen_get_current(void)
-{
-    return &g_screens[g_current_screen];
-}
-
-lv_obj_t* ui_screen_get(ui_screen_type_t type)
-{
-    if (type >= UI_SCREEN_COUNT)
-        return NULL;
-    return g_screens[type].screen;
 }

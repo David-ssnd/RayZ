@@ -1,5 +1,5 @@
 idf_component_register(
-    SRCS 
+    SRCS
         # "src/ble_target.cpp"
         # "src/ble_weapon.cpp"
         "src/utils.cpp"
@@ -8,16 +8,18 @@ idf_component_register(
         "src/wifi_state.cpp"
         "src/wifi_core.cpp"
         "src/wifi_http.cpp"
+        "src/dns_server.cpp"
         "src/http_api.cpp"
         "src/ws_server.cpp"
         "src/game_state.cpp"
         "src/espnow_comm.cpp"
         "src/display_init.cpp"
         "src/display_manager.cpp"
+        "src/display_ui.cpp"
         "src/runtime_metrics.cpp"
         "src/debug_print.cpp"
         "src/gpio_init.cpp"
-    INCLUDE_DIRS 
+    INCLUDE_DIRS
         "include"
     REQUIRES
         nvs_flash
