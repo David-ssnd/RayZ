@@ -44,18 +44,20 @@ static const char* TAG = "PDTest";
 
 static adc_oneshot_unit_handle_t s_adc;
 
-// Message result passed from timer callback → print task
+// Bit event passed from timer callback → print task
 typedef struct
 {
-    uint32_t bits;
-    float    v_min;
-    float    v_max;
-    float    v_avg;
+    uint32_t bits;       // accumulated bits so far
+    int      bit_idx;    // 1..32 (32 = message complete)
+    float    bit_v;      // averaged voltage for this bit
+    float    v_min;      // message voltage min so far
+    float    v_max;      // message voltage max so far
+    float    v_sum;      // message voltage sum so far
     float    threshold;
     float    signal;
-} pd_message_t;
+} pd_bit_event_t;
 
-static QueueHandle_t s_msg_queue;
+static QueueHandle_t s_bit_queue;
 
 static void adc_init(void)
 {
@@ -124,19 +126,21 @@ static void sample_timer_cb(void* arg)
         s_bit_idx++;
         s_sample_idx = 0;
 
-        // Full 32-bit message — queue it for printing
+        // Queue every bit so the print task can show progress
+        pd_bit_event_t evt = {
+            .bits      = s_message,
+            .bit_idx   = s_bit_idx,
+            .bit_v     = avg_v,
+            .v_min     = s_msg_v_min,
+            .v_max     = s_msg_v_max,
+            .v_sum     = s_msg_v_sum,
+            .threshold = s_dyn_threshold,
+            .signal    = s_running_max - s_running_min,
+        };
+        xQueueSend(s_bit_queue, &evt, 0);
+
         if (s_bit_idx >= MESSAGE_TOTAL_BITS)
         {
-            pd_message_t msg = {
-                .bits      = s_message,
-                .v_min     = s_msg_v_min,
-                .v_max     = s_msg_v_max,
-                .v_avg     = s_msg_v_sum / MESSAGE_TOTAL_BITS,
-                .threshold = s_dyn_threshold,
-                .signal    = s_running_max - s_running_min,
-            };
-            xQueueSend(s_msg_queue, &msg, 0);
-
             s_message   = 0;
             s_bit_idx   = 0;
             s_msg_v_min = 3.3f;
@@ -146,39 +150,60 @@ static void sample_timer_cb(void* arg)
     }
 }
 
-// ── Print task — blocks on queue, never busy-waits ──────────────────
+// ── Print task — shows message building up bit by bit ────────────────
 static void print_task(void* pv)
 {
-    uint32_t count = 0;
-    pd_message_t msg;
+    uint32_t msg_count = 0;
+    pd_bit_event_t evt;
 
     while (true)
     {
-        if (xQueueReceive(s_msg_queue, &msg, portMAX_DELAY) == pdTRUE)
+        if (xQueueReceive(s_bit_queue, &evt, portMAX_DELAY) == pdTRUE)
         {
-            count++;
+            bool complete = (evt.bit_idx >= MESSAGE_TOTAL_BITS);
+            if (complete) msg_count++;
 
-            uint8_t player_id = (msg.bits >> 24) & 0xFF;
-            uint8_t device_id = (msg.bits >> 16) & 0xFF;
-            uint8_t p_hash    = (msg.bits >>  8) & 0xFF;
-            uint8_t d_hash    = (msg.bits >>  0) & 0xFF;
-
-            bool valid = (p_hash == compute_hash(player_id))
-                      && (d_hash == compute_hash(device_id));
-
+            // Build binary string: decoded bits + dots for remaining
             char bin[33];
-            for (int i = 31; i >= 0; i--)
-                bin[31 - i] = (msg.bits >> i) & 1 ? '1' : '0';
+            for (int i = 0; i < MESSAGE_TOTAL_BITS; i++)
+            {
+                if (i < evt.bit_idx)
+                    bin[i] = (evt.bits >> (evt.bit_idx - 1 - i)) & 1 ? '1' : '0';
+                else
+                    bin[i] = '.';
+            }
             bin[32] = '\0';
 
-            printf("#%04lu | 0x%08lX | %s | P:%3d D:%3d | hash:%s "
-                   "| V avg:%.3f [%.3f-%.3f] thr:%.3f sig:%.3f\n",
-                   (unsigned long)count,
-                   (unsigned long)msg.bits, bin,
-                   player_id, device_id,
-                   valid ? "OK " : "BAD",
-                   msg.v_avg, msg.v_min, msg.v_max,
-                   msg.threshold, msg.signal);
+            float v_avg = evt.v_sum / evt.bit_idx;
+
+            if (complete)
+            {
+                // Decode & verify on the final line
+                uint8_t player_id = (evt.bits >> 24) & 0xFF;
+                uint8_t device_id = (evt.bits >> 16) & 0xFF;
+                uint8_t p_hash    = (evt.bits >>  8) & 0xFF;
+                uint8_t d_hash    = (evt.bits >>  0) & 0xFF;
+
+                bool valid = (p_hash == compute_hash(player_id))
+                          && (d_hash == compute_hash(device_id));
+
+                printf("\r#%04lu | 0x%08lX | %s | P:%3d D:%3d | hash:%s "
+                       "| V avg:%.3f [%.3f-%.3f] thr:%.3f sig:%.3f\n",
+                       (unsigned long)msg_count,
+                       (unsigned long)evt.bits, bin,
+                       player_id, device_id,
+                       valid ? "OK " : "BAD",
+                       v_avg, evt.v_min, evt.v_max,
+                       evt.threshold, evt.signal);
+            }
+            else
+            {
+                // Overwrite line in-place with partial progress
+                printf("\r[%2d/32] %s | V:%.3f thr:%.3f sig:%.3f",
+                       evt.bit_idx, bin,
+                       evt.bit_v, evt.threshold, evt.signal);
+                fflush(stdout);
+            }
         }
     }
 }
@@ -196,12 +221,12 @@ extern "C" void app_main(void)
            SAMPLE_INTERVAL_MS, SAMPLES_PER_BIT, MESSAGE_TOTAL_BITS,
            SAMPLE_INTERVAL_MS * SAMPLES_PER_BIT * MESSAGE_TOTAL_BITS);
     printf("║  Format  : [8-bit player][8-bit device][8-bit p_hash][8-bit d_hash]                ║\n");
-    printf("║  Output  : one line per 32-bit message                                             ║\n");
+    printf("║  Output  : live bit-by-bit progress, full decode on completion                     ║\n");
     printf("╚══════════════════════════════════════════════════════════════════════════════════════╝\n\n");
 
     adc_init();
 
-    s_msg_queue = xQueueCreate(8, sizeof(pd_message_t));
+    s_bit_queue = xQueueCreate(48, sizeof(pd_bit_event_t));
     xTaskCreate(print_task, "pd_print", 4096, NULL, 3, NULL);
 
     // Periodic high-res timer — fires every 1 ms for ADC sampling
