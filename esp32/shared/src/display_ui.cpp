@@ -50,19 +50,59 @@ static lv_obj_t* make_bar(lv_obj_t* par, lv_coord_t w, lv_coord_t h,
 }
 
 // ======================================================================
+// Shared Status Bar
+// Layout: top 10px of 128x32
+//   y=0  (10pt): WiFi/WS    P:X D:X    RSSI
+// ======================================================================
+
+void ui_status_bar_create(ui_status_bar_t* bar, lv_obj_t* scr)
+{
+    bar->conn = make_label(scr, &lv_font_montserrat_10, LV_ALIGN_TOP_LEFT,   1, 0);
+    bar->ids  = make_label(scr, &lv_font_montserrat_10, LV_ALIGN_TOP_MID,    0, 0);
+    bar->rssi = make_label(scr, &lv_font_montserrat_10, LV_ALIGN_TOP_RIGHT, -1, 0);
+}
+
+void ui_status_bar_show(ui_status_bar_t* bar)
+{
+    show(bar->conn); show(bar->ids); show(bar->rssi);
+}
+
+void ui_status_bar_hide(ui_status_bar_t* bar)
+{
+    hide(bar->conn); hide(bar->ids); hide(bar->rssi);
+}
+
+void ui_status_bar_update(ui_status_bar_t* bar,
+                          bool wifi, bool ws, int rssi,
+                          int player_id, int device_id)
+{
+    char buf[32];
+
+    snprintf(buf, sizeof(buf), "%s%s",
+             wifi ? LV_SYMBOL_WIFI : LV_SYMBOL_WARNING,
+             ws   ? LV_SYMBOL_OK   : LV_SYMBOL_CLOSE);
+    lv_label_set_text(bar->conn, buf);
+
+    snprintf(buf, sizeof(buf), "P:%d D:%d", player_id, device_id);
+    lv_label_set_text(bar->ids, buf);
+
+    snprintf(buf, sizeof(buf), "%d", rssi);
+    lv_label_set_text(bar->rssi, buf);
+}
+
+// ======================================================================
 // Target Game Dashboard
-// Layout: 128x32 (3 rows of 10pt, ~10px each, 1px gap)
-//   y=0  (10pt) : DeviceName
-//   y=11 (10pt) : ■■■□□           WiFi
-//   y=22 (10pt) : P:1 D:42         -65
+// Layout: 128x32 (shared status bar + role content)
+//   y=0  (10pt) : WiFi WS  P:1 D:42  -65    (status bar)
+//   y=14 (5px)  : ■■■□□              D:2     (hearts + deaths)
+//   y=22 (10pt) :     [player name]           (name/status)
 // ======================================================================
 
 void ui_target_game_create(ui_target_game_t* w, lv_obj_t* scr)
 {
-    w->name = make_label(scr, &lv_font_montserrat_10, LV_ALIGN_TOP_MID, 0, 0);
-    w->conn = make_label(scr, &lv_font_montserrat_10, LV_ALIGN_TOP_RIGHT, -1, 11);
+    ui_status_bar_create(&w->bar, scr);
 
-    // 5 heart indicator boxes (5x5 px, 2px gap) on row 2
+    // Heart indicator boxes (5x5 px, 2px gap)
     for (int i = 0; i < MAX_HEART_ICONS; i++)
     {
         lv_obj_t* h = lv_obj_create(scr);
@@ -79,41 +119,36 @@ void ui_target_game_create(ui_target_game_t* w, lv_obj_t* scr)
         w->hearts[i] = h;
     }
 
-    w->ids  = make_label(scr, &lv_font_montserrat_10, LV_ALIGN_TOP_LEFT,  1, 22);
-    w->rssi = make_label(scr, &lv_font_montserrat_10, LV_ALIGN_TOP_RIGHT,-1, 22);
+    w->deaths = make_label(scr, &lv_font_montserrat_10, LV_ALIGN_TOP_RIGHT, -1, 11);
+    w->status = make_label(scr, &lv_font_montserrat_10, LV_ALIGN_TOP_MID,    0, 22);
 }
 
 void ui_target_game_show(ui_target_game_t* w)
 {
-    show(w->name); show(w->conn); show(w->rssi);
+    ui_status_bar_show(&w->bar);
+    show(w->deaths); show(w->status);
     // hearts visibility managed by update()
-    show(w->ids);
 }
 
 void ui_target_game_hide(ui_target_game_t* w)
 {
-    hide(w->name); hide(w->conn); hide(w->rssi);
+    ui_status_bar_hide(&w->bar);
     for (int i = 0; i < MAX_HEART_ICONS; i++) hide(w->hearts[i]);
-    hide(w->ids);
+    hide(w->deaths); hide(w->status);
 }
 
 void ui_target_game_update(ui_target_game_t* w,
                            int hearts, int max_hearts,
                            bool wifi, bool ws, int rssi,
                            int player_id, int device_id,
-                           const char* device_name)
+                           const char* device_name,
+                           int deaths)
 {
     char buf[32];
 
-    // Row 1: Device name
-    lv_label_set_text(w->name, device_name ? device_name : "?");
+    ui_status_bar_update(&w->bar, wifi, ws, rssi, player_id, device_id);
 
-    // Row 2: Hearts + WiFi/WS icons
-    snprintf(buf, sizeof(buf), "%s%s",
-             wifi ? LV_SYMBOL_WIFI : LV_SYMBOL_WARNING,
-             ws   ? LV_SYMBOL_OK   : LV_SYMBOL_CLOSE);
-    lv_label_set_text(w->conn, buf);
-
+    // Hearts
     int mh = max_hearts > MAX_HEART_ICONS ? MAX_HEART_ICONS : max_hearts;
     for (int i = 0; i < MAX_HEART_ICONS; i++)
     {
@@ -129,65 +164,61 @@ void ui_target_game_update(ui_target_game_t* w,
             lv_obj_add_flag(w->hearts[i], LV_OBJ_FLAG_HIDDEN);
     }
 
-    // Row 3: P:D IDs + RSSI
-    snprintf(buf, sizeof(buf), "P:%d D:%d", player_id, device_id);
-    lv_label_set_text(w->ids, buf);
+    // Deaths
+    snprintf(buf, sizeof(buf), "D:%d", deaths);
+    lv_label_set_text(w->deaths, buf);
 
-    snprintf(buf, sizeof(buf), "%d", rssi);
-    lv_label_set_text(w->rssi, buf);
+    // Status line
+    lv_label_set_text(w->status, device_name ? device_name : "Ready");
 }
 
 // ======================================================================
 // Weapon Idle Dashboard
-// Layout: 128x32
-//   y=0  (8pt)  : WiFi WS  P:1 D:42  -65
-//   y=8  (16pt) :         12           (big ammo count)
-//   y=25 (8pt)  :        AMMO
+// Layout: 128x32 (shared status bar + role content)
+//   y=0  (10pt) : WiFi WS  P:1 D:42  -65    (status bar)
+//   y=~8 (16pt) :         24                  (big ammo count)
+//   y=~22(10pt) : K:3                  S:47   (kills + shots)
 // ======================================================================
 
 void ui_weapon_idle_create(ui_weapon_idle_t* w, lv_obj_t* scr)
 {
-    w->conn       = make_label(scr, &lv_font_montserrat_10, LV_ALIGN_TOP_LEFT,   1, 0);
-    w->ids        = make_label(scr, &lv_font_montserrat_10, LV_ALIGN_TOP_MID,    0, 0);
-    w->rssi       = make_label(scr, &lv_font_montserrat_10, LV_ALIGN_TOP_RIGHT, -1, 0);
-    w->ammo_value = make_label(scr, &lv_font_montserrat_16, LV_ALIGN_CENTER,     0, -2);
-    w->ammo_label = make_label(scr, &lv_font_montserrat_10, LV_ALIGN_BOTTOM_MID, 0, -1);
+    ui_status_bar_create(&w->bar, scr);
+
+    w->ammo_value = make_label(scr, &lv_font_montserrat_16, LV_ALIGN_CENTER,      0, -2);
+    w->kills      = make_label(scr, &lv_font_montserrat_10, LV_ALIGN_BOTTOM_LEFT,  1, -1);
+    w->shots      = make_label(scr, &lv_font_montserrat_10, LV_ALIGN_BOTTOM_RIGHT,-1, -1);
 }
 
 void ui_weapon_idle_show(ui_weapon_idle_t* w)
 {
-    show(w->conn); show(w->ids); show(w->rssi);
-    show(w->ammo_value); show(w->ammo_label);
+    ui_status_bar_show(&w->bar);
+    show(w->ammo_value); show(w->kills); show(w->shots);
 }
 
 void ui_weapon_idle_hide(ui_weapon_idle_t* w)
 {
-    hide(w->conn); hide(w->ids); hide(w->rssi);
-    hide(w->ammo_value); hide(w->ammo_label);
+    ui_status_bar_hide(&w->bar);
+    hide(w->ammo_value); hide(w->kills); hide(w->shots);
 }
 
 void ui_weapon_idle_update(ui_weapon_idle_t* w,
                            int ammo,
                            bool wifi, bool ws, int rssi,
-                           int player_id, int device_id)
+                           int player_id, int device_id,
+                           int kills, int shots)
 {
     char buf[32];
 
-    snprintf(buf, sizeof(buf), "%s%s",
-             wifi ? LV_SYMBOL_WIFI : LV_SYMBOL_WARNING,
-             ws   ? LV_SYMBOL_OK   : LV_SYMBOL_CLOSE);
-    lv_label_set_text(w->conn, buf);
-
-    snprintf(buf, sizeof(buf), "P:%d D:%d", player_id, device_id);
-    lv_label_set_text(w->ids, buf);
-
-    snprintf(buf, sizeof(buf), "%d", rssi);
-    lv_label_set_text(w->rssi, buf);
+    ui_status_bar_update(&w->bar, wifi, ws, rssi, player_id, device_id);
 
     snprintf(buf, sizeof(buf), "%d", ammo);
     lv_label_set_text(w->ammo_value, buf);
 
-    lv_label_set_text(w->ammo_label, "AMMO");
+    snprintf(buf, sizeof(buf), "K:%d", kills);
+    lv_label_set_text(w->kills, buf);
+
+    snprintf(buf, sizeof(buf), "S:%d", shots);
+    lv_label_set_text(w->shots, buf);
 }
 
 // ======================================================================

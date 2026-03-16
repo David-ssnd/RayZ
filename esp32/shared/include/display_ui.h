@@ -12,26 +12,32 @@ extern "C"
     // Widget groups for each screen — 128x32 monochrome OLED
     // ======================================================================
 
-    // Target game dashboard: hearts + IDs, wifi + name + RSSI
+    // Shared status bar — reused by target and weapon dashboards
+    typedef struct
+    {
+        lv_obj_t* conn;   // WiFi+WS icons     y=0 left   10pt
+        lv_obj_t* ids;    // "P:X D:X"         y=0 center 10pt
+        lv_obj_t* rssi;   // Signal strength   y=0 right  10pt
+    } ui_status_bar_t;
+
+    // Target game dashboard: status bar + hearts + deaths + name
     #define MAX_HEART_ICONS 5
 
     typedef struct
     {
-        lv_obj_t* name;                    // Device name       row1 center 10pt
-        lv_obj_t* hearts[MAX_HEART_ICONS]; // Heart indicators  row2 left   5x5px
-        lv_obj_t* conn;                    // WiFi+WS icons     row2 right  10pt
-        lv_obj_t* ids;                     // "P:1 D:42"        row3 left   10pt
-        lv_obj_t* rssi;                    // "-65"             row3 right  10pt
+        ui_status_bar_t bar;               // Shared status bar
+        lv_obj_t* hearts[MAX_HEART_ICONS]; // Heart indicators  y=14 left  5x5px
+        lv_obj_t* deaths;                  // "D:2"             y=11 right 10pt
+        lv_obj_t* status;                  // Player name/Ready y=22 center 10pt
     } ui_target_game_t;
 
-    // Weapon idle dashboard: big ammo count hero
+    // Weapon idle dashboard: status bar + big ammo + kills/shots
     typedef struct
     {
-        lv_obj_t* conn;        // WiFi+WS icons     top-left  8pt
-        lv_obj_t* ids;         // "P:1 D:42"        top-center 8pt
-        lv_obj_t* rssi;        // "-65"              top-right 8pt
-        lv_obj_t* ammo_value;  // "12"               center 16pt
-        lv_obj_t* ammo_label;  // "AMMO"             bottom-center 8pt
+        ui_status_bar_t bar;       // Shared status bar
+        lv_obj_t* ammo_value;      // Big ammo count  center 16pt
+        lv_obj_t* kills;           // "K:X"           bottom-left  10pt
+        lv_obj_t* shots;           // "S:X"           bottom-right 10pt
     } ui_weapon_idle_t;
 
     // Respawn countdown (target only)
@@ -72,6 +78,16 @@ extern "C"
         lv_obj_t* line2;       // Secondary text     10pt black
         bool visible;
     } ui_alert_t;
+
+    // ======================================================================
+    // Status Bar — shared component
+    // ======================================================================
+
+    void ui_status_bar_create(ui_status_bar_t* bar, lv_obj_t* scr);
+    void ui_status_bar_show(ui_status_bar_t* bar);
+    void ui_status_bar_hide(ui_status_bar_t* bar);
+    void ui_status_bar_update(ui_status_bar_t* bar, bool wifi, bool ws,
+                              int rssi, int player_id, int device_id);
 
     // ======================================================================
     // Creation — call once at init, widgets hidden by default
@@ -118,12 +134,14 @@ extern "C"
                                int hearts, int max_hearts,
                                bool wifi, bool ws, int rssi,
                                int player_id, int device_id,
-                               const char* device_name);
+                               const char* device_name,
+                               int deaths);
 
     void ui_weapon_idle_update(ui_weapon_idle_t* w,
                                int ammo,
                                bool wifi, bool ws, int rssi,
-                               int player_id, int device_id);
+                               int player_id, int device_id,
+                               int kills, int shots);
 
     void ui_respawn_update(ui_respawn_t* w,
                            uint32_t remaining_ms, uint32_t total_ms,
