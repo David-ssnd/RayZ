@@ -11,6 +11,7 @@
 #include <freertos/task.h>
 #include <esp_adc/adc_oneshot.h>
 #include <esp_timer.h>
+#include <esp_task_wdt.h>
 #include <esp_log.h>
 #include <stdio.h>
 #include <string.h>
@@ -86,6 +87,9 @@ static void print_binary(uint32_t val, int bits, char* buf)
 // ── Main sampling task ──────────────────────────────────────────────
 static void photodiode_test_task(void* pv)
 {
+    // Subscribe this task to the watchdog so we can feed it
+    esp_task_wdt_add(NULL);
+
     float sample_buf[SAMPLES_PER_BIT];
     int   sample_idx = 0;
 
@@ -100,8 +104,12 @@ static void photodiode_test_task(void* pv)
 
     while (true)
     {
+        // Sleep 1 tick between spins to feed IDLE watchdog
+        int64_t now = esp_timer_get_time();
+        if (next_us - now > 1000)
+            vTaskDelay(1);
         while (esp_timer_get_time() < next_us)
-            portYIELD();
+            ;  // final µs-precise spin
         next_us += SAMPLE_INTERVAL_MS * 1000;
 
         int raw;
@@ -171,6 +179,8 @@ static void photodiode_test_task(void* pv)
                        valid ? "OK " : "BAD",
                        msg_v_avg, msg_v_min, msg_v_max,
                        s_dyn_threshold, sig);
+
+                esp_task_wdt_reset();
 
                 // Reset for next message
                 message   = 0;
