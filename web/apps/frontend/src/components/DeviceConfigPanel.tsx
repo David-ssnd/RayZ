@@ -66,9 +66,9 @@ export function DeviceConfigPanel({ project }: DeviceConfigPanelProps) {
     // Build full configuration
     const config = {
       deviceName: device.name || `Device ${device.id}`,
-      deviceId: parseInt(device.id) || 0,
-      playerId: player?.id ? parseInt(player.id) : undefined,
-      teamId: team?.id ? parseInt(team.id) : 0,
+      deviceId: device.deviceId ?? 0,
+      playerId: player?.number ?? undefined,
+      teamId: team?.number ?? 0,
       colorRgb: team?.color ? parseInt(team.color.replace('#', ''), 16) : 0xFFFFFF,
       
       // Win conditions

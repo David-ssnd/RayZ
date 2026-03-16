@@ -10,12 +10,15 @@
 #define TRANSMISSION_PAUSE_MS 100
 #define COMMUNICATION_TIMEOUT_MS 5000
 
-// Message structure
-#define MESSAGE_TOTAL_BITS 16
-#define MESSAGE_DATA_BITS 16
-#define MESSAGE_HASH_BITS 5
+// Message structure — 32-bit: [8-bit player][8-bit device][8-bit p_hash][8-bit d_hash]
+#define MESSAGE_TOTAL_BITS 32
+#define MESSAGE_DATA_BITS 32
+#define MESSAGE_HASH_BITS 8
 #define PLAYER_ID_BITS 5
 #define DEVICE_ID_BITS 6
+
+#define MAX_PLAYER_ID ((1 << PLAYER_ID_BITS) - 1) // 31
+#define MAX_DEVICE_ID ((1 << DEVICE_ID_BITS) - 1) // 63
 
 // Buffers
 #define PHOTODIODE_BUFFER_SIZE MESSAGE_TOTAL_BITS
@@ -28,10 +31,10 @@
 #define HASH_OFFSET 1
 
 // Threshold weights
-#define THRESHOLD_MIN_WEIGHT 0.98f
-#define THRESHOLD_NEW_WEIGHT 0.02f
-#define THRESHOLD_SMOOTH_OLD 0.7f
-#define THRESHOLD_SMOOTH_NEW 0.3f
+#define THRESHOLD_MIN_WEIGHT 0.95f
+#define THRESHOLD_NEW_WEIGHT 0.05f
+#define THRESHOLD_SMOOTH_OLD 0.5f
+#define THRESHOLD_SMOOTH_NEW 0.5f
 
 // BLE
 #define BLE_RECONNECT_DELAY_MS 500

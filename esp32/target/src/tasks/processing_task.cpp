@@ -76,6 +76,25 @@ extern "C" void processing_task(void* pvParameters)
         confirm_count = 0;
         last_valid_msg = 0;
 
+        // Self-hit check: ignore hits from own player_id
+        if (rx_player == config->player_id)
+        {
+            ESP_LOGD(TAG, "Ignoring self-hit from P:%u", rx_player);
+            continue;
+        }
+
+        // Roster filter: when connected to server with an active roster,
+        // only accept hits from known players. When offline, accept all.
+        if (ws_server_is_connected() && game_state_get_player_count() > 0)
+        {
+            if (game_state_get_player_name(rx_player) == NULL)
+            {
+                ESP_LOGW(TAG, "Ignoring hit from unknown player P:%u D:%u (not in roster)",
+                         rx_player, rx_device);
+                continue;
+            }
+        }
+
         ESP_LOGI(TAG, "HIT CONFIRMED: Player %u | Device %u", rx_player, rx_device);
 
         gpio_set_level((gpio_num_t)VIBRATION_PIN, 1);

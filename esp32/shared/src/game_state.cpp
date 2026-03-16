@@ -7,6 +7,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
 #include "nvs_store.h"
+#include "protocol_config.h"
 
 static const char* TAG = "game_state";
 
@@ -85,11 +86,15 @@ bool game_state_load_ids(void)
     if (nvs_store_read_u8(NVS_GAME_NS, NVS_KEY_DEVICE_ID, &id))
     {
         s_config.device_id = id;
+        if (s_config.device_id > MAX_DEVICE_ID)
+            s_config.device_id = 0; // Will be regenerated
         loaded = true;
     }
     if (nvs_store_read_u8(NVS_GAME_NS, NVS_KEY_PLAYER_ID, &id))
     {
         s_config.player_id = id;
+        if (s_config.player_id > MAX_PLAYER_ID)
+            s_config.player_id = 0; // Will be regenerated
     }
     if (nvs_store_read_u8(NVS_GAME_NS, NVS_KEY_TEAM_ID, &id))
     {
@@ -116,6 +121,8 @@ bool game_state_load_ids(void)
 bool game_state_save_ids(void)
 {
     LOCK();
+    s_config.device_id &= MAX_DEVICE_ID;
+    s_config.player_id &= MAX_PLAYER_ID;
     bool ok = true;
     ok &= nvs_store_write_u8(NVS_GAME_NS, NVS_KEY_DEVICE_ID, s_config.device_id);
     ok &= nvs_store_write_u8(NVS_GAME_NS, NVS_KEY_PLAYER_ID, s_config.player_id);
@@ -135,10 +142,10 @@ bool game_state_save_ids(void)
 void game_state_generate_ids(void)
 {
     LOCK();
-    if (s_config.device_id == 0)
-        s_config.device_id = rand_u8();
-    if (s_config.player_id == 0)
-        s_config.player_id = s_config.device_id;
+    if (s_config.device_id == 0 || s_config.device_id > MAX_DEVICE_ID)
+        s_config.device_id = (rand_u8() % MAX_DEVICE_ID) + 1;
+    if (s_config.player_id == 0 || s_config.player_id > MAX_PLAYER_ID)
+        s_config.player_id = (s_config.device_id % MAX_PLAYER_ID) + 1;
     UNLOCK();
 }
 
@@ -749,4 +756,12 @@ const char* game_state_get_player_name(uint8_t player_id)
     }
     UNLOCK();
     return NULL;
+}
+
+int game_state_get_player_count(void)
+{
+    LOCK();
+    int count = s_player_count;
+    UNLOCK();
+    return count;
 }

@@ -4,22 +4,29 @@ import { useEffect, useRef } from 'react'
 import { Wifi, WifiOff, Radio, CheckCircle2 } from 'lucide-react'
 import { useDeviceDiscovery, type DiscoveredDevice } from './use-device-discovery'
 import { addDevice } from './actions'
+import { addDeviceToProject } from '@/features/projects/actions'
 
-export function DiscoveryPanel({ className }: { className?: string }) {
+export function DiscoveryPanel({ className, projectId }: { className?: string; projectId?: string }) {
   const { devices, connected, error } = useDeviceDiscovery()
   const registeredRef = useRef<Set<string>>(new Set())
 
-  // Auto-register discovered devices to DB
+  // Auto-register discovered devices to DB and optionally add to active project
   useEffect(() => {
     for (const device of devices) {
       if (device.deviceId != null && !registeredRef.current.has(device.ip)) {
         registeredRef.current.add(device.ip)
-        addDevice(device.ip, device.deviceId, device.role, device.hostname, device.version).catch(
-          (err) => console.error('[Discovery] Failed to register device:', err)
-        )
+        addDevice(device.ip, device.deviceId, device.role, device.hostname, device.version)
+          .then((res) => {
+            if (projectId && res?.success && res?.device) {
+              addDeviceToProject(projectId, res.device.id).catch((err) =>
+                console.error('[Discovery] Failed to add device to project:', err)
+              )
+            }
+          })
+          .catch((err) => console.error('[Discovery] Failed to register device:', err))
       }
     }
-  }, [devices])
+  }, [devices, projectId])
 
   const connectedDevices = devices.filter((d) => d.connected)
 

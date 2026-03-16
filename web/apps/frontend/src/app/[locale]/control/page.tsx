@@ -1,5 +1,4 @@
 import type { Metadata } from 'next'
-import { getDevices } from '@/features/devices/actions'
 import { getGameModes, getProjects } from '@/features/projects/actions'
 import { getTranslations } from 'next-intl/server'
 
@@ -27,11 +26,10 @@ export default async function ControlPanelPage({
   const { locale } = await params
   const t = await getTranslations({ locale, namespace: 'Control' })
 
-  const devices = await getDevices()
   const projects = await getProjects()
   const gameModes = await getGameModes()
 
   return (
-    <ProjectManagerClient projects={projects} availableDevices={devices} gameModes={gameModes} />
+    <ProjectManagerClient projects={projects} gameModes={gameModes} />
   )
 }

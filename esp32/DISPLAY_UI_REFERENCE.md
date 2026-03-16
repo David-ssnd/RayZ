@@ -15,9 +15,10 @@ ui_target_game_show(&w);          // Show all widgets
 ui_target_game_hide(&w);          // Hide all widgets
 ui_target_game_update(&w,
     hearts, max_hearts,           // Health 3/5
-    score, deaths,                // S:15 D:3
     wifi, ws, rssi,               // Connectivity
-    player_id, device_id);        // P:1 D:42
+    player_id, device_id,         // P:1 D:42
+    device_name,                  // Player name or "Ready"
+    deaths);                      // Death count
 ```
 
 ### `ui_weapon_idle_t` — Weapon Dashboard
@@ -30,7 +31,8 @@ ui_weapon_idle_hide(&w);
 ui_weapon_idle_update(&w,
     ammo,                         // Big number centre
     wifi, ws, rssi,
-    player_id, device_id);
+    player_id, device_id,
+    kills, shots);                // K:3 S:47
 ```
 
 ### `ui_respawn_t` — Respawn Countdown

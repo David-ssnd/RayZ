@@ -10,6 +10,7 @@
 #include "game_protocol.h"
 #include "game_state.h"
 #include "gpio_init.h"
+#include "mdns_service.h"
 #include "runtime_metrics.h"
 #include "task_shared.h"
 #include "tasks.h"
@@ -21,6 +22,28 @@ static const char* TAG = "Target";
 static bool is_ws_connected(void)
 {
     return ws_server_client_count() > 0;
+}
+
+// Wait for WiFi then start mDNS — avoids race with async wifi_manager_init
+static void mdns_start_task(void* pv)
+{
+    const char* role = (const char*)pv;
+    while (!wifi_manager_is_connected())
+    {
+        vTaskDelay(pdMS_TO_TICKS(500));
+    }
+    vTaskDelay(pdMS_TO_TICKS(1000));
+
+    const DeviceConfig* config = game_state_get_config();
+    if (mdns_service_init(role, config->device_id, config->player_id, 80))
+    {
+        ESP_LOGI("mDNS", "Service started for auto-discovery (%s)", role);
+    }
+    else
+    {
+        ESP_LOGW("mDNS", "Service failed to start (continuing without discovery)");
+    }
+    vTaskDelete(NULL);
 }
 
 // Runtime reset button monitor — posts display events with progress
@@ -150,15 +173,8 @@ extern "C" void app_main(void)
 
     debug_print_nvs_contents();
 
-    // mDNS service for auto-discovery (requires mdns managed component)
-    // const DeviceConfig* config = game_state_get_config();
-    // if (wifi_manager_is_connected()) {
-    //     if (mdns_service_init("target", config->device_id, config->player_id, 80)) {
-    //         ESP_LOGI(TAG, "mDNS service started for auto-discovery");
-    //     } else {
-    //         ESP_LOGW(TAG, "mDNS service failed to start (continuing without discovery)");
-    //     }
-    // }
+    // mDNS service for auto-discovery (started after WiFi connects)
+    xTaskCreate(mdns_start_task, "mdns_init", 4096, (void*)"target", 1, NULL);
 
     ESP_LOGI(TAG, "Target device ready");
 

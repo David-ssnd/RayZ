@@ -51,8 +51,8 @@
         "fields": [
           { "name": "reset_to_defaults", "type": "bool", "required": false },
           { "name": "device_name", "type": "string", "required": false },
-          { "name": "device_id", "type": "uint32_t", "required": false },
-          { "name": "player_id", "type": "uint32_t", "required": false },
+          { "name": "device_id", "type": "uint8_t", "required": false, "min": 0, "max": 63, "note": "6-bit IR protocol limit" },
+          { "name": "player_id", "type": "uint8_t", "required": false, "min": 0, "max": 31, "note": "5-bit IR protocol limit" },
           { "name": "team_id", "type": "uint32_t", "required": false },
           { "name": "color_rgb", "type": "uint32_t", "required": false },
           { "name": "ir_power", "type": "uint8_t", "required": false },
@@ -84,7 +84,7 @@
         "name": "HitForward",
         "opcode": "HIT_FORWARD",
         "fields": [
-          { "name": "shooter_id", "type": "uint32_t", "required": true }
+          { "name": "shooter_id", "type": "uint8_t", "required": true, "min": 0, "max": 31, "note": "Player ID, 5-bit IR protocol limit" }
         ]
       },
       {
@@ -104,8 +104,8 @@
         "opcode": "STATUS",
         "fields": [
           { "name": "uptime_ms", "type": "uint32_t", "required": true },
-          { "name": "config.device_id", "type": "uint32_t", "required": true },
-          { "name": "config.player_id", "type": "uint32_t", "required": true },
+          { "name": "config.device_id", "type": "uint8_t", "required": true, "min": 0, "max": 63, "note": "6-bit IR protocol limit" },
+          { "name": "config.player_id", "type": "uint8_t", "required": true, "min": 0, "max": 31, "note": "5-bit IR protocol limit" },
           { "name": "config.team_id", "type": "uint32_t", "required": true },
           { "name": "config.color_rgb", "type": "uint32_t", "required": true },
           { "name": "stats.shots", "type": "uint16_t", "required": true },
@@ -152,7 +152,7 @@
         "fields": [
           { "name": "timestamp_ms", "type": "uint32_t", "required": true },
           { "name": "seq_id", "type": "uint16_t", "required": true },
-          { "name": "shooter_id", "type": "uint32_t", "required": true },
+          { "name": "shooter_id", "type": "uint8_t", "required": true, "min": 0, "max": 31, "note": "Player ID, 5-bit IR protocol limit" },
           { "name": "damage", "type": "uint8_t", "required": true },
           { "name": "fatal", "type": "bool", "required": true }
         ]
@@ -192,6 +192,7 @@
     "All numeric timestamps are in milliseconds",
     "RGB color is stored as 0xRRGGBB",
     "RSSI is in dBm (typically -30 to -90)",
-    "Battery voltage is in millivolts"
+    "Battery voltage is in millivolts",
+    "Player ID is limited to 0-31 (5-bit) and Device ID to 0-63 (6-bit) by the IR laser protocol"
   ]
 }

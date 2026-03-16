@@ -47,11 +47,11 @@ function CommDemoContent() {
 
   useEffect(() => {
     const unsubscribe = onMessage('*', (message: ServerMessage, fromDevice: string) => {
-      const line = `${new Date().toLocaleTimeString()} [${fromDevice}] op=${message.op ?? message.type}`
+      const line = `${new Date().toLocaleTimeString()} [${fromDevice}] op=${message.op ?? (message as any).type}`
       setLog((prev) => [line, ...prev].slice(0, 100))
 
       // Measure latency from status response
-      if (pingStart && (message.type === 'status' || message.op === OpCode.STATUS)) {
+      if (pingStart && ((message as any).type === 'status' || message.op === OpCode.STATUS)) {
         setPingLatency(Date.now() - pingStart)
         setPingStart(null)
       }

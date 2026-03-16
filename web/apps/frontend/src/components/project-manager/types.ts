@@ -1,6 +1,5 @@
 import type {
   ConnectionState,
-  DeviceRole,
   DeviceState,
   GameState,
   GameMode as WSGameMode,
@@ -16,7 +15,9 @@ import {
 
 export const DEFAULT_PLAYER_ID = 10
 export const MIN_PLAYER_ID = 0
-export const MAX_PLAYER_ID = 255
+export const MAX_PLAYER_ID = 31
+export const MIN_DEVICE_ID = 1
+export const MAX_DEVICE_ID = 63
 
 export type Project = PrismaProject & {
   devices: Device[]
@@ -32,11 +33,10 @@ export type Player = PrismaPlayer & {
 }
 
 export type Device = PrismaDevice & {
-  role?: DeviceRole
   state?: DeviceState
   connectionState?: ConnectionState
 }
 
 export type GameMode = PrismaGameMode
 
-export type { ConnectionState, DeviceRole, DeviceState, GameState, WSGameMode }
+export type { ConnectionState, DeviceState, GameState, WSGameMode }

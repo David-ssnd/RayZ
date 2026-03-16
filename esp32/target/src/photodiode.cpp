@@ -129,14 +129,17 @@ uint32_t Photodiode::convertToBits()
         return 0;
     }
 
+    sampleBufferFull = false;
+
     uint32_t result = 0;
     float threshold = dynamicThreshold;
 
     // Lock buffer for thread safety
     if (xSemaphoreTake(bufferMutex, portMAX_DELAY) == pdTRUE)
     {
-        int start = bitHead; // Read from current head position
-        for (int i = 0; i < MESSAGE_TOTAL_BITS; i++)
+        int start = bufferFull ? bitHead : 0;
+        int count = bufferFull ? PHOTODIODE_BUFFER_SIZE : bitCount;
+        for (int i = 0; i < count; i++)
         {
             result <<= 1;
             int idx = (start + i) % PHOTODIODE_BUFFER_SIZE;
@@ -148,7 +151,7 @@ uint32_t Photodiode::convertToBits()
         xSemaphoreGive(bufferMutex);
     }
 
-    return result & 0xFFFF; // Return only 16 bits
+    return result;
 }
 
 float Photodiode::getDynamicThreshold()

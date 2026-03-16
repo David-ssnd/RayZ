@@ -9,6 +9,7 @@
 #include <sys/socket.h>
 #include "game_state.h"
 #include "espnow_comm.h"
+#include "protocol_config.h"
 
 static const char* TAG = "WsServer";
 
@@ -150,10 +151,10 @@ static void handle_config_update(cJSON* root)
     // Identity
     item = cJSON_GetObjectItem(root, "device_id");
     if (item && !cJSON_IsNull(item))
-        dev->device_id = item->valueint;
+        dev->device_id = item->valueint & MAX_DEVICE_ID;
     item = cJSON_GetObjectItem(root, "player_id");
     if (item && !cJSON_IsNull(item))
-        dev->player_id = item->valueint;
+        dev->player_id = item->valueint & MAX_PLAYER_ID;
     item = cJSON_GetObjectItem(root, "team_id");
     if (item && !cJSON_IsNull(item))
         dev->team_id = item->valueint;

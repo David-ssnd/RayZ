@@ -128,63 +128,176 @@
   },
   "TechStack": {
     "title": "Technology Stack",
-    "description": "Tools and technologies powering the RayZ project",
+    "description": "The complete toolkit powering the RayZ laser tag system — from embedded firmware to real-time web",
     "metaTitle": "Technology Stack",
-    "metaDescription": "Technology stack and architecture overview",
-    "currentStack": "Current Stack",
-    "futureStack": "Future Stack",
-    "items": {
-      "github": {
-        "name": "GitHub",
-        "description": "Platform for version control and collaboration"
+    "metaDescription": "Complete technology stack and architecture overview of the RayZ laser tag system",
+    "hero": {
+      "title": "Built for Real-time Laser Tag",
+      "description": "RayZ is a full-stack IoT laser tag system combining ESP32 embedded devices with a modern web platform. From custom firmware running FreeRTOS to a Next.js dashboard with live WebSocket communication — every layer is purpose-built for competitive, real-time gameplay.",
+      "tagWeb": "Web Platform",
+      "tagHardware": "Embedded IoT",
+      "tagRealtime": "Real-time Protocol",
+      "tagFullstack": "Full-stack",
+      "techCount": "{count} technologies"
+    },
+    "sections": {
+      "webFrontend": {
+        "title": "Web & Frontend",
+        "description": "Modern React-based web platform with server-side rendering and internationalization"
       },
+      "backendData": {
+        "title": "Backend & Data",
+        "description": "Server-side logic, authentication, and dual-mode database architecture"
+      },
+      "communication": {
+        "title": "Real-time & Protocol",
+        "description": "WebSocket-based communication layer connecting the web dashboard to ESP32 hardware"
+      },
+      "hardware": {
+        "title": "Hardware & Firmware",
+        "description": "Custom embedded firmware for ESP32 target and weapon devices"
+      },
+      "devops": {
+        "title": "DevOps & Tooling",
+        "description": "Build pipeline, monorepo management, code quality, and CI/CD"
+      }
+    },
+    "items": {
       "nextjs": {
         "name": "Next.js",
-        "description": "React framework for web applications"
+        "description": "React meta-framework with App Router for server-rendered pages and API routes"
+      },
+      "react": {
+        "name": "React",
+        "description": "UI library (v19) powering the interactive dashboard and game controls"
       },
       "typescript": {
         "name": "TypeScript",
-        "description": "Type-safe JavaScript"
+        "description": "Strict type safety across the entire web stack and shared protocol types"
       },
       "tailwind": {
         "name": "Tailwind CSS",
-        "description": "Utility-first CSS framework"
+        "description": "Utility-first CSS framework for rapid, consistent UI development"
       },
       "shadcn": {
         "name": "shadcn/ui",
-        "description": "Modern UI component library"
+        "description": "Accessible, customizable component library built on Radix UI primitives"
       },
-      "esp32": {
-        "name": "ESP32",
-        "description": "Microcontroller for IoT devices"
+      "radixui": {
+        "name": "Radix UI",
+        "description": "Headless UI primitives providing accessible, unstyled building blocks"
       },
-      "platformio": {
-        "name": "PlatformIO",
-        "description": "IDE for embedded development"
+      "lucide": {
+        "name": "Lucide React",
+        "description": "Beautiful, consistent icon library used throughout the interface"
       },
-      "freertos": {
-        "name": "FreeRTOS",
-        "description": "Real-time operating system for microcontrollers"
+      "nextintl": {
+        "name": "next-intl",
+        "description": "Internationalization framework supporting English and Slovak locales"
+      },
+      "nextthemes": {
+        "name": "next-themes",
+        "description": "Theme management with dark and light mode support"
+      },
+      "nodejs": {
+        "name": "Node.js",
+        "description": "JavaScript runtime powering the backend server and WebSocket bridge"
+      },
+      "nextauth": {
+        "name": "NextAuth.js",
+        "description": "Authentication with Google, GitHub OAuth and credential-based sign-in"
       },
       "prisma": {
         "name": "Prisma",
-        "description": "Next-generation ORM"
+        "description": "Type-safe ORM with dual schema support for local and cloud deployments"
       },
       "postgresql": {
         "name": "PostgreSQL",
-        "description": "Relational database"
+        "description": "Cloud relational database via Neon serverless for production deployment"
       },
-      "jest": {
-        "name": "Jest",
-        "description": "JavaScript testing framework"
+      "sqlite": {
+        "name": "SQLite",
+        "description": "Lightweight local database via LibSQL for development and offline mode"
       },
-      "cicd": {
-        "name": "CI/CD",
-        "description": "Continuous integration and deployment"
+      "zod": {
+        "name": "Zod",
+        "description": "TypeScript-first schema validation for API inputs and form data"
+      },
+      "websocket": {
+        "name": "WebSocket",
+        "description": "Real-time bidirectional communication between the web UI and ESP32 devices"
+      },
+      "msgpack": {
+        "name": "MessagePack",
+        "description": "Binary serialization protocol for efficient device-to-server messaging"
+      },
+      "mdns": {
+        "name": "mDNS / Bonjour",
+        "description": "Zero-config network discovery for automatic local device detection"
+      },
+      "openapi": {
+        "name": "OpenAPI",
+        "description": "API specification with Swagger UI for interactive documentation"
+      },
+      "esp32": {
+        "name": "ESP32",
+        "description": "Dual-core microcontroller (ESP32, ESP32-C3, ESP32-S3) for target and weapon devices"
+      },
+      "espidf": {
+        "name": "ESP-IDF",
+        "description": "Espressif's official IoT Development Framework for low-level hardware control"
+      },
+      "freertos": {
+        "name": "FreeRTOS",
+        "description": "Real-time operating system for concurrent task management on embedded devices"
+      },
+      "platformio": {
+        "name": "PlatformIO",
+        "description": "Professional embedded development platform for building and flashing firmware"
+      },
+      "lvgl": {
+        "name": "LVGL",
+        "description": "Embedded graphics library driving the OLED display UI on target devices"
+      },
+      "cplusplus": {
+        "name": "C / C++",
+        "description": "Systems programming languages for performance-critical firmware logic"
+      },
+      "turborepo": {
+        "name": "Turborepo",
+        "description": "High-performance monorepo build system with intelligent caching"
+      },
+      "pnpm": {
+        "name": "pnpm",
+        "description": "Fast, disk-efficient package manager for the web monorepo workspace"
+      },
+      "docker": {
+        "name": "Docker",
+        "description": "Containerized deployment with multi-stage builds for local and production"
+      },
+      "githubactions": {
+        "name": "GitHub Actions",
+        "description": "CI/CD pipeline running web lint/build and ESP32 firmware compilation on every push"
+      },
+      "github": {
+        "name": "GitHub",
+        "description": "Source control, code review, and project management with submodule workflows"
+      },
+      "eslint": {
+        "name": "ESLint",
+        "description": "JavaScript/TypeScript linting with shared workspace configuration"
+      },
+      "prettier": {
+        "name": "Prettier",
+        "description": "Opinionated code formatter with import sorting for consistent style"
       },
       "clangformat": {
-        "name": "clang-format",
-        "description": "Code formatter for C/C++"
+        "name": "Clang-Format",
+        "description": "C/C++ code formatter enforcing Allman brace style for firmware consistency"
+      },
+      "playwright": {
+        "name": "Playwright",
+        "description": "End-to-end browser testing framework for UI verification"
       }
     },
     "badges": {
@@ -192,7 +305,8 @@
       "backend": "Backend",
       "hardware": "Hardware",
       "development": "Development",
-      "database": "Database"
+      "database": "Database",
+      "protocol": "Protocol"
     }
   },
   "WSDemo": {

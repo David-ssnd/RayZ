@@ -24,6 +24,28 @@ static bool is_ws_connected(void)
     return ws_server_client_count() > 0;
 }
 
+// Wait for WiFi then start mDNS — avoids race with async wifi_manager_init
+static void mdns_start_task(void* pv)
+{
+    const char* role = (const char*)pv;
+    while (!wifi_manager_is_connected())
+    {
+        vTaskDelay(pdMS_TO_TICKS(500));
+    }
+    vTaskDelay(pdMS_TO_TICKS(1000));
+
+    const DeviceConfig* config = game_state_get_config();
+    if (mdns_service_init(role, config->device_id, config->player_id, 80))
+    {
+        ESP_LOGI("mDNS", "Service started for auto-discovery (%s)", role);
+    }
+    else
+    {
+        ESP_LOGW("mDNS", "Service failed to start (continuing without discovery)");
+    }
+    vTaskDelete(NULL);
+}
+
 extern "C" void app_main(void)
 {
     vTaskDelay(pdMS_TO_TICKS(500));
@@ -86,16 +108,6 @@ extern "C" void app_main(void)
 
     debug_print_nvs_contents();
 
-    // Start mDNS service for auto-discovery
-    const DeviceConfig* config = game_state_get_config();
-    if (wifi_manager_is_connected()) {
-        if (mdns_service_init("weapon", config->device_id, config->player_id, 80)) {
-            ESP_LOGI(TAG, "mDNS service started for auto-discovery");
-        } else {
-            ESP_LOGW(TAG, "mDNS service failed to start (continuing without discovery)");
-        }
-    }
-
     ESP_LOGI(TAG, "Weapon device ready");
     xTaskCreate(control_task, "control", 4096, NULL, 5, NULL);
     xTaskCreate(laser_task, "laser", 2048, NULL, 4, NULL);
@@ -103,5 +115,6 @@ extern "C" void app_main(void)
     xTaskCreate(espnow_task, "espnow", 4096, NULL, 3, NULL);
     xTaskCreate(wifi_task, "wifi", 4096, NULL, 1, NULL);
     xTaskCreate(ws_task, "websocket", 8192, NULL, 2, NULL);
+    xTaskCreate(mdns_start_task, "mdns_init", 4096, (void*)"weapon", 1, NULL);
     ESP_LOGI(TAG, "All tasks created");
 }

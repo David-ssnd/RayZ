@@ -3,22 +3,20 @@
 import { useTransition } from 'react'
 import { removeDeviceFromProject } from '@/features/projects/actions'
 import { DiscoveryPanel } from '@/features/devices/DiscoveryPanel'
-import { Trash2, Send, Loader2, CheckCircle2, Plus } from 'lucide-react'
+import { Trash2, Send, Loader2, CheckCircle2 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { useDeviceConfig } from '@/hooks/useDeviceConfig'
 
-import { AddDeviceDialog } from './AddDialogs'
 import { DeviceConnectionCard } from './DeviceConnectionCard'
 import { Device, Player, Project, Team } from './types'
 
 interface ProjectDeviceManagerInnerProps {
   project: Project
-  availableDevices: Device[]
   disabled?: boolean
 }
 
-function ProjectDeviceManagerInner({ project, availableDevices, disabled = false }: ProjectDeviceManagerInnerProps) {
+function ProjectDeviceManagerInner({ project, disabled = false }: ProjectDeviceManagerInnerProps) {
   const [isPending, startTransition] = useTransition()
   const { sendToDevice, getStatus } = useDeviceConfig(project)
 
@@ -43,25 +41,13 @@ function ProjectDeviceManagerInner({ project, availableDevices, disabled = false
 
   return (
     <div className="space-y-4">
-      <DiscoveryPanel />
+      <DiscoveryPanel projectId={project.id} />
 
       {disabled && (
         <div className="p-3 bg-muted rounded-md text-sm text-muted-foreground">
           Device management is disabled while the game is running.
         </div>
       )}
-
-      {/* Add Device Button → opens Dialog */}
-      <AddDeviceDialog
-        project={project}
-        availableDevices={availableDevices}
-        trigger={
-          <Button variant="outline" size="sm" disabled={disabled}>
-            <Plus className="w-4 h-4 mr-2" />
-            Add Device
-          </Button>
-        }
-      />
 
       {/* Device Cards Grid */}
       <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
@@ -74,11 +60,15 @@ function ProjectDeviceManagerInner({ project, availableDevices, disabled = false
             <div key={device.id} className="relative group">
               <DeviceConnectionCard
                 deviceId={device.id}
+                deviceNumericId={device.deviceId}
+                deviceRole={device.role}
                 ipAddress={device.ipAddress}
                 deviceName={device.name ?? device.role + ' ' + device.ipAddress}
                 assignedPlayer={assignedPlayer}
                 playerTeam={playerTeam}
                 teams={project.teams}
+                gameMode={project.gameMode}
+                allPlayers={project.players}
                 onRemove={() => handleRemoveDevice(device.id)}
               />
               <div className="absolute top-1 right-1 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -116,7 +106,7 @@ function ProjectDeviceManagerInner({ project, availableDevices, disabled = false
 
       {(!project.devices || project.devices.length === 0) && (
         <div className="text-sm text-muted-foreground text-center py-8 border rounded-md border-dashed">
-          No devices in this project. Devices are auto-discovered — add them from the inventory above.
+          No devices in this project. Devices are automatically added when discovered on the network.
         </div>
       )}
     </div>
@@ -125,12 +115,10 @@ function ProjectDeviceManagerInner({ project, availableDevices, disabled = false
 
 export function ProjectDeviceManager({
   project,
-  availableDevices,
   disabled = false,
 }: {
   project: Project
-  availableDevices: Device[]
   disabled?: boolean
 }) {
-  return <ProjectDeviceManagerInner project={project} availableDevices={availableDevices} disabled={disabled} />
+  return <ProjectDeviceManagerInner project={project} disabled={disabled} />
 }

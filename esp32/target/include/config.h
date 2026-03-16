@@ -1,8 +1,9 @@
 #ifndef CONFIG_H
 #define CONFIG_H
 
-#include "sdkconfig.h"
 #include "protocol_config.h"
+#include "sdkconfig.h"
+
 
 // Vibration
 #define VIBRATION_DURATION_MS 50
@@ -20,7 +21,7 @@
 // ESP32-S3 SuperMini
 #define I2C_SDA_PIN 8
 #define I2C_SCL_PIN 9
-#define PHOTODIODE_PIN 1
+#define PHOTODIODE_PIN 2
 #define PHOTODIODE_ADC_CHANNEL ADC_CHANNEL_0
 #define VIBRATION_PIN 3
 #define RESET_BUTTON_PIN 4

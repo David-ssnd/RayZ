@@ -13,6 +13,7 @@ import {
   Wand2,
 } from 'lucide-react'
 
+import { useDeviceConnections } from '@/lib/websocket'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -38,7 +39,8 @@ import { Separator } from '@/components/ui/separator'
 import { Switch } from '@/components/ui/switch'
 import { cn } from '@/lib/utils'
 
-import { GameMode } from './types'
+import { sendConfigToAffectedDevices } from './buildAssignmentConfig'
+import { GameMode, Project } from './types'
 
 type GameModeConfig = {
   durationSeconds: number
@@ -84,9 +86,11 @@ interface GameModeManagerProps {
   gameModes: GameMode[]
   onCreated: (mode: GameMode) => void
   disabled?: boolean
+  project?: Project
 }
 
-export function GameModeManager({ gameModes, onCreated, disabled = false }: GameModeManagerProps) {
+export function GameModeManager({ gameModes, onCreated, disabled = false, project }: GameModeManagerProps) {
+  const { connections } = useDeviceConnections()
   const systemModes = useMemo(
     () => gameModes.filter((mode) => mode.isSystem || mode.userId === null),
     [gameModes]
@@ -158,6 +162,15 @@ export function GameModeManager({ gameModes, onCreated, disabled = false }: Game
       if (result.success) {
         setSaveStatus('success')
         setTimeout(() => setSaveStatus('idle'), 2000)
+
+        // Send updated config to all assigned devices
+        if (project) {
+          const updatedProject = {
+            ...project,
+            gameMode: { ...selectedMode, ...config },
+          }
+          sendConfigToAffectedDevices(connections, updatedProject as Project)
+        }
       } else {
         setSaveStatus('error')
         setSaveMessage(result.error || 'Failed to save changes')

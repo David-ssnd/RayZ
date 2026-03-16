@@ -173,6 +173,41 @@ static void on_wifi_disconnect(void* arg, esp_event_base_t base, int32_t id, voi
             }
         }
 
+        // Mid-cycle: full WiFi driver reset with fresh NVS credentials
+        if (s_retry_count == 8)
+        {
+            ESP_LOGW(TAG, "Mid-cycle WiFi restart with fresh config from NVS...");
+            esp_wifi_disconnect();
+            esp_wifi_stop();
+            // Clear driver's internal cached state (PMK, BSSID, channel cache)
+            // This only clears the WiFi driver's own NVS namespace, NOT our credentials
+            esp_wifi_restore();
+            vTaskDelay(pdMS_TO_TICKS(2000));
+
+            char ssid[WIFI_MAX_SSID_LEN] = {0};
+            char pass[WIFI_MAX_PASS_LEN] = {0};
+            nvs_store_read_str(NVS_NS_WIFI, NVS_KEY_SSID, ssid, sizeof(ssid));
+            nvs_store_read_str(NVS_NS_WIFI, NVS_KEY_PASS, pass, sizeof(pass));
+
+            esp_wifi_set_mode(WIFI_MODE_STA);
+
+            wifi_config_t sta = {};
+            strncpy((char*)sta.sta.ssid, ssid, sizeof(sta.sta.ssid));
+            strncpy((char*)sta.sta.password, pass, sizeof(sta.sta.password));
+            sta.sta.threshold.authmode = WIFI_AUTH_OPEN;
+            sta.sta.pmf_cfg.capable = true;
+            sta.sta.pmf_cfg.required = false;
+            sta.sta.scan_method = WIFI_ALL_CHANNEL_SCAN;
+            sta.sta.sort_method = WIFI_CONNECT_AP_BY_SIGNAL;
+
+            esp_wifi_set_config(WIFI_IF_STA, &sta);
+            esp_wifi_start();
+            vTaskDelay(pdMS_TO_TICKS(1000));
+            esp_wifi_set_ps(WIFI_PS_NONE);
+            esp_wifi_connect();
+            return;
+        }
+
         // Exponential backoff: 1s, 2s, 3s, 5s, 5s, ...
         int backoff_ms = 1000;
         if (s_retry_count == 1)
@@ -202,26 +237,36 @@ static void on_wifi_disconnect(void* arg, esp_event_base_t base, int32_t id, voi
     }
     else
     {
-        ESP_LOGE(TAG, "WiFi connection failed after %d attempts, restarting...", MAX_RETRY_COUNT);
-
-        ESP_LOGW(TAG, "Restarting WiFi driver with relaxed config...");
+        // Full cycle exhausted — full driver reset with fresh config and keep trying
+        ESP_LOGW(TAG, "WiFi failed %d attempts, full driver reset and retrying...", MAX_RETRY_COUNT);
         esp_wifi_disconnect();
         esp_wifi_stop();
-        vTaskDelay(pdMS_TO_TICKS(2000));
+        // Clear driver's internal cached state (PMK, BSSID, channel cache)
+        // This only clears the WiFi driver's own NVS namespace, NOT our credentials
+        esp_wifi_restore();
+        vTaskDelay(pdMS_TO_TICKS(3000));
+
+        char ssid[WIFI_MAX_SSID_LEN] = {0};
+        char pass[WIFI_MAX_PASS_LEN] = {0};
+        nvs_store_read_str(NVS_NS_WIFI, NVS_KEY_SSID, ssid, sizeof(ssid));
+        nvs_store_read_str(NVS_NS_WIFI, NVS_KEY_PASS, pass, sizeof(pass));
+
+        esp_wifi_set_mode(WIFI_MODE_STA);
+
+        wifi_config_t sta = {};
+        strncpy((char*)sta.sta.ssid, ssid, sizeof(sta.sta.ssid));
+        strncpy((char*)sta.sta.password, pass, sizeof(sta.sta.password));
+        sta.sta.threshold.authmode = WIFI_AUTH_OPEN;
+        sta.sta.pmf_cfg.capable = true;
+        sta.sta.pmf_cfg.required = false;
+        sta.sta.scan_method = WIFI_ALL_CHANNEL_SCAN;
+        sta.sta.sort_method = WIFI_CONNECT_AP_BY_SIGNAL;
+
+        esp_wifi_set_config(WIFI_IF_STA, &sta);
         esp_wifi_start();
         vTaskDelay(pdMS_TO_TICKS(1000));
-
-        // After full failure cycle, relax auth and clear any BSSID lock
-        wifi_relax_auth_config();
-
         esp_wifi_set_ps(WIFI_PS_NONE);
-        esp_err_t rret = esp_wifi_connect();
-        if (rret != ESP_OK)
-        {
-            ESP_LOGE(TAG, "esp_wifi_connect after restart failed: %s, retrying...", esp_err_to_name(rret));
-            vTaskDelay(pdMS_TO_TICKS(2000));
-            esp_wifi_connect();
-        }
+        esp_wifi_connect();
         s_retry_count = 0;
     }
 }

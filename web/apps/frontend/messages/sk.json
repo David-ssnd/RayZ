@@ -128,63 +128,176 @@
   },
   "TechStack": {
     "title": "Použité technológie",
-    "description": "Hlavné technológie, ktoré stoja za projektom RayZ.",
+    "description": "Kompletná sada nástrojov, ktorá poháňa laser tag systém RayZ — od embedded firmvéru po real-time web",
     "metaTitle": "Použité technológie",
-    "metaDescription": "Prehľad technológií, ktoré tvoria základ projektu RayZ.",
-    "currentStack": "Aktuálne technológie",
-    "futureStack": "Plánované technológie",
-    "items": {
-      "github": {
-        "name": "GitHub",
-        "description": "Platforma pre verzionovanie a spoluprácu na kóde."
+    "metaDescription": "Kompletný prehľad technológií a architektúry laser tag systému RayZ",
+    "hero": {
+      "title": "Vytvorené pre real-time Laser Tag",
+      "description": "RayZ je full-stack IoT laser tag systém kombinujúci ESP32 embedded zariadenia s modernou webovou platformou. Od vlastného firmvéru bežiaceho na FreeRTOS po Next.js dashboard s live WebSocket komunikáciou — každá vrstva je navrhnutá pre kompetitívny, real-time gameplay.",
+      "tagWeb": "Webová platforma",
+      "tagHardware": "Embedded IoT",
+      "tagRealtime": "Real-time protokol",
+      "tagFullstack": "Full-stack",
+      "techCount": "{count} technológií"
+    },
+    "sections": {
+      "webFrontend": {
+        "title": "Web & Frontend",
+        "description": "Moderná React webová platforma so server-side renderingom a internacionalizáciou"
       },
+      "backendData": {
+        "title": "Backend & Dáta",
+        "description": "Serverová logika, autentifikácia a dvojrežimová databázová architektúra"
+      },
+      "communication": {
+        "title": "Real-time & Protokol",
+        "description": "WebSocket komunikačná vrstva prepájajúca webový dashboard s ESP32 hardvérom"
+      },
+      "hardware": {
+        "title": "Hardvér & Firmvér",
+        "description": "Vlastný embedded firmvér pre ESP32 cieľové a zbraňové zariadenia"
+      },
+      "devops": {
+        "title": "DevOps & Nástroje",
+        "description": "Build pipeline, správa monorepa, kvalita kódu a CI/CD"
+      }
+    },
+    "items": {
       "nextjs": {
         "name": "Next.js",
-        "description": "Moderný React framework pre rýchle webové aplikácie."
+        "description": "React meta-framework s App Routerom pre server-renderované stránky a API"
+      },
+      "react": {
+        "name": "React",
+        "description": "UI knižnica (v19) poháňajúca interaktívny dashboard a ovládanie hier"
       },
       "typescript": {
         "name": "TypeScript",
-        "description": "Bezpečný a prehľadný jazyk postavený na JavaScripte."
+        "description": "Striktná typová bezpečnosť naprieč celým web stackom a zdieľanými typmi"
       },
       "tailwind": {
         "name": "Tailwind CSS",
-        "description": "Flexibilný CSS framework založený na utilitách."
+        "description": "Utility-first CSS framework pre rýchly a konzistentný vývoj UI"
       },
       "shadcn": {
         "name": "shadcn/ui",
-        "description": "Moderná a prispôsobiteľná knižnica používateľských komponentov."
+        "description": "Prístupná, prispôsobiteľná knižnica komponentov postavená na Radix UI"
       },
-      "esp32": {
-        "name": "ESP32",
-        "description": "Výkonný mikrokontrolér pre IoT a embedded zariadenia."
+      "radixui": {
+        "name": "Radix UI",
+        "description": "Bezhlavé UI primitíva poskytujúce prístupné, nestylizované stavebné bloky"
       },
-      "platformio": {
-        "name": "PlatformIO",
-        "description": "Vývojové prostredie pre programovanie embedded systémov."
+      "lucide": {
+        "name": "Lucide React",
+        "description": "Knižnica ikon použitá naprieč celým rozhraním"
       },
-      "freertos": {
-        "name": "FreeRTOS",
-        "description": "Real-time operačný systém pre mikrokontroléry."
+      "nextintl": {
+        "name": "next-intl",
+        "description": "Internacionalizačný framework podporujúci anglický a slovenský jazyk"
+      },
+      "nextthemes": {
+        "name": "next-themes",
+        "description": "Správa tém s podporou tmavého a svetlého režimu"
+      },
+      "nodejs": {
+        "name": "Node.js",
+        "description": "JavaScript runtime poháňajúci backendový server a WebSocket bridge"
+      },
+      "nextauth": {
+        "name": "NextAuth.js",
+        "description": "Autentifikácia cez Google, GitHub OAuth a prihlásenie pomocou hesla"
       },
       "prisma": {
         "name": "Prisma",
-        "description": "Moderný ORM nástroj na prácu s databázami."
+        "description": "Typovo bezpečný ORM s dvojitou schémou pre lokálne aj cloudové nasadenie"
       },
       "postgresql": {
         "name": "PostgreSQL",
-        "description": "Spoľahlivá relačná databáza s otvoreným zdrojovým kódom."
+        "description": "Cloudová relačná databáza cez Neon serverless pre produkčné nasadenie"
       },
-      "jest": {
-        "name": "Jest",
-        "description": "Framework na testovanie JavaScriptu."
+      "sqlite": {
+        "name": "SQLite",
+        "description": "Ľahká lokálna databáza cez LibSQL pre vývoj a offline režim"
       },
-      "cicd": {
-        "name": "CI/CD",
-        "description": "Kontinuálna integrácia a nasadenie."
+      "zod": {
+        "name": "Zod",
+        "description": "TypeScript-first validácia schém pre API vstupy a formuláre"
+      },
+      "websocket": {
+        "name": "WebSocket",
+        "description": "Real-time obojsmerná komunikácia medzi webovým UI a ESP32 zariadeniami"
+      },
+      "msgpack": {
+        "name": "MessagePack",
+        "description": "Binárny serializačný protokol pre efektívnu komunikáciu zariadení"
+      },
+      "mdns": {
+        "name": "mDNS / Bonjour",
+        "description": "Zero-config sieťové vyhľadávanie pre automatickú detekciu lokálnych zariadení"
+      },
+      "openapi": {
+        "name": "OpenAPI",
+        "description": "API špecifikácia so Swagger UI pre interaktívnu dokumentáciu"
+      },
+      "esp32": {
+        "name": "ESP32",
+        "description": "Dvojjadrový mikrokontrolér (ESP32, ESP32-C3, ESP32-S3) pre cieľové a zbraňové zariadenia"
+      },
+      "espidf": {
+        "name": "ESP-IDF",
+        "description": "Oficiálny IoT vývojový framework od Espressif pre nízkoúrovňové ovládanie hardvéru"
+      },
+      "freertos": {
+        "name": "FreeRTOS",
+        "description": "Real-time operačný systém pre súbežnú správu úloh na embedded zariadeniach"
+      },
+      "platformio": {
+        "name": "PlatformIO",
+        "description": "Profesionálna embedded vývojová platforma pre zostavovanie a flashovanie firmvéru"
+      },
+      "lvgl": {
+        "name": "LVGL",
+        "description": "Embedded grafická knižnica ovládajúca OLED displej na cieľových zariadeniach"
+      },
+      "cplusplus": {
+        "name": "C / C++",
+        "description": "Systémové programovacie jazyky pre výkonnostne kritickú firmvérovú logiku"
+      },
+      "turborepo": {
+        "name": "Turborepo",
+        "description": "Vysokovýkonný monorepo build systém s inteligentným cachovaním"
+      },
+      "pnpm": {
+        "name": "pnpm",
+        "description": "Rýchly, diskovo efektívny správca balíčkov pre web monorepo workspace"
+      },
+      "docker": {
+        "name": "Docker",
+        "description": "Kontajnerizované nasadenie s viacstupňovým buildom pre lokálne aj produkčné prostredie"
+      },
+      "githubactions": {
+        "name": "GitHub Actions",
+        "description": "CI/CD pipeline spúšťajúci web lint/build a kompiláciu ESP32 firmvéru pri každom pushu"
+      },
+      "github": {
+        "name": "GitHub",
+        "description": "Správa zdrojového kódu, code review a riadenie projektu so submodulmi"
+      },
+      "eslint": {
+        "name": "ESLint",
+        "description": "Linting JavaScript/TypeScript so zdieľanou workspace konfiguráciou"
+      },
+      "prettier": {
+        "name": "Prettier",
+        "description": "Formátovač kódu s radením importov pre konzistentný štýl"
       },
       "clangformat": {
-        "name": "clang-format",
-        "description": "Nástroj na formátovanie C/C++ kódu."
+        "name": "Clang-Format",
+        "description": "Formátovač C/C++ kódu vynucujúci Allman štýl pre konzistentnosť firmvéru"
+      },
+      "playwright": {
+        "name": "Playwright",
+        "description": "End-to-end testovací framework pre overenie funkčnosti UI"
       }
     },
     "badges": {
@@ -192,7 +305,8 @@
       "backend": "Backend",
       "hardware": "Hardvér",
       "development": "Vývoj",
-      "database": "Databáza"
+      "database": "Databáza",
+      "protocol": "Protokol"
     }
   },
   "WSDemo": {

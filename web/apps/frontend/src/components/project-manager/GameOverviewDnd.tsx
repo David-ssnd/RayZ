@@ -61,6 +61,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 
 import { AddPlayerDialog, AddTeamDialog } from './AddDialogs'
+import { buildAssignmentConfig, sendConfigToAffectedDevices } from './buildAssignmentConfig'
 import { GameModeManager } from './GameModeManager'
 import { LiveGameStats } from './LiveGameStats'
 import type { Device, GameMode, Player, Project, Team } from './types'
@@ -116,7 +117,7 @@ function DevicePreview({
   device: Device
   getDeviceConnectionState: (ipAddress: string) => string
 }) {
-  const isOnline = getDeviceConnectionState(device.ipAddress) === 'connected'
+  const isOnline = device.ipAddress ? getDeviceConnectionState(device.ipAddress) === 'connected' : false
   return (
     <div className="flex items-center gap-1 px-2 py-0.5 rounded bg-background border text-xs">
       {isOnline ? (
@@ -155,7 +156,7 @@ function SortableDevice({
     touchAction: 'none',
   }
 
-  const isOnline = getDeviceConnectionState(device.ipAddress) === 'connected'
+  const isOnline = device.ipAddress ? getDeviceConnectionState(device.ipAddress) === 'connected' : false
 
   return (
     <div
@@ -336,7 +337,7 @@ function SortableTeam({
 
   const teamDevices = players.flatMap((p) => getDevicesForPlayer(p))
   const onlineDevices = teamDevices.filter(
-    (d) => getDeviceConnectionState(d.ipAddress) === 'connected'
+    (d) => d.ipAddress && getDeviceConnectionState(d.ipAddress) === 'connected'
   )
 
   // Logic to determine where to show the preview
@@ -701,6 +702,17 @@ export function GameOverview({
         const player = project.players?.find((p) => p.id === playerId)
         if (player && player.teamId !== targetTeamId) {
           await updatePlayerTeam(playerId, targetTeamId)
+
+          // Send config to all of that player's devices with new team
+          const updatedProject = {
+            ...project,
+            players: (project.players || []).map((p) =>
+              p.id === playerId ? { ...p, teamId: targetTeamId } : p
+            ),
+          }
+          sendConfigToAffectedDevices(connections, updatedProject, (device) =>
+            device.assignedPlayerId === playerId
+          )
         }
         await reorderPlayers(project.id, newTeamOrder)
       })
@@ -746,6 +758,19 @@ export function GameOverview({
                 .map((d) => d.id)
               await updatePlayerDevices(device.assignedPlayerId, oldPlayerDevices)
             }
+
+            // Send "unassigned" config to the removed device
+            if (device.ipAddress) {
+              const conn = connections.get(device.ipAddress)
+              if (conn) {
+                conn.updateConfig({
+                  player_id: 0,
+                  team_id: 0,
+                  device_id: device.deviceId,
+                  color_rgb: undefined,
+                })
+              }
+            }
           }
 
           // Add to new player if target exists
@@ -754,6 +779,16 @@ export function GameOverview({
             if (newPlayer) {
               const newPlayerDevices = getDevicesForPlayer(newPlayer).map((d) => d.id)
               await updatePlayerDevices(targetPlayerId, [...newPlayerDevices, deviceId])
+
+              // Send config to device immediately after assignment
+              if (device.ipAddress) {
+                const conn = connections.get(device.ipAddress)
+                if (conn) {
+                  const team = optimisticProject.teams?.find((t) => t.id === newPlayer.teamId)
+                  const gm = selectedGameMode ?? optimisticProject.gameMode
+                  conn.updateConfig(buildAssignmentConfig(newPlayer, team, device, gm, optimisticProject.players))
+                }
+              }
             }
           }
         })

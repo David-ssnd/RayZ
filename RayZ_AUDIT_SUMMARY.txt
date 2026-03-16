@@ -1,0 +1,134 @@
+# RayZ ID AUDIT - QUICK REFERENCE SUMMARY
+
+## 🔴 CRITICAL ISSUES (11 FOUND)
+
+### ESP32 Firmware (4 Critical)
+1. **ID Generation**: rand_u8() produces 0-255, not masked to protocol limits
+   - Lines: esp32/shared/src/game_state.cpp:139
+   - Result: 75% of device_ids invalid, 87.5% of player_ids invalid
+
+2. **NVS Load**: No validation when loading IDs from non-volatile storage
+   - Lines: esp32/shared/src/game_state.cpp:87,92
+   - Result: Corrupted IDs persist across reboots
+
+3. **WebSocket Update**: Direct assignment without range checks
+   - Lines: esp32/shared/src/ws_server.cpp:153,156
+   - Result: Malicious clients can inject IDs >63 or >31
+
+4. **Save Without Validation**: NVS save doesn't validate before writing
+   - Lines: esp32/shared/src/game_state.cpp:120-121
+   - Result: Invalid IDs get persisted
+
+### Web Database (3 Critical)
+5. **Prisma Device.deviceId**: No max constraint
+   - Lines: web/packages/database/prisma/schema.prisma:81
+   - Result: Can store IDs up to 2 billion
+
+6. **Prisma Player.number**: No range constraint despite comment saying 0-31
+   - Lines: web/packages/database/prisma/schema.prisma:131
+   - Result: Can store invalid values
+
+7. **Prisma Team.number**: No range constraint despite comment saying 1-31
+   - Lines: web/packages/database/prisma/schema.prisma:111
+   - Result: Can store invalid values
+
+### Web Frontend (2 Critical)
+8. **DeviceConfigManager**: No validation when setting IDs
+   - Lines: web/apps/frontend/src/lib/comm/DeviceConfigManager.ts:138-140
+   - Result: Invalid IDs sent to ESP32
+
+9. **DeviceConfigPanel**: Direct DB parsing without validation
+   - Lines: web/apps/frontend/src/components/DeviceConfigPanel.tsx:69-70
+   - Result: Database corruption flows to devices
+
+### Protocol (2 Critical)
+10. **Protocol Definition**: Uses uint32_t instead of 6-bit/5-bit constraints
+    - Lines: protocol_def.json:54-56
+    - Result: No type-level enforcement
+
+11. **TypeScript Types**: No @min/@max metadata on ID fields
+    - Lines: web/packages/types/src/protocol.ts:70-71
+    - Result: Type system doesn't prevent invalid values
+
+---
+
+## ✅ WHAT IS PROTECTED
+
+- **IR Message Encoding** (hash.h:20-31): Uses bitwise AND masking
+  - Clamps to 0x1F (5 bits) for player_id
+  - Clamps to 0x3F (6 bits) for device_id
+  - ✅ IR messages are safe even with invalid stored IDs
+
+---
+
+## 🔧 PRIORITY FIXES
+
+### IMMEDIATE (Prevents Corruption)
+1. Fix game_state_generate_ids() - mask rand_u8() output
+2. Fix game_state_load_ids() - validate loaded values
+3. Fix ws_server.cpp handle_config_update() - validate received IDs
+
+### SHORT-TERM (Data Integrity)
+4. Add Prisma @check constraints on Device.deviceId, Player.number, Team.number
+5. Add validation in DeviceConfigManager.setDeviceInfo()
+6. Add validation in DeviceConfigPanel ID parsing
+
+### MEDIUM-TERM (Type Safety)
+7. Update TypeScript types with range metadata
+8. Update protocol_def.json to specify uint8_t with min/max
+9. Add frontend form validation with min/max attributes
+
+---
+
+## �� AUDIT COVERAGE
+
+| Area | Files Checked | Issues | Status |
+|------|---|--------|--------|
+| ESP32 Firmware | 8 files | 4 critical | 🔴 URGENT |
+| Web Backend | 1 file | 3 critical | 🔴 URGENT |
+| Web Frontend | 6 files | 2 critical | 🔴 URGENT |
+| Protocol Defs | 2 files | 2 critical | 🔴 URGENT |
+| **TOTAL** | **~50 files** | **11 critical** | 🔴 **CRITICAL** |
+
+---
+
+## 📋 FILES WITH FINDINGS
+
+**ESP32:**
+- esp32/shared/src/game_state.cpp (6 issues)
+- esp32/shared/src/ws_server.cpp (1 issue)
+- esp32/shared/include/game_protocol.h (1 issue)
+- esp32/shared/include/hash.h (✅ OK)
+
+**Web:**
+- web/packages/database/prisma/schema.prisma (3 issues)
+- web/packages/types/src/protocol.ts (1 issue)
+- web/apps/frontend/src/lib/comm/DeviceConfigManager.ts (1 issue)
+- web/apps/frontend/src/components/DeviceConfigPanel.tsx (1 issue)
+
+**Protocol:**
+- protocol_def.json (2 issues)
+- openapi.yaml (no major issues found)
+
+---
+
+## 🎯 VERIFICATION CHECKLIST
+
+After fixes, verify:
+- [ ] device_id generation is masked: (rand_u8() & 0x3F)
+- [ ] player_id generation is masked: (rand_u8() & 0x1F)
+- [ ] NVS load validates: id = (id & 0x3F) for device, (id & 0x1F) for player
+- [ ] WebSocket config_update validates IDs before accepting
+- [ ] Prisma @check constraints added for deviceId (0-63), player.number (0-31), team.number (1-31)
+- [ ] DeviceConfigManager throws error on invalid IDs
+- [ ] DeviceConfigPanel validates before sending to device
+- [ ] TypeScript types have @min/@max or branded types
+- [ ] Protocol definition specifies uint8_t with constraints
+- [ ] Frontend forms have HTML5 min/max attributes
+
+---
+
+## 📝 DETAILED REPORT
+
+Full detailed audit report with code snippets and fixes: RayZ_AUDIT_REPORT.md
+

@@ -288,16 +288,20 @@ static void render_idle(void)
 
     if (s_dev == DEV_WEAPON)
     {
-        const int ammo = s_src.ammo ? s_src.ammo() : 0;
-        ui_weapon_idle_update(&s_weapon, ammo, wifi, ws, rssi, pid, did);
+        const int ammo  = s_src.ammo     ? s_src.ammo()     : 0;
+        const int kills = s_src.score    ? s_src.score()    : 0;
+        const int shots = s_src.tx_count ? (int)s_src.tx_count() : 0;
+        ui_weapon_idle_update(&s_weapon, ammo, wifi, ws, rssi, pid, did,
+                              kills, shots);
     }
     else
     {
-        const int hearts = s_src.hearts_remaining ? s_src.hearts_remaining() : 0;
-        const int mh     = s_src.max_hearts       ? s_src.max_hearts()       : 5;
-        const char* name = s_src.device_name      ? s_src.device_name()      : "?";
+        const int hearts  = s_src.hearts_remaining ? s_src.hearts_remaining() : 0;
+        const int mh      = s_src.max_hearts       ? s_src.max_hearts()       : 5;
+        const char* name  = s_src.device_name      ? s_src.device_name()      : "?";
+        const int  deaths = s_src.deaths           ? s_src.deaths()           : 0;
         ui_target_game_update(&s_game, hearts, mh,
-                              wifi, ws, rssi, pid, did, name);
+                              wifi, ws, rssi, pid, did, name, deaths);
     }
 }
 

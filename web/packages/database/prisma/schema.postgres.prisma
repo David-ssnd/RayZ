@@ -158,7 +158,8 @@ model Team {
   name      String
   color     String   // Hex Code e.g. "#FF0000"
   
-  // PROTOCOL ID: The integer (1-255) sent to ESP32
+  // PROTOCOL ID: The integer (1-255) sent to ESP32 via WebSocket
+  // Team IDs are NOT in the IR protocol (only player_id and device_id are IR-encoded)
   number    Int
   
   // Display order in UI
@@ -181,7 +182,7 @@ model Player {
   id        String   @id @default(uuid())
   name      String
 
-  // PROTOCOL ID: The integer (0-255) sent to ESP32
+  // PROTOCOL ID: The integer (0-31) sent to ESP32, limited by 5-bit IR protocol
   // This is NOT the database ID, but the Laser Tag network ID.
   number    Int
   

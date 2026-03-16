@@ -31,6 +31,7 @@ const badgeVariants = cva(
         hardware: 'border-transparent bg-yellow-500 text-white [a&]:hover:bg-yellow-600',
         development: 'border-transparent bg-purple-500 text-white [a&]:hover:bg-purple-600',
         database: 'border-transparent bg-red-500 text-white [a&]:hover:bg-red-600',
+        protocol: 'border-transparent bg-orange-500 text-white [a&]:hover:bg-orange-600',
 
         github: 'border-transparent bg-gray-800 text-white [a&]:hover:bg-gray-900',
       },

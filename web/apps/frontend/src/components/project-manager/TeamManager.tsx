@@ -7,12 +7,16 @@ import { Edit2, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 
+import { useDeviceConnections } from '@/lib/websocket'
+
+import { sendConfigToAffectedDevices } from './buildAssignmentConfig'
 import { Project, Team } from './types'
 
 export function TeamManager({ project, disabled = false }: { project: Project; disabled?: boolean }) {
   const [name, setName] = useState('')
   const [color, setColor] = useState('#ff0000')
   const [isPending, startTransition] = useTransition()
+  const { connections } = useDeviceConnections()
   const [editingTeamId, setEditingTeamId] = useState<string | null>(null)
   const [editName, setEditName] = useState('')
   const [editColor, setEditColor] = useState('')
@@ -37,6 +41,21 @@ export function TeamManager({ project, disabled = false }: { project: Project; d
     startTransition(async () => {
       await updateTeam(editingTeamId, { name: editName, color: editColor })
       setEditingTeamId(null)
+
+      // Send config to devices whose player belongs to the edited team
+      const updatedProject = {
+        ...project,
+        teams: project.teams.map((t) =>
+          t.id === editingTeamId ? { ...t, name: editName, color: editColor } : t
+        ),
+      }
+      const playersOnTeam = new Set(
+        (project.players || []).filter((p) => p.teamId === editingTeamId).map((p) => p.id)
+      )
+      sendConfigToAffectedDevices(connections, updatedProject, (device) => {
+        const player = project.players?.find((p) => p.id === device.assignedPlayerId)
+        return !!player && playersOnTeam.has(player.id)
+      })
     })
   }
 
@@ -125,6 +144,26 @@ export function TeamManager({ project, disabled = false }: { project: Project; d
                 onClick={() =>
                   startTransition(async () => {
                     await removeTeam(team.id)
+
+                    // Send config to devices whose player was on the removed team
+                    const updatedProject = {
+                      ...project,
+                      teams: project.teams.filter((t) => t.id !== team.id),
+                      players: (project.players || []).map((p) =>
+                        p.teamId === team.id ? { ...p, teamId: null } : p
+                      ),
+                    }
+                    const playersOnTeam = new Set(
+                      (project.players || [])
+                        .filter((p) => p.teamId === team.id)
+                        .map((p) => p.id)
+                    )
+                    sendConfigToAffectedDevices(connections, updatedProject, (device) => {
+                      const player = project.players?.find(
+                        (p) => p.id === device.assignedPlayerId
+                      )
+                      return !!player && playersOnTeam.has(player.id)
+                    })
                   })
                 }
               >

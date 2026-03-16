@@ -19,6 +19,7 @@ idf_component_register(
         "src/runtime_metrics.cpp"
         "src/debug_print.cpp"
         "src/gpio_init.cpp"
+        "src/mdns_service.cpp"
     INCLUDE_DIRS
         "include"
     REQUIRES
@@ -34,6 +35,7 @@ idf_component_register(
         esp_lcd
     PRIV_REQUIRES
         freertos
+        mdns
 )
 
 # Find LVGL dynamically based on the project being built

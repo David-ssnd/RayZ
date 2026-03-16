@@ -6,12 +6,14 @@ import {
   Activity,
   AlertCircle,
   Check,
+  Crosshair,
   Disc,
   Gamepad2,
   Link,
   MoreHorizontal,
   RefreshCw,
   Settings,
+  Shield,
   Unlink,
   User,
   Wifi,
@@ -44,41 +46,52 @@ import {
 import type { Player, Team } from './types'
 
 interface DeviceConnectionCardProps {
-  deviceId?: string // added deviceId
-  ipAddress: string
+  deviceId?: string
+  deviceNumericId?: number
+  deviceRole?: string
+  ipAddress: string | null
   deviceName?: string
   assignedPlayer?: Player | null
   playerTeam?: Team | null
   teams?: Team[]
+  gameMode?: any
+  allPlayers?: Player[]
   onRemove?: () => void
 }
 
 export function DeviceConnectionCard({
-  deviceId, // destructured
+  deviceId,
+  deviceNumericId,
+  deviceRole,
   ipAddress,
   deviceName: initialName,
   assignedPlayer,
   playerTeam,
   teams = [],
+  gameMode,
+  allPlayers,
 }: DeviceConnectionCardProps) {
   const [showSettings, setShowSettings] = useState(false)
-  const [editName, setEditName] = useState(initialName || ipAddress) // Name state
+  const [editName, setEditName] = useState(initialName || ipAddress || '') // Name state
   const [configTeamId, setConfigTeamId] = useState<number | undefined>(undefined)
+  const [configPlayerId, setConfigPlayerId] = useState<number | undefined>(undefined)
+  const [configVolume, setConfigVolume] = useState(80)
+  const [configIrPower, setConfigIrPower] = useState(1)
   const [configStatus, setConfigStatus] = useState<'idle' | 'error' | 'success'>('idle')
   const [configMessage, setConfigMessage] = useState<string>('')
   const [isPending, startTransition] = useTransition() // Transition for server action
 
   const isAssigned = !!assignedPlayer
 
-  const { connection, state: contextState, isConnected } = useDevice(ipAddress)
+  const { connection, state: contextState, isConnected } = useDevice(ipAddress || '')
   const { retryDevice } = useDeviceConnections()
-  const state = contextState || initialDeviceState(ipAddress)
+  const state = contextState || initialDeviceState(ipAddress || '')
   const connectionState = state.connectionState
   const isError = connectionState === 'error'
 
   const connect = () => connection?.connect()
   const disconnect = () => connection?.disconnect()
-  const retry = () => retryDevice(ipAddress)
+  const retry = () => ipAddress && retryDevice(ipAddress)
   const getStatus = () => connection?.getStatus()
   const updateConfig = (config: any) => connection?.updateConfig(config)
   const url = isConnected ? `ws://${ipAddress}/ws` : undefined
@@ -91,9 +104,7 @@ export function DeviceConnectionCard({
   }, [connection])
 
   useEffect(() => {
-    // Only attempt sync if we are verified connected and have a valid connection object
     if (isConnected && isAssigned && assignedPlayer && connectionRef.current) {
-      // Calculate color integer
       let colorInt: number | undefined = undefined
       if (playerTeam?.color) {
         const hex = playerTeam.color.replace('#', '')
@@ -101,16 +112,35 @@ export function DeviceConnectionCard({
         if (!isNaN(parsed)) colorInt = parsed
       }
 
-      // Send configuration to device
-      connectionRef.current.updateConfig({
-        // IMPORTANT: Use the Protocol ID (number), not the DB ID (UUID)
-        // If your Player type still uses 'playerId' for the int, change .number to .playerId
+      const config: Record<string, any> = {
         player_id: assignedPlayer.number ?? 0,
         team_id: playerTeam?.number ?? 0,
         color_rgb: colorInt,
-      })
+        players: allPlayers?.map(p => ({ id: p.number, name: p.name })) ?? [],
+      }
+
+      if (deviceNumericId !== undefined) {
+        config.device_id = deviceNumericId
+      }
+
+      if (gameMode) {
+        config.win_type = gameMode.winType ?? 'score'
+        config.target_score = gameMode.targetScore ?? 100
+        config.game_duration_s = gameMode.durationMinutes ? gameMode.durationMinutes * 60 : 600
+        config.max_hearts = gameMode.maxHearts ?? 5
+        config.spawn_hearts = gameMode.spawnHearts ?? 3
+        config.respawn_time_s = gameMode.respawnTimeSec ?? 10
+        config.damage_in = gameMode.damageIn ?? 1
+        config.damage_out = gameMode.damageOut ?? 1
+        config.friendly_fire = gameMode.friendlyFire ?? false
+        config.enable_ammo = gameMode.enableAmmo ?? true
+        config.max_ammo = gameMode.maxAmmo ?? 30
+        config.reload_time_ms = gameMode.reloadTimeMs ?? 2500
+      }
+
+      connectionRef.current.updateConfig(config)
     }
-  }, [isConnected, isAssigned, assignedPlayer, playerTeam]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isConnected, isAssigned, assignedPlayer, playerTeam, deviceNumericId, gameMode, allPlayers]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleUpdateConfig = () => {
     setConfigStatus('idle')
@@ -131,6 +161,9 @@ export function DeviceConnectionCard({
       if (connectionRef.current) {
         const ok = connectionRef.current.updateConfig({
           team_id: configTeamId ?? 0,
+          ...(configPlayerId !== undefined && { player_id: configPlayerId }),
+          volume: configVolume,
+          ir_power: configIrPower,
         })
         if (ok) {
           setConfigStatus('success')
@@ -184,8 +217,22 @@ export function DeviceConnectionCard({
     }
   }
 
-  // Display name priority
+  const isWeapon = deviceRole === 'weapon'
+  const isTarget = deviceRole === 'target'
+
   const displayName = assignedPlayer?.name || initialName || `Device @ ${ipAddress}`
+
+  const roleIcon = isWeapon
+    ? <Crosshair className="w-3.5 h-3.5" />
+    : isTarget
+      ? <Shield className="w-3.5 h-3.5" />
+      : null
+
+  const roleBadgeClass = isWeapon
+    ? 'bg-red-500/15 text-red-500 border-red-500/30'
+    : isTarget
+      ? 'bg-blue-500/15 text-blue-500 border-blue-500/30'
+      : 'bg-gray-500/15 text-gray-500 border-gray-500/30'
 
   return (
     <Card className={`w-full transition-all ${isAssigned ? 'border-primary/30 bg-primary/5' : ''}`}>
@@ -195,6 +242,12 @@ export function DeviceConnectionCard({
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-1.5 flex-wrap">
               <span className="font-medium text-sm truncate">{displayName}</span>
+              {deviceRole && (
+                <Badge variant="outline" className={`gap-1 text-[10px] h-5 ${roleBadgeClass}`}>
+                  {roleIcon}
+                  {deviceRole}
+                </Badge>
+              )}
               {isAssigned && (
                 <Badge variant="outline" className="gap-1 text-xs border-primary/50">
                   <Link className="w-3 h-3" />
@@ -220,46 +273,24 @@ export function DeviceConnectionCard({
           </div>
         )}
 
-        {/* Live Stats Grid */}
+        {/* Live Stats — role-aware & config-aware */}
         {isConnected && (
-          <div className="grid grid-cols-3 gap-1 text-center text-xs bg-muted/50 rounded-md p-2">
-            <div>
-              <div className="font-bold text-sm">{state.kills}</div>
-              <div className="text-muted-foreground text-[10px]">Kills</div>
-            </div>
-            <div>
-              <div className="font-bold text-sm">{state.deaths}</div>
-              <div className="text-muted-foreground text-[10px]">Deaths</div>
-            </div>
-            <div>
-              <div className="font-bold text-sm">{state.friendlyKills || 0}</div>
-              <div className="text-muted-foreground text-[10px]">Friendly</div>
-            </div>
-            <div>
-              <div className="font-bold text-sm">{state.hearts}</div>
-              <div className="text-muted-foreground text-[10px]">Hearts</div>
-            </div>
-            <div>
-              <div className="font-bold text-sm">{state.maxAmmo === -1 ? '∞' : state.ammo}</div>
-              <div className="text-muted-foreground text-[10px]">Ammo</div>
-            </div>
-            <div>
-              <div className="font-bold text-sm">{state.hitsReceived || 0}</div>
-              <div className="text-muted-foreground text-[10px]">Hits</div>
-            </div>
-          </div>
+          <DeviceStatsGrid
+            state={state}
+            role={deviceRole}
+          />
         )}
 
-        {/* Status Indicators (Respawning / Reloading) */}
+        {/* Status Indicators — role-aware */}
         {isConnected && (state.isRespawning || state.isReloading) && (
           <div className="flex items-center gap-2 text-xs mt-1">
-            {state.isRespawning && (
+            {state.isRespawning && (isTarget || !isWeapon) && (
               <Badge variant="destructive" className="gap-1 text-[10px] h-5">
                 <Activity className="w-3 h-3 animate-pulse" />
                 Respawning
               </Badge>
             )}
-            {state.isReloading && (
+            {state.isReloading && (isWeapon || !isTarget) && (
               <Badge variant="secondary" className="gap-1 text-[10px] h-5">
                 <Disc className="w-3 h-3 animate-spin" />
                 Reloading
@@ -282,44 +313,87 @@ export function DeviceConnectionCard({
             </div>
 
             {!isAssigned && (
-              <div className="grid gap-1.5">
-                <label className="text-xs font-medium">Manual Team Override</label>
-                <Select
-                  // Convert number to string for Select value
-                  value={configTeamId !== undefined ? String(configTeamId) : 'none'}
-                  onValueChange={(value) => {
-                    if (value === 'none') {
-                      setConfigTeamId(undefined)
-                    } else {
-                      setConfigTeamId(Number(value))
-                    }
-                  }}
-                >
-                  <SelectTrigger className="h-8 text-xs">
-                    <SelectValue placeholder="Select team" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">No Team (Solo)</SelectItem>
-                    {teams.map((team) => (
-                      // IMPORTANT: Value must be the Protocol ID (number), NOT the DB ID (UUID)
-                      // If we use team.id (UUID), Number(value) will result in NaN
-                      <SelectItem key={team.id} value={String(team.number)}>
-                        <div className="flex items-center gap-2">
-                          <div
-                            className="w-2 h-2 rounded-full"
-                            style={{ backgroundColor: team.color }}
-                          />
-                          {team.name}{' '}
-                          <span className="text-muted-foreground text-[10px]">
-                            (ID: {team.number})
-                          </span>
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              <>
+                <div className="grid gap-1.5">
+                  <label className="text-xs font-medium">Player ID (0-31)</label>
+                  <Input
+                    type="number"
+                    className="h-8 text-xs"
+                    min={0}
+                    max={31}
+                    value={configPlayerId ?? ''}
+                    onChange={(e) => {
+                      const v = e.target.value === '' ? undefined : Math.min(31, Math.max(0, parseInt(e.target.value) || 0))
+                      setConfigPlayerId(v)
+                    }}
+                    placeholder="Auto"
+                  />
+                </div>
+
+                <div className="grid gap-1.5">
+                  <label className="text-xs font-medium">Team</label>
+                  <Select
+                    value={configTeamId !== undefined ? String(configTeamId) : 'none'}
+                    onValueChange={(value) => {
+                      if (value === 'none') {
+                        setConfigTeamId(undefined)
+                      } else {
+                        setConfigTeamId(Number(value))
+                      }
+                    }}
+                  >
+                    <SelectTrigger className="h-8 text-xs">
+                      <SelectValue placeholder="Select team" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">No Team (Solo)</SelectItem>
+                      {teams.map((team) => (
+                        <SelectItem key={team.id} value={String(team.number)}>
+                          <div className="flex items-center gap-2">
+                            <div
+                              className="w-2 h-2 rounded-full"
+                              style={{ backgroundColor: team.color }}
+                            />
+                            {team.name}{' '}
+                            <span className="text-muted-foreground text-[10px]">
+                              (ID: {team.number})
+                            </span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </>
             )}
+
+            <div className="grid gap-1.5">
+              <label className="text-xs font-medium">Volume ({configVolume}%)</label>
+              <input
+                type="range"
+                min={0}
+                max={100}
+                value={configVolume}
+                onChange={(e) => setConfigVolume(parseInt(e.target.value))}
+                className="w-full h-2 accent-primary"
+              />
+            </div>
+
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-medium">IR Power</label>
+              <Select
+                value={String(configIrPower)}
+                onValueChange={(v) => setConfigIrPower(Number(v))}
+              >
+                <SelectTrigger className="h-7 w-28 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="0">Indoor</SelectItem>
+                  <SelectItem value="1">Outdoor</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
 
             {configStatus !== 'idle' && configMessage && (
               <div
@@ -432,5 +506,67 @@ export function DeviceConnectionCard({
         )}
       </CardContent>
     </Card>
+  )
+}
+
+// --- Modular stat components ---
+
+function StatCell({ value, label }: { value: string | number; label: string }) {
+  return (
+    <div>
+      <div className="font-bold text-sm">{value}</div>
+      <div className="text-muted-foreground text-[10px]">{label}</div>
+    </div>
+  )
+}
+
+function DeviceStatsGrid({ state, role }: { state: ReturnType<typeof initialDeviceState>; role?: string }) {
+  const isWeapon = role === 'weapon'
+  const isTarget = role === 'target'
+
+  const showAmmo = state.enableAmmo || state.maxAmmo !== 0
+  const showHearts = state.enableHearts || state.maxHearts !== 0
+
+  const stats: { value: string | number; label: string }[] = []
+
+  if (isWeapon) {
+    stats.push({ value: state.shots, label: 'Shots' })
+    stats.push({ value: state.kills, label: 'Kills' })
+    stats.push({ value: state.deaths, label: 'Deaths' })
+    if (showAmmo) {
+      stats.push({ value: state.maxAmmo === -1 ? '∞' : `${state.ammo}/${state.maxAmmo}`, label: 'Ammo' })
+    }
+    if (state.friendlyKills > 0) {
+      stats.push({ value: state.friendlyKills, label: 'Friendly' })
+    }
+  } else if (isTarget) {
+    if (showHearts) {
+      stats.push({ value: `${state.hearts}/${state.maxHearts}`, label: 'Hearts' })
+    }
+    stats.push({ value: state.deaths, label: 'Deaths' })
+    stats.push({ value: state.hitsReceived || 0, label: 'Hits Taken' })
+    if (state.friendlyKills > 0) {
+      stats.push({ value: state.friendlyKills, label: 'Friendly' })
+    }
+  } else {
+    // Unknown role — show everything relevant
+    stats.push({ value: state.kills, label: 'Kills' })
+    stats.push({ value: state.deaths, label: 'Deaths' })
+    if (showHearts) stats.push({ value: `${state.hearts}/${state.maxHearts}`, label: 'Hearts' })
+    if (showAmmo) stats.push({ value: state.maxAmmo === -1 ? '∞' : state.ammo, label: 'Ammo' })
+    stats.push({ value: state.hitsReceived || 0, label: 'Hits' })
+    if (state.friendlyKills > 0) stats.push({ value: state.friendlyKills, label: 'Friendly' })
+  }
+
+  if (stats.length === 0) return null
+
+  const colClass = stats.length <= 2 ? 'grid-cols-2' : stats.length === 4 ? 'grid-cols-2' : 'grid-cols-3'
+
+  return (
+    <div className={`grid ${colClass} gap-1 text-center text-xs bg-muted/50 rounded-md p-2`}>
+      {stats.map((s) => (
+        <StatCell key={s.label} value={s.value} label={s.label} />
+      ))}
+    </div>
   )
 }

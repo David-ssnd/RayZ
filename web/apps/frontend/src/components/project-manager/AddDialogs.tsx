@@ -1,9 +1,8 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { addDevice } from '@/features/devices/actions'
-import { addDeviceToProject, addPlayer, addTeam } from '@/features/projects/actions'
-import { Gamepad2, Monitor, Plus, Users } from 'lucide-react'
+import { addPlayer, addTeam } from '@/features/projects/actions'
+import { Gamepad2, Users } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import {
@@ -24,8 +23,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 
-import { IpAddressInput } from '../IpAddressInput'
-import { DEFAULT_PLAYER_ID, Device, MAX_PLAYER_ID, MIN_PLAYER_ID, Project, Team } from './types'
+import { DEFAULT_PLAYER_ID, MAX_PLAYER_ID, MIN_PLAYER_ID, Project, Team } from './types'
 
 // ==================== ADD TEAM DIALOG ====================
 
@@ -166,7 +164,7 @@ export function AddPlayerDialog({ project, trigger }: AddPlayerDialogProps) {
             )}
           </div>
           <div className="grid gap-2">
-            <label className="text-sm font-medium">Player ID (0-255)</label>
+            <label className="text-sm font-medium">Player ID (0-31)</label>
             <Input
               type="number"
               min={MIN_PLAYER_ID}
@@ -214,163 +212,6 @@ export function AddPlayerDialog({ project, trigger }: AddPlayerDialogProps) {
             disabled={isPending || !name.trim() || isDuplicateId || isDuplicateName}
           >
             Add Player
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  )
-}
-
-// ==================== ADD DEVICE DIALOG ====================
-
-interface AddDeviceDialogProps {
-  project: Project
-  availableDevices: Device[]
-  trigger?: React.ReactNode
-}
-
-export function AddDeviceDialog({ project, availableDevices, trigger }: AddDeviceDialogProps) {
-  const [open, setOpen] = useState(false)
-  const [ipAddress, setIpAddress] = useState('')
-  const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null)
-  const [error, setError] = useState<string | null>(null)
-  const [isPending, startTransition] = useTransition()
-
-  // Filter devices that are NOT in this project
-  const devicesToAdd = availableDevices.filter((d: Device) => d.projectId !== project.id)
-
-  // Check if IP already exists in project
-  const isIpDuplicate = (ip: string): boolean => {
-    return project.devices?.some((d: Device) => d.ipAddress === ip) || false
-  }
-
-  const handleAddNewDevice = () => {
-    if (!ipAddress) return
-    setError(null)
-
-    if (isIpDuplicate(ipAddress)) {
-      setError(`Device with IP ${ipAddress} already exists in this project`)
-      return
-    }
-
-    startTransition(async () => {
-      const res = await addDevice(ipAddress)
-      if (res.success && res.device) {
-        await addDeviceToProject(project.id, res.device.id)
-        setIpAddress('')
-        setOpen(false)
-      } else {
-        setError(res.error || 'Failed to add device')
-      }
-    })
-  }
-
-  const handleAddFromInventory = () => {
-    if (!selectedDeviceId) return
-    setError(null)
-
-    const selectedDevice = devicesToAdd.find((d) => d.id === selectedDeviceId)
-    if (selectedDevice && isIpDuplicate(selectedDevice.ipAddress)) {
-      setError(`Device with IP ${selectedDevice.ipAddress} already exists`)
-      return
-    }
-
-    startTransition(async () => {
-      await addDeviceToProject(project.id, selectedDeviceId)
-      setSelectedDeviceId(null)
-      setOpen(false)
-    })
-  }
-
-  return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        {trigger || (
-          <Button variant="ghost" size="icon" className="h-8 w-8">
-            <Monitor className="w-4 h-4" />
-          </Button>
-        )}
-      </DialogTrigger>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Add Device</DialogTitle>
-          <DialogDescription>Add a new device or select from your inventory.</DialogDescription>
-        </DialogHeader>
-        <div className="grid gap-4 py-4">
-          {/* Add by IP */}
-          <div className="grid gap-2">
-            <label className="text-sm font-medium">Add Device by IP</label>
-            <div className="flex gap-2">
-              <div className="flex-1">
-                <IpAddressInput
-                  value={ipAddress}
-                  onChange={(v) => {
-                    setIpAddress(v)
-                    setError(null)
-                  }}
-                />
-              </div>
-              <Button onClick={handleAddNewDevice} disabled={isPending || !ipAddress}>
-                <Plus className="w-4 h-4" />
-              </Button>
-            </div>
-          </div>
-
-          {/* Separator */}
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center">
-              <span className="w-full border-t" />
-            </div>
-            <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-background px-2 text-muted-foreground">Or</span>
-            </div>
-          </div>
-
-          {/* Add from inventory */}
-          <div className="grid gap-2">
-            <label className="text-sm font-medium">Add from Inventory</label>
-            <Select
-              value={selectedDeviceId || ''}
-              onValueChange={(v) => setSelectedDeviceId(v || null)}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select a device" />
-              </SelectTrigger>
-              <SelectContent>
-                {devicesToAdd.length === 0 ? (
-                  <SelectItem value="none" disabled>
-                    No available devices
-                  </SelectItem>
-                ) : (
-                  devicesToAdd.map((device: Device) => (
-                    <SelectItem key={device.id} value={device.id}>
-                      <div className="flex items-center gap-2">
-                        <Monitor className="w-3 h-3" />
-                        {device.name || device.ipAddress}
-                      </div>
-                    </SelectItem>
-                  ))
-                )}
-              </SelectContent>
-            </Select>
-            {devicesToAdd.length > 0 && (
-              <Button
-                onClick={handleAddFromInventory}
-                disabled={isPending || !selectedDeviceId}
-                variant="outline"
-                className="w-full"
-              >
-                Add from Inventory
-              </Button>
-            )}
-          </div>
-
-          {/* Error Message */}
-          {error && <p className="text-sm text-destructive">{error}</p>}
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => setOpen(false)}>
-            Cancel
           </Button>
         </DialogFooter>
       </DialogContent>

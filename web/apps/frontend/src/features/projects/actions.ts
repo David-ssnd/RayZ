@@ -261,7 +261,9 @@ export async function addTeam(projectId: string, name: string, color: string) {
     })
     if (!project) return { error: 'Project not found' }
 
-    // Assign the lowest available team number between 1-255 within the project
+    // Assign the lowest available team number (1-255) within the project
+    // Note: team_id is sent via WebSocket only, NOT encoded in IR protocol,
+    // so it's not limited to 5/6 bits like player_id/device_id
     const existingTeams = await prisma.team.findMany({
       where: { projectId },
       select: { number: true },
@@ -271,7 +273,7 @@ export async function addTeam(projectId: string, name: string, color: string) {
     while (nextNumber <= 255 && usedNumbers.has(nextNumber)) {
       nextNumber++
     }
-    if (nextNumber > 255) return { error: 'Maximum teams reached' }
+    if (nextNumber > 255) return { error: 'Maximum teams reached (255)' }
 
     const team = await prisma.team.create({
       data: {
@@ -342,6 +344,10 @@ export async function addPlayer(projectId: string, name: string, playerNumber: n
     })
     if (!project) return { error: 'Project not found' }
 
+    if (playerNumber < 0 || playerNumber > 31) {
+      return { error: 'Player ID must be between 0 and 31' }
+    }
+
     const player = await prisma.player.create({
       data: {
         name,
@@ -366,6 +372,10 @@ export async function updatePlayer(playerId: string, data: { name?: string; numb
       include: { project: true },
     })
     if (!player || player.project.userId !== session.user.id) return { error: 'Unauthorized' }
+
+    if (data.number !== undefined && (data.number < 0 || data.number > 31)) {
+      return { error: 'Player ID must be between 0 and 31' }
+    }
 
     await prisma.player.update({
       where: { id: playerId },

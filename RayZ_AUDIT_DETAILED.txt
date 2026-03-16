@@ -1,0 +1,751 @@
+# RayZ ID AUDIT - DETAILED FINDINGS BY COMPONENT
+
+## 1. ESP32 FIRMWARE - CRITICAL ISSUES
+
+### Issue #1: Random ID Generation Without Masking
+**Severity**: 🔴 CRITICAL  
+**File**: esp32/shared/src/game_state.cpp  
+**Function**: game_state_generate_ids()  
+**Lines**: 135-143  
+
+\\\cpp
+void game_state_generate_ids(void)
+{
+    LOCK();
+    if (s_config.device_id == 0)
+        s_config.device_id = rand_u8();  // ❌ WRONG: Returns 0-255
+    if (s_config.player_id == 0)
+        s_config.player_id = s_config.device_id;  // ❌ Inherits invalid value
+    UNLOCK();
+}
+\\\
+
+**Problem**:
+- rand_u8() returns full 8-bit random (0-255)
+- device_id should be 6 bits max (0-63)
+- player_id should be 5 bits max (0-31)
+- ~75% of device_ids will be invalid
+- ~87.5% of player_ids will be invalid
+
+**Fix**:
+\\\cpp
+void game_state_generate_ids(void)
+{
+    LOCK();
+    if (s_config.device_id == 0)
+        s_config.device_id = rand_u8() & 0x3F;  // ✅ Mask to 6 bits
+    if (s_config.player_id == 0) {
+        // Option A: Use same as device
+        s_config.player_id = s_config.device_id;
+        // Option B: Generate independently
+        s_config.player_id = rand_u8() & 0x1F;  // ✅ Mask to 5 bits
+    }
+    UNLOCK();
+}
+\\\
+
+---
+
+### Issue #2: NVS Load Without Validation
+**Severity**: 🔴 CRITICAL  
+**File**: esp32/shared/src/game_state.cpp  
+**Function**: game_state_load_ids()  
+**Lines**: 80-114  
+
+\\\cpp
+bool game_state_load_ids(void)
+{
+    LOCK();
+    bool loaded = false;
+    uint8_t id = 0;
+    
+    if (nvs_store_read_u8(NVS_GAME_NS, NVS_KEY_DEVICE_ID, &id))
+    {
+        s_config.device_id = id;  // ❌ WRONG: No validation!
+        loaded = true;
+    }
+    
+    if (nvs_store_read_u8(NVS_GAME_NS, NVS_KEY_PLAYER_ID, &id))
+    {
+        s_config.player_id = id;  // ❌ WRONG: No validation!
+    }
+    
+    UNLOCK();
+    return loaded;
+}
+\\\
+
+**Problem**:
+- If corrupted values exist in NVS from Issue #1, they persist
+- No range checking on load
+- Invalid IDs survive across device reboots
+
+**Fix**:
+\\\cpp
+bool game_state_load_ids(void)
+{
+    LOCK();
+    bool loaded = false;
+    uint8_t id = 0;
+    
+    if (nvs_store_read_u8(NVS_GAME_NS, NVS_KEY_DEVICE_ID, &id))
+    {
+        s_config.device_id = id & 0x3F;  // ✅ Validate: max 63
+        loaded = true;
+    }
+    
+    if (nvs_store_read_u8(NVS_GAME_NS, NVS_KEY_PLAYER_ID, &id))
+    {
+        s_config.player_id = id & 0x1F;  // ✅ Validate: max 31
+    }
+    
+    UNLOCK();
+    return loaded;
+}
+\\\
+
+---
+
+### Issue #3: WebSocket Config Update - No Validation
+**Severity**: 🔴 CRITICAL  
+**File**: esp32/shared/src/ws_server.cpp  
+**Function**: handle_config_update()  
+**Lines**: 131-162  
+
+\\\cpp
+static void handle_config_update(cJSON* root)
+{
+    cJSON* reset_item = cJSON_GetObjectItem(root, "reset_to_defaults");
+    if (cJSON_IsTrue(reset_item))
+    {
+        game_state_load_default_game_config();
+    }
+
+    DeviceConfig* dev = game_state_get_config_mut();
+    cJSON* item;
+    
+    // Identity
+    item = cJSON_GetObjectItem(root, "device_id");
+    if (item && !cJSON_IsNull(item))
+        dev->device_id = item->valueint;  // ❌ WRONG: No validation!
+    
+    item = cJSON_GetObjectItem(root, "player_id");
+    if (item && !cJSON_IsNull(item))
+        dev->player_id = item->valueint;  // ❌ WRONG: No validation!
+    
+    item = cJSON_GetObjectItem(root, "team_id");
+    if (item && !cJSON_IsNull(item))
+        dev->team_id = item->valueint;
+    
+    // ... more config fields ...
+}
+\\\
+
+**Problem**:
+- Any integer from WebSocket accepted directly
+- Malicious or buggy clients can send: device_id: 500, player_id: 200
+- No bounds checking before storing in config
+
+**Attack Example**:
+\\\json
+{
+  "op": 3,
+  "type": "config_update",
+  "device_id": 255,
+  "player_id": 255
+}
+\\\
+
+**Fix**:
+\\\cpp
+static void handle_config_update(cJSON* root)
+{
+    // ... reset code ...
+
+    DeviceConfig* dev = game_state_get_config_mut();
+    cJSON* item;
+    
+    // Identity - WITH VALIDATION
+    item = cJSON_GetObjectItem(root, "device_id");
+    if (item && !cJSON_IsNull(item)) {
+        int val = item->valueint;
+        if (val >= 0 && val <= 63) {  // ✅ Validate range
+            dev->device_id = (uint8_t)val;
+        } else {
+            ESP_LOGW(TAG, "Invalid device_id: %d (must be 0-63)", val);
+        }
+    }
+    
+    item = cJSON_GetObjectItem(root, "player_id");
+    if (item && !cJSON_IsNull(item)) {
+        int val = item->valueint;
+        if (val >= 0 && val <= 31) {  // ✅ Validate range
+            dev->player_id = (uint8_t)val;
+        } else {
+            ESP_LOGW(TAG, "Invalid player_id: %d (must be 0-31)", val);
+        }
+    }
+    
+    // ... rest of config ...
+}
+\\\
+
+---
+
+### Issue #4: NVS Save Without Validation
+**Severity**: 🔴 CRITICAL  
+**File**: esp32/shared/src/game_state.cpp  
+**Function**: game_state_save_ids()  
+**Lines**: 116-133  
+
+\\\cpp
+bool game_state_save_ids(void)
+{
+    LOCK();
+    bool ok = true;
+    ok &= nvs_store_write_u8(NVS_GAME_NS, NVS_KEY_DEVICE_ID, s_config.device_id);
+    ok &= nvs_store_write_u8(NVS_GAME_NS, NVS_KEY_PLAYER_ID, s_config.player_id);
+    ok &= nvs_store_write_u8(NVS_GAME_NS, NVS_KEY_TEAM_ID, s_config.team_id);
+    ok &= nvs_store_write_u32(NVS_GAME_NS, NVS_KEY_COLOR, s_config.color_rgb);
+    
+    if (strlen(s_config.device_name) > 0)
+    {
+        ok &= nvs_store_write_str(NVS_GAME_NS, "device_name", s_config.device_name);
+    }
+    
+    UNLOCK();
+    return ok;
+}
+\\\
+
+**Problem**:
+- Saves whatever is in s_config.device_id/player_id without checking
+- Creates permanent corruption if invalid values exist
+
+**Fix**:
+\\\cpp
+bool game_state_save_ids(void)
+{
+    LOCK();
+    bool ok = true;
+    
+    // ✅ Validate before save
+    uint8_t device_id = s_config.device_id & 0x3F;
+    uint8_t player_id = s_config.player_id & 0x1F;
+    
+    ok &= nvs_store_write_u8(NVS_GAME_NS, NVS_KEY_DEVICE_ID, device_id);
+    ok &= nvs_store_write_u8(NVS_GAME_NS, NVS_KEY_PLAYER_ID, player_id);
+    ok &= nvs_store_write_u8(NVS_GAME_NS, NVS_KEY_TEAM_ID, s_config.team_id);
+    ok &= nvs_store_write_u32(NVS_GAME_NS, NVS_KEY_COLOR, s_config.color_rgb);
+    
+    if (strlen(s_config.device_name) > 0)
+    {
+        ok &= nvs_store_write_str(NVS_GAME_NS, "device_name", s_config.device_name);
+    }
+    
+    UNLOCK();
+    return ok;
+}
+\\\
+
+---
+
+## 2. WEB DATABASE - CRITICAL ISSUES
+
+### Issue #5: Prisma Device.deviceId - No Constraint
+**Severity**: 🔴 CRITICAL  
+**File**: web/packages/database/prisma/schema.prisma  
+**Lines**: 79-101  
+
+\\\prisma
+model Device {
+  id              String      @id @default(uuid())
+  deviceId        Int         @unique    // ❌ No constraint!
+  name            String
+  role            String
+  ipAddress       String?
+  lastSeen        DateTime    @default(now())
+  status          String      @default("offline")
+  firmwareVersion String?
+  batteryLevel    Int?
+  signalStrength  Int?
+  order           Int         @default(0)
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  profileId       String
+  profile         Profile     @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  projectId       String?
+  project         Project?    @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  playerId        String?
+  player          Player?     @relation(fields: [playerId], references: [id], onDelete: SetNull)
+  weaponId        Int?
+  gameSessions    GameSession[]
+}
+\\\
+
+**Problem**:
+- deviceId is Int with only @unique constraint
+- Allows any value from -2,147,483,648 to +2,147,483,647
+- Protocol requires 0-63
+
+**Fix** (Prisma 5.12+):
+\\\prisma
+model Device {
+  ...
+  deviceId        Int         @unique
+  ...
+  
+  @@check("deviceId >= 0 AND deviceId <= 63")
+}
+\\\
+
+Or runtime validation:
+\\\	ypescript
+if (data.deviceId < 0 || data.deviceId > 63) {
+  throw new Error('deviceId must be 0-63')
+}
+\\\
+
+---
+
+### Issue #6: Prisma Player.number - No Constraint
+**Severity**: 🔴 CRITICAL  
+**File**: web/packages/database/prisma/schema.prisma  
+**Lines**: 125-146  
+
+\\\prisma
+model Player {
+  id        String   @id @default(uuid())
+  name      String
+
+  // PROTOCOL ID: The integer (0-255) sent to ESP32
+  // This is NOT the database ID, but the Laser Tag network ID.
+  number    Int    // ❌ Comment says 0-255 but no constraint!
+  
+  // Display order in UI
+  order     Int      @default(0)
+
+  projectId String
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  
+  teamId    String?
+  team      Team?    @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  
+  devices   Device[]
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+\\\
+
+**Problem**:
+- Comment says "0-255" but actually 0-31 (5 bits)
+- No constraint - can store any Int value
+- Database allows invalid values
+
+**Fix**:
+\\\prisma
+model Player {
+  ...
+  number    Int
+  ...
+  
+  @@check("number >= 0 AND number <= 31")
+}
+\\\
+
+---
+
+### Issue #7: Prisma Team.number - No Constraint
+**Severity**: 🔴 CRITICAL  
+**File**: web/packages/database/prisma/schema.prisma  
+**Lines**: 105-123  
+
+\\\prisma
+model Team {
+  id        String   @id @default(uuid())
+  name      String
+  color     String   // Hex Code e.g. "#FF0000"
+  
+  // PROTOCOL ID: The integer (1-255) sent to ESP32
+  number    Int      // ❌ Comment says 1-255 but no constraint!
+  
+  // Display order in UI
+  order     Int      @default(0)
+
+  projectId String
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  
+  players   Player[]
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+\\\
+
+**Problem**:
+- Comment says 1-255 but spec is 0-31 (5 bits)
+- No constraint - can store any Int
+- Inconsistent with protocol
+
+**Fix**:
+\\\prisma
+model Team {
+  ...
+  number    Int
+  ...
+  
+  @@check("number >= 0 AND number <= 31")
+}
+\\\
+
+---
+
+## 3. WEB FRONTEND - CRITICAL ISSUES
+
+### Issue #8: DeviceConfigManager - No ID Validation
+**Severity**: 🔴 CRITICAL  
+**File**: web/apps/frontend/src/lib/comm/DeviceConfigManager.ts  
+**Lines**: 125-142  
+
+\\\	ypescript
+setDeviceInfo(
+  deviceIp: string,
+  info: {
+    name?: string
+    deviceId?: number    // ❌ No validation!
+    playerId?: number    // ❌ No validation!
+    teamId?: number
+    color?: number
+  }
+): void {
+  const config = this.getOrCreateConfig(deviceIp)
+
+  if (info.name !== undefined) config.deviceName = info.name
+  if (info.deviceId !== undefined) config.deviceId = info.deviceId
+  if (info.playerId !== undefined) config.playerId = info.playerId
+  if (info.teamId !== undefined) config.teamId = info.teamId
+  if (info.color !== undefined) config.colorRgb = info.color
+}
+\\\
+
+Also in buildConfigMessage (lines 384-395):
+\\\	ypescript
+private buildConfigMessage(config: DeviceFullConfig): ClientMessage {
+  const message = {
+    op: 3,
+    type: 'config_update',
+  } as any
+
+  // ❌ Direct pass-through - no validation!
+  if (config.deviceName !== undefined) message.device_name = config.deviceName
+  if (config.deviceId !== undefined) message.device_id = config.deviceId
+  if (config.playerId !== undefined) message.player_id = config.playerId
+  ...
+}
+\\\
+
+**Problem**:
+- Values flow from database → DeviceConfigManager → WebSocket
+- No validation at any step
+- Invalid values sent directly to ESP32
+
+**Fix**:
+\\\	ypescript
+function isValidDeviceId(id: number | undefined): boolean {
+  return id === undefined || (Number.isInteger(id) && id >= 0 && id <= 63)
+}
+
+function isValidPlayerId(id: number | undefined): boolean {
+  return id === undefined || (Number.isInteger(id) && id >= 0 && id <= 31)
+}
+
+setDeviceInfo(
+  deviceIp: string,
+  info: {
+    name?: string
+    deviceId?: number
+    playerId?: number
+    teamId?: number
+    color?: number
+  }
+): void {
+  // ✅ Validate before accepting
+  if (!isValidDeviceId(info.deviceId)) {
+    throw new Error(\Invalid deviceId: \, must be 0-63\)
+  }
+  if (!isValidPlayerId(info.playerId)) {
+    throw new Error(\Invalid playerId: \, must be 0-31\)
+  }
+  
+  const config = this.getOrCreateConfig(deviceIp)
+  if (info.name !== undefined) config.deviceName = info.name
+  if (info.deviceId !== undefined) config.deviceId = info.deviceId
+  if (info.playerId !== undefined) config.playerId = info.playerId
+  if (info.teamId !== undefined) config.teamId = info.teamId
+  if (info.color !== undefined) config.colorRgb = info.color
+}
+
+private buildConfigMessage(config: DeviceFullConfig): ClientMessage {
+  // ✅ Validate before sending
+  if (!isValidDeviceId(config.deviceId) || !isValidPlayerId(config.playerId)) {
+    throw new Error('Invalid IDs in config')
+  }
+  
+  const message = {
+    op: 3,
+    type: 'config_update',
+  } as any
+
+  if (config.deviceName !== undefined) message.device_name = config.deviceName
+  if (config.deviceId !== undefined) message.device_id = config.deviceId
+  if (config.playerId !== undefined) message.player_id = config.playerId
+  ...
+}
+\\\
+
+---
+
+### Issue #9: DeviceConfigPanel - Direct DB to Config
+**Severity**: 🔴 CRITICAL  
+**File**: web/apps/frontend/src/components/DeviceConfigPanel.tsx  
+**Lines**: 55-98  
+
+\\\	ypescript
+const buildDeviceConfig = (device: Device) => {
+  const player = (project.players || []).find((p) => 
+    p.devices && Array.isArray(p.devices) && p.devices.some((d: any) => d.id === device.id)
+  )
+  const team = player ? (project.teams || []).find((t) => t.id === player.teamId) : undefined
+
+  const gameSettings = project.gameMode
+
+  const config = {
+    deviceName: device.name || \Device \\,
+    deviceId: parseInt(device.id) || 0,        // ❌ No validation!
+    playerId: player?.id ? parseInt(player.id) : undefined,  // ❌ No validation!
+    teamId: team?.id ? parseInt(team.id) : 0,
+    colorRgb: team?.color ? parseInt(team.color.replace('#', ''), 16) : 0xFFFFFF,
+    ...
+  }
+
+  return config
+}
+\\\
+
+**Problem**:
+- Directly parses database values without range checks
+- Device.id is a UUID, being parsed as int (incorrect)
+- Player/team IDs parsed without validation
+- Sends unchecked values to DeviceConfigManager
+
+**Fix**:
+\\\	ypescript
+const buildDeviceConfig = (device: Device) => {
+  const player = (project.players || []).find((p) => 
+    p.devices && Array.isArray(p.devices) && p.devices.some((d: any) => d.id === device.id)
+  )
+  const team = player ? (project.teams || []).find((t) => t.id === player.teamId) : undefined
+
+  const gameSettings = project.gameMode
+
+  // ✅ Validate deviceId from database
+  const deviceId = device.deviceId ?? 0
+  if (deviceId < 0 || deviceId > 63) {
+    console.warn(\Invalid deviceId from database: \\)
+    throw new Error('Invalid device configuration in database')
+  }
+
+  // ✅ Validate playerId if present
+  const playerId = player?.number
+  if (playerId !== undefined && (playerId < 0 || playerId > 31)) {
+    console.warn(\Invalid playerId from database: \\)
+    throw new Error('Invalid player configuration in database')
+  }
+
+  const config = {
+    deviceName: device.name || \Device \\,
+    deviceId: deviceId,
+    playerId: playerId,
+    teamId: team?.number ?? 0,
+    colorRgb: team?.color ? parseInt(team.color.replace('#', ''), 16) : 0xFFFFFF,
+    ...
+  }
+
+  return config
+}
+\\\
+
+---
+
+## 4. PROTOCOL DEFINITIONS - CRITICAL ISSUES
+
+### Issue #10: protocol_def.json Uses Wrong Type
+**Severity**: 🔴 CRITICAL  
+**File**: protocol_def.json  
+**Lines**: 54-56, 107-108  
+
+\\\json
+{
+  "name": "ConfigUpdate",
+  "opcode": "CONFIG_UPDATE",
+  "fields": [
+    { "name": "reset_to_defaults", "type": "bool", "required": false },
+    { "name": "device_name", "type": "string", "required": false },
+    { "name": "device_id", "type": "uint32_t", "required": false },    // ❌ WRONG!
+    { "name": "player_id", "type": "uint32_t", "required": false },    // ❌ WRONG!
+    ...
+  ]
+}
+
+{
+  "name": "Status",
+  "opcode": "STATUS",
+  "fields": [
+    ...
+    { "name": "config.device_id", "type": "uint32_t", "required": true },  // ❌ WRONG!
+    { "name": "config.player_id", "type": "uint32_t", "required": true },  // ❌ WRONG!
+    ...
+  ]
+}
+\\\
+
+**Problem**:
+- Uses uint32_t (32-bit, 0 to 4,294,967,295) instead of protocol limits
+- device_id should be 6-bit max (0-63)
+- player_id should be 5-bit max (0-31)
+- No min/max constraints specified
+
+**Fix**:
+\\\json
+{
+  "name": "ConfigUpdate",
+  "opcode": "CONFIG_UPDATE",
+  "fields": [
+    { "name": "reset_to_defaults", "type": "bool", "required": false },
+    { "name": "device_name", "type": "string", "required": false },
+    { "name": "device_id", "type": "uint8_t", "min": 0, "max": 63, "required": false },     // ✅ Fixed!
+    { "name": "player_id", "type": "uint8_t", "min": 0, "max": 31, "required": false },    // ✅ Fixed!
+    ...
+  ]
+}
+
+{
+  "name": "Status",
+  "opcode": "STATUS",
+  "fields": [
+    ...
+    { "name": "config.device_id", "type": "uint8_t", "min": 0, "max": 63, "required": true },   // ✅ Fixed!
+    { "name": "config.player_id", "type": "uint8_t", "min": 0, "max": 31, "required": true },   // ✅ Fixed!
+    ...
+  ]
+}
+\\\
+
+---
+
+### Issue #11: TypeScript Types - No Range Metadata
+**Severity**: 🔴 CRITICAL  
+**File**: web/packages/types/src/protocol.ts  
+**Lines**: 62-101, 129-135, 177-182  
+
+\\\	ypescript
+export interface ConfigUpdateMessage extends BaseClientMessage {
+  op: OpCode.CONFIG_UPDATE
+  type: 'config_update'
+
+  reset_to_defaults?: boolean
+
+  // Identity
+  device_name?: string
+  device_id?: number        // ❌ No @min/@max!
+  player_id?: number        // ❌ No @min/@max!
+  team_id?: number
+  color_rgb?: number
+  ...
+}
+
+export interface DeviceFullConfig {
+  // Identity
+  deviceName?: string
+  deviceId?: number         // ❌ No range!
+  playerId?: number         // ❌ No range!
+  teamId?: number
+  colorRgb?: number
+  ...
+}
+
+export interface DeviceConfigStatus {
+  device_id: number         // ❌ No range!
+  player_id: number         // ❌ No range!
+  team_id: number
+  color_rgb: number
+  ...
+}
+\\\
+
+**Problem**:
+- Type system doesn't enforce valid ranges
+- No documentation of limits in type definitions
+- Allows any JavaScript number (up to 2^53)
+
+**Fix** (Using branded types):
+\\\	ypescript
+// ✅ Branded types for protocol limits
+export type DeviceId = number & { readonly __brand: 'DeviceId' }
+export type PlayerId = number & { readonly __brand: 'PlayerId' }
+
+// Type guards
+export function isValidDeviceId(id: unknown): id is DeviceId {
+  return typeof id === 'number' && Number.isInteger(id) && id >= 0 && id <= 63
+}
+
+export function isValidPlayerId(id: unknown): id is PlayerId {
+  return typeof id === 'number' && Number.isInteger(id) && id >= 0 && id <= 31
+}
+
+// Safe constructors
+export function makeDeviceId(id: number): DeviceId {
+  if (!isValidDeviceId(id)) throw new Error(\Invalid device_id: \\)
+  return id as DeviceId
+}
+
+export function makePlayerId(id: number): PlayerId {
+  if (!isValidPlayerId(id)) throw new Error(\Invalid player_id: \\)
+  return id as PlayerId
+}
+
+// Updated interfaces
+export interface ConfigUpdateMessage extends BaseClientMessage {
+  op: OpCode.CONFIG_UPDATE
+  type: 'config_update'
+  device_id?: DeviceId     // ✅ Branded type
+  player_id?: PlayerId     // ✅ Branded type
+  ...
+}
+
+export interface DeviceFullConfig {
+  deviceId?: DeviceId
+  playerId?: PlayerId
+  ...
+}
+\\\
+
+---
+
+## SUMMARY OF ALL 11 CRITICAL ISSUES
+
+| # | Component | Issue | File | Lines | Status |
+|---|-----------|-------|------|-------|--------|
+| 1 | ESP32 | ID Generation - no masking | game_state.cpp | 139 | 🔴 |
+| 2 | ESP32 | NVS Load - no validation | game_state.cpp | 87,92 | 🔴 |
+| 3 | ESP32 | WebSocket - no validation | ws_server.cpp | 153,156 | 🔴 |
+| 4 | ESP32 | NVS Save - no validation | game_state.cpp | 120-121 | 🔴 |
+| 5 | Web DB | Device.deviceId - unconstrained | schema.prisma | 81 | 🔴 |
+| 6 | Web DB | Player.number - unconstrained | schema.prisma | 131 | 🔴 |
+| 7 | Web DB | Team.number - unconstrained | schema.prisma | 111 | 🔴 |
+| 8 | Web FE | DeviceConfigManager - no validation | DeviceConfigManager.ts | 138-140 | 🔴 |
+| 9 | Web FE | DeviceConfigPanel - direct parse | DeviceConfigPanel.tsx | 69-70 | 🔴 |
+| 10 | Protocol | protocol_def.json - wrong type | protocol_def.json | 54-56 | 🔴 |
+| 11 | Protocol | TypeScript types - no ranges | protocol.ts | 70-71 | 🔴 |
+

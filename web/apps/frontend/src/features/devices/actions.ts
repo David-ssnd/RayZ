@@ -17,6 +17,10 @@ export async function addDevice(
     return { error: 'Unauthorized' }
   }
 
+  if (deviceId < 0 || deviceId > 63) {
+    return { error: 'Device ID must be between 0 and 63' }
+  }
+
   try {
     let profile = await prisma.profile.findUnique({
       where: { userId: session.user.id },

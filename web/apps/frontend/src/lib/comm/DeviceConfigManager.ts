@@ -132,6 +132,15 @@ export class DeviceConfigManager {
       color?: number
     }
   ): void {
+    if (info.deviceId !== undefined && (info.deviceId < 0 || info.deviceId > 63)) {
+      console.warn(`Invalid deviceId ${info.deviceId}, clamping to 0-63`)
+      info.deviceId = Math.max(0, Math.min(63, info.deviceId))
+    }
+    if (info.playerId !== undefined && (info.playerId < 0 || info.playerId > 31)) {
+      console.warn(`Invalid playerId ${info.playerId}, clamping to 0-31`)
+      info.playerId = Math.max(0, Math.min(31, info.playerId))
+    }
+
     const config = this.getOrCreateConfig(deviceIp)
 
     if (info.name !== undefined) config.deviceName = info.name

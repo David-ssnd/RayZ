@@ -10,6 +10,7 @@ import {
 } from '@/features/projects/actions'
 import { AlertCircle, Edit2, Monitor, Plus, Trash2, X } from 'lucide-react'
 
+import { useDeviceConnections } from '@/lib/websocket'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -31,6 +32,7 @@ import {
   Project,
   Team,
 } from './types'
+import { buildAssignmentConfig, sendConfigToAffectedDevices } from './buildAssignmentConfig'
 
 export function PlayerManager({ 
   project, 
@@ -46,6 +48,7 @@ export function PlayerManager({
   const [playerNumberStr, setPlayerNumberStr] = useState(String(DEFAULT_PLAYER_ID))
 
   const [isPending, startTransition] = useTransition()
+  const { connections } = useDeviceConnections()
   const [editingPlayerId, setEditingPlayerId] = useState<string | null>(null)
   const [editName, setEditName] = useState('')
   const [editNumericId, setEditNumericId] = useState(DEFAULT_PLAYER_ID)
@@ -106,13 +109,36 @@ export function PlayerManager({
       })
       if (!handleActionResult(result)) return
       setEditingPlayerId(null)
+
+      // Send config to that player's devices
+      const updatedProject = {
+        ...project,
+        players: (project.players || []).map((p) =>
+          p.id === editingPlayerId ? { ...p, name: editName, number: editNumericId } : p
+        ),
+      }
+      sendConfigToAffectedDevices(connections, updatedProject, (device) =>
+        device.assignedPlayerId === editingPlayerId
+      )
     })
   }
 
   const handleTeamChange = (playerId: string, teamId: string) => {
     startTransition(async () => {
-      const result = await updatePlayerTeam(playerId, teamId === 'none' ? null : teamId)
-      handleActionResult(result)
+      const newTeamId = teamId === 'none' ? null : teamId
+      const result = await updatePlayerTeam(playerId, newTeamId)
+      if (!handleActionResult(result)) return
+
+      // Send config to that player's devices with new team
+      const updatedProject = {
+        ...project,
+        players: (project.players || []).map((p) =>
+          p.id === playerId ? { ...p, teamId: newTeamId } : p
+        ),
+      }
+      sendConfigToAffectedDevices(connections, updatedProject, (device) =>
+        device.assignedPlayerId === playerId
+      )
     })
   }
 
@@ -125,7 +151,18 @@ export function PlayerManager({
 
     startTransition(async () => {
       const result = await updatePlayerDevices(playerId, [...currentDeviceIds, deviceId])
-      handleActionResult(result)
+      if (!handleActionResult(result)) return
+
+      // Send config to device immediately after assignment
+      const device = devices.find((d: Device) => d.id === deviceId)
+      if (device?.ipAddress) {
+        const conn = connections.get(device.ipAddress)
+        if (conn) {
+          const teams = project.teams || []
+          const team = teams.find((t: Team) => t.id === player.teamId)
+          conn.updateConfig(buildAssignmentConfig(player, team, device, project.gameMode, project.players))
+        }
+      }
     })
   }
 
@@ -138,7 +175,21 @@ export function PlayerManager({
       .filter((id: string) => id !== deviceId)
     startTransition(async () => {
       const result = await updatePlayerDevices(playerId, newDeviceIds)
-      handleActionResult(result)
+      if (!handleActionResult(result)) return
+
+      // Send "unassigned" config to the removed device
+      const device = devices.find((d: Device) => d.id === deviceId)
+      if (device?.ipAddress) {
+        const conn = connections.get(device.ipAddress)
+        if (conn) {
+          conn.updateConfig({
+            player_id: 0,
+            team_id: 0,
+            device_id: device.deviceId,
+            color_rgb: undefined,
+          })
+        }
+      }
     })
   }
 
@@ -272,8 +323,24 @@ export function PlayerManager({
                     disabled={disabled}
                     onClick={() =>
                       startTransition(async () => {
+                        // Capture player's devices before removal
+                        const playerDevs = getPlayerDevices(player)
                         const result = await removePlayer(player.id)
-                        handleActionResult(result)
+                        if (!handleActionResult(result)) return
+
+                        // Send "unassigned" config to all that player's devices
+                        for (const device of playerDevs) {
+                          if (!device.ipAddress) continue
+                          const conn = connections.get(device.ipAddress)
+                          if (conn) {
+                            conn.updateConfig({
+                              player_id: 0,
+                              team_id: 0,
+                              device_id: device.deviceId,
+                              color_rgb: undefined,
+                            })
+                          }
+                        }
                       })
                     }
                   >

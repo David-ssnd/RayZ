@@ -29,8 +29,8 @@ export function useDeviceConfig(project: Project) {
     const gameSettings = project.gameMode
 
     return {
-      // Use player number as device_id when assigned, otherwise 0
-      device_id: player?.number ?? 0,
+      // Use hardware device ID (0-63), not player number
+      device_id: device.deviceId ?? 0,
       player_id: player?.number ?? 0,  // Use .number (protocol ID), not .id (UUID)
       team_id: team?.number ?? 0,      // Use .number (protocol ID), not .id (UUID)
       color_rgb: team?.color ? parseInt(team.color.replace('#', ''), 16) : 0xFFFFFF,
@@ -46,6 +46,8 @@ export function useDeviceConfig(project: Project) {
       reload_time_ms: gameSettings?.reloadTimeMs ?? 2000,
       
       game_duration_s: gameSettings?.durationSeconds ?? 300,
+
+      players: (project.players || []).map((p) => ({ id: p.number, name: p.name })),
     }
   }, [project])
 

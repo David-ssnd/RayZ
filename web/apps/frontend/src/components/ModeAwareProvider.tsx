@@ -57,7 +57,7 @@ export function ModeAwareConnectionProvider({
   return (
     <DeviceConnectionsProvider
       key={projectId}
-      initialDevices={isLocal ? devices.map((d) => d.ipAddress) : []}
+      initialDevices={isLocal ? devices.map((d) => d.ipAddress).filter((ip): ip is string => ip != null) : []}
       autoConnect={isLocal}
       autoReconnect={isLocal}
     >

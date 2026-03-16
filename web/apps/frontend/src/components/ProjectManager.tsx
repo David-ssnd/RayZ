@@ -64,15 +64,14 @@ import { PlayerManager } from './project-manager/PlayerManager'
 import { ProjectDeviceManager } from './project-manager/ProjectDeviceManager'
 import { ProjectSettingsManager } from './project-manager/ProjectSettingsManager'
 import { TeamManager } from './project-manager/TeamManager'
-import { Device, GameMode, Project } from './project-manager/types'
+import { GameMode, Project } from './project-manager/types'
 
 interface ProjectManagerProps {
   projects: Project[]
-  availableDevices: Device[] // Devices in user inventory but not in this project (or all devices)
   gameModes: GameMode[]
 }
 
-export function ProjectManager({ projects, availableDevices, gameModes }: ProjectManagerProps) {
+export function ProjectManager({ projects, gameModes }: ProjectManagerProps) {
   const t = useTranslations('Control')
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(projects[0]?.id || null)
   const [isPending, startTransition] = useTransition()
@@ -252,7 +251,6 @@ export function ProjectManager({ projects, availableDevices, gameModes }: Projec
           {selectedProject && (
             <ProjectLayout
               project={selectedProject}
-              availableDevices={availableDevices}
               localGameModes={localGameModes}
               setLocalGameModes={setLocalGameModes}
               handleDeleteProject={handleDeleteProject}
@@ -266,13 +264,11 @@ export function ProjectManager({ projects, availableDevices, gameModes }: Projec
 
 function ProjectLayout({
   project,
-  availableDevices,
   localGameModes,
   setLocalGameModes,
   handleDeleteProject,
 }: {
   project: Project
-  availableDevices: Device[]
   localGameModes: GameMode[]
   setLocalGameModes: React.Dispatch<React.SetStateAction<GameMode[]>>
   handleDeleteProject: (id: string) => void
@@ -460,13 +456,13 @@ function ProjectLayout({
                 gameModes={localGameModes}
                 onCreated={(mode) => setLocalGameModes((prev) => [...prev, mode])}
                 disabled={isGameRunning}
+                project={project}
               />
             </TabsContent>
 
             <TabsContent value="devices" className="mt-4 flex-1 overflow-y-auto">
               <ProjectDeviceManager
                 project={project}
-                availableDevices={availableDevices}
                 disabled={isGameRunning}
               />
             </TabsContent>

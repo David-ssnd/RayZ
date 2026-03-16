@@ -25,6 +25,12 @@ export enum OpCode {
   ACK = 20,
 }
 
+// IR Protocol ID Limits (from protocol_config.h)
+/** Maximum player ID value (5-bit field, 0-31) */
+export const MAX_PLAYER_ID = 31
+/** Maximum device ID value (6-bit field, 0-63) */
+export const MAX_DEVICE_ID = 63
+
 export enum GameCommandType {
   STOP = 0,
   START = 1,
@@ -67,7 +73,9 @@ export interface ConfigUpdateMessage extends BaseClientMessage {
 
   // Identity
   device_name?: string
+  /** 0-63, limited by 6-bit IR protocol */
   device_id?: number
+  /** 0-31, limited by 5-bit IR protocol */
   player_id?: number
   team_id?: number // 0=Solo, 255=Admin, 1..N=Teams
 
@@ -129,7 +137,9 @@ export interface RemoteSoundMessage extends BaseClientMessage {
 export interface DeviceFullConfig {
   // Identity
   deviceName?: string
+  /** 0-63, limited by 6-bit IR protocol */
   deviceId?: number
+  /** 0-31, limited by 5-bit IR protocol */
   playerId?: number
   teamId?: number
   colorRgb?: number // 0xRRGGBB
@@ -175,7 +185,9 @@ export type ClientMessage =
 
 // Sub-interfaces for the nested Status object
 export interface DeviceConfigStatus {
+  /** 0-63, limited by 6-bit IR protocol */
   device_id: number
+  /** 0-31, limited by 5-bit IR protocol */
   player_id: number
   team_id: number
   color_rgb: number
@@ -318,7 +330,9 @@ export interface DeviceState {
   batteryVoltage?: number
 
   // Identity & Config
+  /** 0-63, limited by 6-bit IR protocol */
   deviceId: number
+  /** 0-31, limited by 5-bit IR protocol */
   playerId: number
   teamId: number
   colorRgb: number
