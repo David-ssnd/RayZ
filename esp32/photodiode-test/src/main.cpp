@@ -78,17 +78,28 @@ static float adc_read_voltage(int* raw_out)
 }
 
 // ── Main sampling task ──────────────────────────────────────────────
+// FreeRTOS default tick is 10 ms, but we need 1 ms sampling.
+// Use esp_timer (µs resolution) instead of vTaskDelayUntil.
+#include <esp_timer.h>
+
 static void photodiode_test_task(void* pv)
 {
     float sample_buf[SAMPLES_PER_BIT];
     int   sample_idx = 0;
     int   raw_buf[SAMPLES_PER_BIT];
 
-    TickType_t last_wake = xTaskGetTickCount();
-    const TickType_t period = pdMS_TO_TICKS(SAMPLE_INTERVAL_MS);
+    int64_t next_us = esp_timer_get_time() + (SAMPLE_INTERVAL_MS * 1000);
 
     while (true)
     {
+        // Busy-wait until next sample time (µs precision)
+        while (esp_timer_get_time() < next_us)
+        {
+            // yield briefly so watchdog is happy
+            portYIELD();
+        }
+        next_us += SAMPLE_INTERVAL_MS * 1000;
+
         int raw;
         float v = adc_read_voltage(&raw);
 
@@ -150,8 +161,6 @@ static void photodiode_test_task(void* pv)
 
             sample_idx = 0;
         }
-
-        vTaskDelayUntil(&last_wake, period);
     }
 }
 
