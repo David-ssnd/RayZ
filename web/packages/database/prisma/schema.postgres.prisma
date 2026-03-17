@@ -65,6 +65,7 @@ model Account {
 
 model Device {
   id        String   @id @default(uuid())
+  deviceId  Int      @unique
   name      String?
   ipAddress String   // Used for WebSocket connection
   status    String   @default("offline")
